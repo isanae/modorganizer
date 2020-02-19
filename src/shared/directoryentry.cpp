@@ -67,7 +67,9 @@ static bool SupportOptimizedFind()
   return (::VerifyVersionInfo(&versionInfo, VER_MAJORVERSION | VER_MINORVERSION, mask) == TRUE);
 }
 
-static bool DirCompareByName(const DirectoryEntry* lhs, const DirectoryEntry* rhs)
+static bool DirCompareByName(
+  const std::unique_ptr<DirectoryEntry>& lhs,
+  const std::unique_ptr<DirectoryEntry>& rhs)
 {
   return _wcsicmp(lhs->getName().c_str(), rhs->getName().c_str()) < 0;
 }
@@ -90,23 +92,6 @@ std::unique_ptr<DirectoryEntry> DirectoryEntry::createRoot()
 
   return std::unique_ptr<DirectoryEntry>(
     new DirectoryEntry(L"data", nullptr, 0, fr, oc));
-}
-
-DirectoryEntry::~DirectoryEntry()
-{
-  clear();
-}
-
-void DirectoryEntry::clear()
-{
-  for (auto itor=m_SubDirectories.rbegin(); itor!=m_SubDirectories.rend(); ++itor) {
-    delete *itor;
-  }
-
-  m_Files.clear();
-  m_FilesLookup.clear();
-  m_SubDirectories.clear();
-  m_SubDirectoriesLookup.clear();
 }
 
 void DirectoryEntry::addFromOrigin(
@@ -250,7 +235,7 @@ OriginID DirectoryEntry::anyOrigin() const
 
   // if we got here, no file directly within this directory is a valid indicator for a mod, thus
   // we continue looking in subdirectories
-  for (DirectoryEntry* entry : m_SubDirectories) {
+  for (auto&& entry : m_SubDirectories) {
     OriginID res = entry->anyOrigin();
     if (res != InvalidOriginID){
       return res;
@@ -421,12 +406,11 @@ void DirectoryEntry::removeDir(const std::wstring &path)
 
   if (pos == std::string::npos) {
     for (auto iter = m_SubDirectories.begin(); iter != m_SubDirectories.end(); ++iter) {
-      DirectoryEntry* entry = *iter;
+      auto& entry = *iter;
 
       if (CaseInsensitiveEqual(entry->getName(), path)) {
         entry->removeDirRecursive();
         removeDirectoryFromList(iter);
-        delete entry;
         break;
       }
     }
@@ -668,16 +652,18 @@ DirectoryEntry* DirectoryEntry::getSubDirectory(
   if (create) {
     ++stats.subdirCreate;
 
-    auto* entry = new DirectoryEntry(
+    std::unique_ptr<DirectoryEntry> entry(new DirectoryEntry(
       std::wstring(name.begin(), name.end()), this, originID,
-      m_FileRegister, m_OriginConnection);
+      m_FileRegister, m_OriginConnection));
+
+    auto* p = entry.get();
 
     elapsed(stats.addDirectoryTimes, [&] {
-      addDirectoryToList(entry, std::move(nameLc));
+      addDirectoryToList(std::move(entry), std::move(nameLc));
       // nameLc is moved from this point
     });
 
-    return entry;
+    return p;
   } else {
     return nullptr;
   }
@@ -716,29 +702,29 @@ void DirectoryEntry::removeDirRecursive()
 
   m_FilesLookup.clear();
 
-  for (DirectoryEntry* entry : m_SubDirectories) {
+  for (auto& entry : m_SubDirectories) {
     entry->removeDirRecursive();
-    delete entry;
   }
 
   m_SubDirectories.clear();
   m_SubDirectoriesLookup.clear();
 }
 
-void DirectoryEntry::addDirectoryToList(DirectoryEntry* e, std::wstring nameLc)
+void DirectoryEntry::addDirectoryToList(
+  std::unique_ptr<DirectoryEntry> e, std::wstring nameLc)
 {
-  m_SubDirectories.push_back(e);
-  m_SubDirectoriesLookup.emplace(std::move(nameLc), e);
+  m_SubDirectoriesLookup.emplace(std::move(nameLc), e.get());
+  m_SubDirectories.push_back(std::move(e));
 }
 
 void DirectoryEntry::removeDirectoryFromList(SubDirectories::iterator itor)
 {
-  const auto* entry = *itor;
+  const auto& entry = *itor;
 
   {
     auto itor2 = std::find_if(
       m_SubDirectoriesLookup.begin(), m_SubDirectoriesLookup.end(),
-      [&](auto&& d) { return (d.second == entry); });
+      [&](auto&& d) { return (d.second == entry.get()); });
 
     if (itor2 == m_SubDirectoriesLookup.end()) {
       log::error("entry {} not in sub directories map", entry->getName());

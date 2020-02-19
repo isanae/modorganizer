@@ -892,7 +892,7 @@ bool FileTreeModel::shouldShowFolder(
   }
 
   // recurse into subdirectories
-  for (auto subdir : dir.getSubDirectories()) {
+  for (const auto& subdir : dir.getSubDirectories()) {
     if (shouldShowFolder(*subdir, nullptr)) {
       return true;
     }

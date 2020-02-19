@@ -38,19 +38,13 @@ namespace MOShared
 class DirectoryEntry
 {
 public:
-  //DirectoryEntry(
-  //  std::wstring name, DirectoryEntry* parent, OriginID originID);
+  // creates a root directory
   //
-
   static std::unique_ptr<DirectoryEntry> createRoot();
-
-  ~DirectoryEntry();
 
   // non-copyable
   DirectoryEntry(const DirectoryEntry&) = delete;
   DirectoryEntry& operator=(const DirectoryEntry&) = delete;
-
-  void clear();
 
   bool isPopulated() const
   {
@@ -120,15 +114,7 @@ public:
 
   std::vector<FileEntryPtr> getFiles() const;
 
-  void getSubDirectories(
-    std::vector<DirectoryEntry*>::const_iterator& begin,
-    std::vector<DirectoryEntry*>::const_iterator& end) const
-  {
-    begin = m_SubDirectories.begin();
-    end = m_SubDirectories.end();
-  }
-
-  const std::vector<DirectoryEntry*>& getSubDirectories() const
+  const std::vector<std::unique_ptr<DirectoryEntry>>& getSubDirectories() const
   {
     return m_SubDirectories;
   }
@@ -217,7 +203,7 @@ public:
 private:
   using FilesMap = std::map<std::wstring, FileIndex>;
   using FilesLookup = std::unordered_map<DirectoryEntryFileKey, FileIndex>;
-  using SubDirectories = std::vector<DirectoryEntry*>;
+  using SubDirectories = std::vector<std::unique_ptr<DirectoryEntry>>;
   using SubDirectoriesLookup = std::unordered_map<std::wstring, DirectoryEntry*>;
 
   std::shared_ptr<FileRegister> m_FileRegister;
@@ -265,7 +251,7 @@ private:
 
   void removeDirRecursive();
 
-  void addDirectoryToList(DirectoryEntry* e, std::wstring nameLc);
+  void addDirectoryToList(std::unique_ptr<DirectoryEntry> e, std::wstring nameLc);
   void removeDirectoryFromList(SubDirectories::iterator itor);
 
   void addFileToList(std::wstring fileNameLower, FileIndex index);
