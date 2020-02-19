@@ -17,8 +17,8 @@ You should have received a copy of the GNU General Public License
 along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef DIRECTORYREFRESHER_H
-#define DIRECTORYREFRESHER_H
+#ifndef MO_REGISTER_DIRECTORYREFRESHER_INCLUDED
+#define MO_REGISTER_DIRECTORYREFRESHER_INCLUDED
 
 #include "fileregisterfwd.h"
 #include "profile.h"
@@ -29,13 +29,12 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include <set>
 #include <tuple>
 
-/**
- * @brief used to asynchronously generate the virtual view of the combined data directory
- **/
+// used to asynchronously generate the virtual view of the combined data
+// directory
+//
 class DirectoryRefresher : public QObject
 {
-
-  Q_OBJECT
+  Q_OBJECT;
 
 public:
   struct EntryInfo
@@ -56,7 +55,7 @@ public:
 
   DirectoryRefresher(std::size_t threadCount);
 
-  // noncopyable
+  // non-copyable
   DirectoryRefresher(const DirectoryRefresher&) = delete;
   DirectoryRefresher& operator=(const DirectoryRefresher&) = delete;
 
@@ -72,53 +71,32 @@ public:
 
   /**
    * @brief sets up the mods to be included in the directory structure
-   *
    * @param mods list of the mods to include
    **/
-  void setMods(const std::vector<std::tuple<QString, QString, int> > &mods, const std::set<QString> &managedArchives);
+  void setMods(
+    const std::vector<std::tuple<QString, QString, int> > &mods,
+    const std::set<QString> &managedArchives);
 
-  /**
-   * @brief sets up the directory where mods are stored
-   * @param modDirectory the mod directory
-   * @note this function could be obsoleted easily by storing absolute paths in the parameter to setMods. This is legacy
-   */
-  void setModDirectory(const QString &modDirectory);
-
-  /**
-   * @brief remove files from the directory structure that are known to be irrelevant to the game
-   * @param the structure to clean
-   */
+  // remove files from the directory structure that are known to be
+  // irrelevant to the game
+  //
   static void cleanStructure(MOShared::DirectoryEntry *structure);
 
-  /**
-   * @brief add files for a mod to the directory structure, including bsas
-   * @param directoryStructure
-   * @param modName
-   * @param priority
-   * @param directory
-   * @param stealFiles
-   * @param archives
-   */
-  void addModToStructure(MOShared::DirectoryEntry *directoryStructure, const QString &modName, int priority, const QString &directory, const QStringList &stealFiles, const QStringList &archives);
+  // add files for a mod to the directory structure, including bsas
+  //
+  void addModToStructure(
+    MOShared::DirectoryEntry *directoryStructure, const QString &modName,
+    int priority, const QString &directory, const QStringList &stealFiles,
+    const QStringList &archives);
 
-  /**
-   * @brief add only the bsas of a mod to the directory structure
-   * @param directoryStructure
-   * @param modName
-   * @param priority
-   * @param directory
-   * @param archives
-   */
-  void addModBSAToStructure(MOShared::DirectoryEntry *directoryStructure, const QString &modName, int priority, const QString &directory, const QStringList &archives);
+  // add only the bsas of a mod to the directory structure
+  //
+  void addModBSAToStructure(
+    MOShared::DirectoryEntry *directoryStructure, const QString &modName,
+    int priority, const QString &directory, const QStringList &archives);
 
-  /**
-   * @brief add only regular files ofr a mod to the directory structure
-   * @param directoryStructure
-   * @param modName
-   * @param priority
-   * @param directory
-   * @param stealFiles
-   */
+  // add only regular files or a mod to the directory structure
+  //
   void addModFilesToStructure(
     MOShared::DirectoryEntry *directoryStructure, const QString &modName,
     int priority, const QString &directory, const QStringList &stealFiles);
@@ -131,14 +109,10 @@ public:
   void updateProgress(const DirectoryRefreshProgress* p);
 
 public slots:
-
-  /**
-   * @brief generate a directory structure from the mods set earlier
-   **/
+  // generate a directory structure from the mods set earlier
   void refresh();
 
 signals:
-
   void progress(const DirectoryRefreshProgress* p);
   void error(const QString &error);
   void refreshed();
@@ -211,4 +185,4 @@ private:
   bool m_finished;
 };
 
-#endif // DIRECTORYREFRESHER_H
+#endif // MO_REGISTER_DIRECTORYREFRESHER_INCLUDED

@@ -15,7 +15,7 @@ public:
   FileEntry();
   FileEntry(FileIndex index, std::wstring name, DirectoryEntry *parent);
 
-  // noncopyable
+  // non-copyable
   FileEntry(const FileEntry&) = delete;
   FileEntry& operator=(const FileEntry&) = delete;
 
@@ -30,6 +30,7 @@ public:
   // remove the specified origin from the list of origins that contain this
   // file. if no origin is left, the file is effectively deleted and true is
   // returned. otherwise, false is returned
+  //
   bool removeOrigin(OriginID origin);
 
   void sortOrigins();

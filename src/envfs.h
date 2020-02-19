@@ -6,28 +6,6 @@
 namespace env
 {
 
-struct File
-{
-  std::wstring name;
-  std::wstring lcname;
-  FILETIME lastModified;
-
-  File(std::wstring_view name, FILETIME ft);
-};
-
-struct Directory
-{
-  std::wstring name;
-  std::wstring lcname;
-
-  std::vector<Directory> dirs;
-  std::vector<File> files;
-
-  Directory();
-  Directory(std::wstring_view name);
-};
-
-
 template <class T>
 class ThreadPool
 {
@@ -179,14 +157,6 @@ public:
 private:
   std::vector<std::unique_ptr<unsigned char[]>> m_buffers;
 };
-
-
-void forEachEntry(
-  const std::wstring& path, void* cx,
-  DirStartF* dirStartF, DirEndF* dirEndF, FileF* fileF);
-
-Directory getFilesAndDirs(const std::wstring& path);
-Directory getFilesAndDirsWithFind(const std::wstring& path);
 
 } // namespace
 

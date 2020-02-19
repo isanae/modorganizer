@@ -74,7 +74,7 @@ static bool DirCompareByName(const DirectoryEntry* lhs, const DirectoryEntry* rh
 
 
 DirectoryEntry::DirectoryEntry(
-  std::wstring name, DirectoryEntry* parent, int originID) :
+  std::wstring name, DirectoryEntry* parent, OriginID originID) :
     m_OriginConnection(new OriginConnection),
     m_Name(std::move(name)), m_Parent(parent), m_Populated(false), m_TopLevel(true)
 {
@@ -83,7 +83,7 @@ DirectoryEntry::DirectoryEntry(
 }
 
 DirectoryEntry::DirectoryEntry(
-  std::wstring name, DirectoryEntry* parent, int originID,
+  std::wstring name, DirectoryEntry* parent, OriginID originID,
   boost::shared_ptr<FileRegister> fileRegister,
   boost::shared_ptr<OriginConnection> originConnection) :
     m_FileRegister(fileRegister), m_OriginConnection(originConnection),
@@ -126,42 +126,6 @@ void DirectoryEntry::addFromOrigin(
   if (!directory.empty()) {
     addFiles(walker, origin, directory, stats);
   }
-
-  m_Populated = true;
-}
-
-void DirectoryEntry::addFromList(
-  const std::wstring &originName, const std::wstring &directory,
-  env::Directory& root, int priority, DirectoryStats& stats)
-{
-  stats = {};
-
-  FilesOrigin &origin = createOrigin(originName, directory, priority, stats);
-  addDir(origin, root, stats);
-}
-
-void DirectoryEntry::addDir(
-  FilesOrigin& origin, env::Directory& d, DirectoryStats& stats)
-{
-  elapsed(stats.dirTimes, [&]{
-    for (auto& sd : d.dirs) {
-      auto* sdirEntry = getSubDirectory(sd, true, stats, origin.getID());
-      sdirEntry->addDir(origin, sd, stats);
-    }
-  });
-
-  elapsed(stats.fileTimes, [&]{
-    for (auto& f : d.files) {
-      insert(f, origin, L"", -1, stats);
-    }
-  });
-
-  elapsed(stats.sortTimes, [&]{
-    std::sort(
-      m_SubDirectories.begin(),
-      m_SubDirectories.end(),
-      &DirCompareByName);
-  });
 
   m_Populated = true;
 }
@@ -241,7 +205,7 @@ void DirectoryEntry::addFromBSA(
   m_Populated = true;
 }
 
-void DirectoryEntry::propagateOrigin(int origin)
+void DirectoryEntry::propagateOrigin(OriginID origin)
 {
   {
     std::scoped_lock lock(m_OriginsMutex);
@@ -258,7 +222,7 @@ bool DirectoryEntry::originExists(const std::wstring &name) const
   return m_OriginConnection->exists(name);
 }
 
-FilesOrigin &DirectoryEntry::getOriginByID(int ID) const
+FilesOrigin &DirectoryEntry::getOriginByID(OriginID ID) const
 {
   return m_OriginConnection->getByID(ID);
 }
@@ -268,12 +232,12 @@ FilesOrigin &DirectoryEntry::getOriginByName(const std::wstring &name) const
   return m_OriginConnection->getByName(name);
 }
 
-const FilesOrigin* DirectoryEntry::findOriginByID(int ID) const
+const FilesOrigin* DirectoryEntry::findOriginByID(OriginID ID) const
 {
   return m_OriginConnection->findByID(ID);
 }
 
-int DirectoryEntry::anyOrigin() const
+OriginID DirectoryEntry::anyOrigin() const
 {
   bool ignore;
 
@@ -287,7 +251,7 @@ int DirectoryEntry::anyOrigin() const
   // if we got here, no file directly within this directory is a valid indicator for a mod, thus
   // we continue looking in subdirectories
   for (DirectoryEntry* entry : m_SubDirectories) {
-    int res = entry->anyOrigin();
+    OriginID res = entry->anyOrigin();
     if (res != InvalidOriginID){
       return res;
     }
@@ -430,7 +394,7 @@ void DirectoryEntry::removeFile(FileIndex index)
   removeFileFromList(index);
 }
 
-bool DirectoryEntry::removeFile(const std::wstring &filePath, int* origin)
+bool DirectoryEntry::removeFile(const std::wstring &filePath, OriginID* origin)
 {
   size_t pos = filePath.find_first_of(L"\\/");
 
@@ -479,7 +443,7 @@ void DirectoryEntry::removeDir(const std::wstring &path)
   }
 }
 
-bool DirectoryEntry::remove(const std::wstring &fileName, int* origin)
+bool DirectoryEntry::remove(const std::wstring &fileName, OriginID* origin)
 {
   const auto lcFileName = ToLowerCopy(fileName);
 
@@ -501,7 +465,7 @@ bool DirectoryEntry::remove(const std::wstring &fileName, int* origin)
   return b;
 }
 
-bool DirectoryEntry::hasContentsFromOrigin(int originID) const
+bool DirectoryEntry::hasContentsFromOrigin(OriginID originID) const
 {
   return m_Origins.find(originID) != m_Origins.end();
 }
@@ -565,49 +529,6 @@ FileEntryPtr DirectoryEntry::insert(
 
   elapsed(stats.addOriginToFileTimes, [&]{
     fe->addOrigin(origin.getID(), fileTime, archive, order);
-  });
-
-  elapsed(stats.addFileToOriginTimes, [&]{
-    origin.addFile(fe->getIndex());
-  });
-
-  return fe;
-}
-
-FileEntryPtr DirectoryEntry::insert(
-  env::File& file, FilesOrigin &origin, std::wstring_view archive, int order,
-  DirectoryStats& stats)
-{
-  FileEntryPtr fe;
-
-  {
-    std::unique_lock lock(m_FilesMutex);
-
-    FilesMap::iterator itor;
-
-    elapsed(stats.filesLookupTimes, [&]{
-      itor = m_Files.find(file.lcname);
-    });
-
-    if (itor != m_Files.end()) {
-      lock.unlock();
-      ++stats.fileExists;
-      fe = m_FileRegister->getFile(itor->second);
-    } else {
-      ++stats.fileCreate;
-      fe = m_FileRegister->createFile(std::move(file.name), this, stats);
-      // file.name has been moved from this point
-
-      elapsed(stats.addFileTimes, [&]{
-        addFileToList(std::move(file.lcname), fe->getIndex());
-      });
-
-      // file.lcname has been moved from this point
-    }
-  }
-
-  elapsed(stats.addOriginToFileTimes, [&]{
-    fe->addOrigin(origin.getID(), file.lastModified, archive, order);
   });
 
   elapsed(stats.addFileToOriginTimes, [&]{
@@ -728,7 +649,7 @@ void DirectoryEntry::addFiles(
 }
 
 DirectoryEntry* DirectoryEntry::getSubDirectory(
-  std::wstring_view name, bool create, DirectoryStats& stats, int originID)
+  std::wstring_view name, bool create, DirectoryStats& stats, OriginID originID)
 {
   std::wstring nameLc = ToLowerCopy(name);
 
@@ -762,44 +683,8 @@ DirectoryEntry* DirectoryEntry::getSubDirectory(
   }
 }
 
-DirectoryEntry* DirectoryEntry::getSubDirectory(
-  env::Directory& dir, bool create, DirectoryStats& stats, int originID)
-{
-  SubDirectoriesLookup::iterator itor;
-
-  std::scoped_lock lock(m_SubDirMutex);
-
-  elapsed(stats.subdirLookupTimes, [&] {
-    itor = m_SubDirectoriesLookup.find(dir.lcname);
-  });
-
-  if (itor != m_SubDirectoriesLookup.end()) {
-    ++stats.subdirExists;
-    return itor->second;
-  }
-
-  if (create) {
-    ++stats.subdirCreate;
-
-    auto* entry = new DirectoryEntry(
-      std::move(dir.name), this, originID,
-      m_FileRegister, m_OriginConnection);
-    // dir.name is moved from this point
-
-    elapsed(stats.addDirectoryTimes, [&]{
-      addDirectoryToList(entry, std::move(dir.lcname));
-    });
-
-    // dir.lcname is moved from this point
-
-    return entry;
-  } else {
-    return nullptr;
-  }
-}
-
 DirectoryEntry* DirectoryEntry::getSubDirectoryRecursive(
-  const std::wstring& path, bool create, DirectoryStats& stats, int originID)
+  const std::wstring& path, bool create, DirectoryStats& stats, OriginID originID)
 {
   if (path.length() == 0) {
     // path ended with a backslash?

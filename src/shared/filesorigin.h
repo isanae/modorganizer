@@ -7,6 +7,7 @@ namespace MOShared
 {
 
 // represents a mod or the data directory, providing files to the tree
+//
 class FilesOrigin
 {
 public:
@@ -18,7 +19,7 @@ public:
     boost::shared_ptr<FileRegister> fileRegister,
     boost::shared_ptr<OriginConnection> originConnection);
 
-  // noncopyable
+  // non-copyable
   FilesOrigin(const FilesOrigin&) = delete;
   FilesOrigin& operator=(const FilesOrigin&) = delete;
 

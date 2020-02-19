@@ -12,8 +12,8 @@ FileEntry::FileEntry() :
 }
 
 FileEntry::FileEntry(FileIndex index, std::wstring name, DirectoryEntry *parent) :
-  m_Index(index), m_Name(std::move(name)), m_Origin(-1), m_Archive(L"", -1), m_Parent(parent),
-  m_FileSize(NoFileSize), m_CompressedFileSize(NoFileSize)
+  m_Index(index), m_Name(std::move(name)), m_Origin(-1), m_Archive(L"", -1),
+  m_Parent(parent), m_FileSize(NoFileSize), m_CompressedFileSize(NoFileSize)
 {
 }
 
@@ -31,7 +31,8 @@ void FileEntry::addOrigin(
     // alternatives
     m_Origin = origin;
     m_FileTime = fileTime;
-    m_Archive = std::pair<std::wstring, int>(std::wstring(archive.begin(), archive.end()), order);
+    m_Archive = std::pair<std::wstring, int>(
+      std::wstring(archive.begin(), archive.end()), order);
   }
   else if (
     (m_Parent != nullptr) && (
@@ -52,7 +53,8 @@ void FileEntry::addOrigin(
 
     m_Origin = origin;
     m_FileTime = fileTime;
-    m_Archive = std::pair<std::wstring, int>(std::wstring(archive.begin(), archive.end()), order);
+    m_Archive = std::pair<std::wstring, int>(
+      std::wstring(archive.begin(), archive.end()), order);
   }
   else {
     // This mod is just an alternative
@@ -78,7 +80,8 @@ void FileEntry::addOrigin(
     }
 
     if (!found) {
-      m_Alternatives.push_back({origin, {std::wstring(archive.begin(), archive.end()), order}});
+      m_Alternatives.push_back({
+        origin, {std::wstring(archive.begin(), archive.end()), order}});
     }
   }
 }
@@ -107,7 +110,8 @@ bool FileEntry::removeOrigin(OriginID origin)
               }
             }
             else {
-              //Only one of the two is an archive, so we change currentIter only if he is the archive one.
+              // Only one of the two is an archive, so we change currentIter
+              // only if he is the archive one.
               if (currentIter->second.first.size()) {
                 currentIter = iter;
               }

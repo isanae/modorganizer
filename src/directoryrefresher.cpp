@@ -40,135 +40,10 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <fstream>
 
-
 using namespace MOBase;
 using namespace MOShared;
 
-
-DirectoryStats::DirectoryStats()
-{
-  std::memset(this, 0, sizeof(DirectoryStats));
-}
-
-DirectoryStats& DirectoryStats::operator+=(const DirectoryStats& o)
-{
-  dirTimes += o.dirTimes;
-  fileTimes += o.fileTimes;
-  sortTimes += o.sortTimes;
-
-  subdirLookupTimes += o.subdirLookupTimes;
-  addDirectoryTimes += o.addDirectoryTimes;
-
-  filesLookupTimes += o.filesLookupTimes;
-  addFileTimes += o.addFileTimes;
-  addOriginToFileTimes += o.addOriginToFileTimes;
-  addFileToOriginTimes += o.addFileToOriginTimes;
-  addFileToRegisterTimes += o.addFileToRegisterTimes;
-
-  originExists += o.originExists;
-  originCreate += o.originCreate;
-  originsNeededEnabled += o.originsNeededEnabled;
-
-  subdirExists += o.subdirExists;
-  subdirCreate += o.subdirCreate;
-
-  fileExists += o.fileExists;
-  fileCreate += o.fileCreate;
-  filesInsertedInRegister += o.filesInsertedInRegister;
-  filesAssignedInRegister += o.filesAssignedInRegister;
-
-  return *this;
-}
-
-std::string DirectoryStats::csvHeader()
-{
-  QStringList sl = {
-    "dirTimes",
-    "fileTimes",
-    "sortTimes",
-    "subdirLookupTimes",
-    "addDirectoryTimes",
-    "filesLookupTimes",
-    "addFileTimes",
-    "addOriginToFileTimes",
-    "addFileToOriginTimes",
-    "addFileToRegisterTimes",
-    "originExists",
-    "originCreate",
-    "originsNeededEnabled",
-    "subdirExists",
-    "subdirCreate",
-    "fileExists",
-    "fileCreate",
-    "filesInsertedInRegister",
-    "filesAssignedInRegister"};
-
-  return sl.join(",").toStdString();
-}
-
-std::string DirectoryStats::toCsv() const
-{
-  QStringList oss;
-
-  auto s = [](auto ns) {
-    return ns.count() / 1000.0 / 1000.0 / 1000.0;
-  };
-
-  oss
-    << QString::number(s(dirTimes))
-    << QString::number(s(fileTimes))
-    << QString::number(s(sortTimes))
-
-    << QString::number(s(subdirLookupTimes))
-    << QString::number(s(addDirectoryTimes))
-
-    << QString::number(s(filesLookupTimes))
-    << QString::number(s(addFileTimes))
-    << QString::number(s(addOriginToFileTimes))
-    << QString::number(s(addFileToOriginTimes))
-    << QString::number(s(addFileToRegisterTimes))
-
-    << QString::number(originExists)
-    << QString::number(originCreate)
-    << QString::number(originsNeededEnabled)
-
-    << QString::number(subdirExists)
-    << QString::number(subdirCreate)
-
-    << QString::number(fileExists)
-    << QString::number(fileCreate)
-    << QString::number(filesInsertedInRegister)
-    << QString::number(filesAssignedInRegister);
-
-  return oss.join(",").toStdString();
-}
-
-void dumpStats(std::vector<DirectoryStats>& stats)
-{
-  static int run = 0;
-  static const std::string file("c:\\tmp\\data.csv");
-
-  if (run == 0) {
-    std::ofstream out(file, std::ios::out|std::ios::trunc);
-    out << fmt::format("what,run,{}", DirectoryStats::csvHeader()) << "\n";
-  }
-
-  std::sort(stats.begin(), stats.end(), [](auto&& a, auto&& b){
-    return (naturalCompare(QString::fromStdString(a.mod), QString::fromStdString(b.mod)) < 0);
-    });
-
-  std::ofstream out(file, std::ios::app);
-
-  DirectoryStats total;
-  for (const auto& s : stats) {
-    out << fmt::format("{},{},{}", s.mod, run, s.toCsv()) << "\n";
-    total += s;
-  }
-
-  out << fmt::format("total,{},{}", run, total.toCsv()) << "\n";
-
-  ++run;
-}
+void dumpStats(std::vector<DirectoryStats>& stats);
 
 
 DirectoryRefresher::DirectoryRefresher(std::size_t threadCount)
@@ -500,3 +375,131 @@ void DirectoryRefresher::refresh()
   emit progress(p);
   emit refreshed();
 }
+
+
+DirectoryStats::DirectoryStats()
+{
+  std::memset(this, 0, sizeof(DirectoryStats));
+}
+
+DirectoryStats& DirectoryStats::operator+=(const DirectoryStats& o)
+{
+  dirTimes += o.dirTimes;
+  fileTimes += o.fileTimes;
+  sortTimes += o.sortTimes;
+
+  subdirLookupTimes += o.subdirLookupTimes;
+  addDirectoryTimes += o.addDirectoryTimes;
+
+  filesLookupTimes += o.filesLookupTimes;
+  addFileTimes += o.addFileTimes;
+  addOriginToFileTimes += o.addOriginToFileTimes;
+  addFileToOriginTimes += o.addFileToOriginTimes;
+  addFileToRegisterTimes += o.addFileToRegisterTimes;
+
+  originExists += o.originExists;
+  originCreate += o.originCreate;
+  originsNeededEnabled += o.originsNeededEnabled;
+
+  subdirExists += o.subdirExists;
+  subdirCreate += o.subdirCreate;
+
+  fileExists += o.fileExists;
+  fileCreate += o.fileCreate;
+  filesInsertedInRegister += o.filesInsertedInRegister;
+  filesAssignedInRegister += o.filesAssignedInRegister;
+
+  return *this;
+}
+
+std::string DirectoryStats::csvHeader()
+{
+  QStringList sl = {
+    "dirTimes",
+    "fileTimes",
+    "sortTimes",
+    "subdirLookupTimes",
+    "addDirectoryTimes",
+    "filesLookupTimes",
+    "addFileTimes",
+    "addOriginToFileTimes",
+    "addFileToOriginTimes",
+    "addFileToRegisterTimes",
+    "originExists",
+    "originCreate",
+    "originsNeededEnabled",
+    "subdirExists",
+    "subdirCreate",
+    "fileExists",
+    "fileCreate",
+    "filesInsertedInRegister",
+    "filesAssignedInRegister"};
+
+  return sl.join(",").toStdString();
+}
+
+std::string DirectoryStats::toCsv() const
+{
+  QStringList oss;
+
+  auto s = [](auto ns) {
+    return ns.count() / 1000.0 / 1000.0 / 1000.0;
+  };
+
+  oss
+    << QString::number(s(dirTimes))
+    << QString::number(s(fileTimes))
+    << QString::number(s(sortTimes))
+
+    << QString::number(s(subdirLookupTimes))
+    << QString::number(s(addDirectoryTimes))
+
+    << QString::number(s(filesLookupTimes))
+    << QString::number(s(addFileTimes))
+    << QString::number(s(addOriginToFileTimes))
+    << QString::number(s(addFileToOriginTimes))
+    << QString::number(s(addFileToRegisterTimes))
+
+    << QString::number(originExists)
+    << QString::number(originCreate)
+    << QString::number(originsNeededEnabled)
+
+    << QString::number(subdirExists)
+    << QString::number(subdirCreate)
+
+    << QString::number(fileExists)
+    << QString::number(fileCreate)
+    << QString::number(filesInsertedInRegister)
+    << QString::number(filesAssignedInRegister);
+
+  return oss.join(",").toStdString();
+}
+
+void dumpStats(std::vector<DirectoryStats>& stats)
+{
+  static int run = 0;
+  static const std::string file("c:\\tmp\\data.csv");
+
+  if (run == 0) {
+    std::ofstream out(file, std::ios::out|std::ios::trunc);
+    out << fmt::format("what,run,{}", DirectoryStats::csvHeader()) << "\n";
+  }
+
+  std::sort(stats.begin(), stats.end(), [](auto&& a, auto&& b){
+    return (naturalCompare(QString::fromStdString(a.mod), QString::fromStdString(b.mod)) < 0);
+    });
+
+  std::ofstream out(file, std::ios::app);
+
+  DirectoryStats total;
+  for (const auto& s : stats) {
+    out << fmt::format("{},{},{}", s.mod, run, s.toCsv()) << "\n";
+    total += s;
+  }
+
+  out << fmt::format("total,{},{}", run, total.toCsv()) << "\n";
+
+  ++run;
+}
+
+

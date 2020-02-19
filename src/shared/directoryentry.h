@@ -59,7 +59,7 @@ public:
 
   ~DirectoryEntry();
 
-  // noncopyable
+  // non-copyable
   DirectoryEntry(const DirectoryEntry&) = delete;
   DirectoryEntry& operator=(const DirectoryEntry&) = delete;
 
@@ -111,10 +111,6 @@ public:
     const std::wstring& originName, const std::wstring& directory,
     const std::wstring& archivePath, int priority, int order,
     DirectoryStats& stats);
-
-  void addFromList(
-    const std::wstring& originName, const std::wstring& directory,
-    env::Directory& root, int priority, DirectoryStats& stats);
 
   void propagateOrigin(OriginID origin);
 
@@ -192,10 +188,6 @@ public:
 
   DirectoryEntry* findSubDirectoryRecursive(const std::wstring& path);
 
-  /** retrieve a file in this directory by name.
-    * @param name name of the file
-    * @return fileentry object for the file or nullptr if no file matches
-    */
   const FileEntryPtr findFile(const std::wstring& name, bool alreadyLowerCase=false) const;
   const FileEntryPtr findFile(const DirectoryEntryFileKey& key) const;
 
@@ -263,10 +255,6 @@ private:
     std::wstring_view fileName, FilesOrigin& origin, FILETIME fileTime,
     std::wstring_view archive, int order, DirectoryStats& stats);
 
-  FileEntryPtr insert(
-    env::File& file, FilesOrigin& origin,
-    std::wstring_view archive, int order, DirectoryStats& stats);
-
   void addFiles(
     env::DirectoryWalker& walker, FilesOrigin& origin,
     const std::wstring& path, DirectoryStats& stats);
@@ -275,14 +263,8 @@ private:
     FilesOrigin& origin, BSA::Folder::Ptr archiveFolder, FILETIME fileTime,
     const std::wstring& archiveName, int order, DirectoryStats& stats);
 
-  void addDir(FilesOrigin& origin, env::Directory& d, DirectoryStats& stats);
-
   DirectoryEntry* getSubDirectory(
     std::wstring_view name, bool create, DirectoryStats& stats,
-    OriginID originID = InvalidOriginID);
-
-  DirectoryEntry* getSubDirectory(
-    env::Directory& dir, bool create, DirectoryStats& stats,
     OriginID originID = InvalidOriginID);
 
   DirectoryEntry* getSubDirectoryRecursive(

@@ -11,7 +11,7 @@ class OriginConnection
 public:
   OriginConnection();
 
-  // noncopyable
+  // non-copyable
   OriginConnection(const OriginConnection&) = delete;
   OriginConnection& operator=(const OriginConnection&) = delete;
 

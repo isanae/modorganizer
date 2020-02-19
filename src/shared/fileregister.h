@@ -13,7 +13,7 @@ class FileRegister
 public:
   FileRegister(boost::shared_ptr<OriginConnection> originConnection);
 
-  // noncopyable
+  // non-copyable
   FileRegister(const FileRegister&) = delete;
   FileRegister& operator=(const FileRegister&) = delete;
 
