@@ -3,7 +3,6 @@
 
 #include "fileregisterfwd.h"
 #include <mutex>
-#include <boost/shared_ptr.hpp>
 
 namespace MOShared
 {
@@ -11,7 +10,7 @@ namespace MOShared
 class FileRegister
 {
 public:
-  FileRegister(boost::shared_ptr<OriginConnection> originConnection);
+  FileRegister(std::shared_ptr<OriginConnection> originConnection);
 
   // non-copyable
   FileRegister(const FileRegister&) = delete;
@@ -41,7 +40,7 @@ private:
 
   mutable std::mutex m_Mutex;
   FileMap m_Files;
-  boost::shared_ptr<OriginConnection> m_OriginConnection;
+  std::shared_ptr<OriginConnection> m_OriginConnection;
   std::atomic<FileIndex> m_NextIndex;
 
   void unregisterFile(FileEntryPtr file);

@@ -16,8 +16,8 @@ public:
   FilesOrigin(
     OriginID ID, const std::wstring &name, const std::wstring &path,
     int priority,
-    boost::shared_ptr<FileRegister> fileRegister,
-    boost::shared_ptr<OriginConnection> originConnection);
+    std::shared_ptr<FileRegister> fileRegister,
+    std::shared_ptr<OriginConnection> originConnection);
 
   // non-copyable
   FilesOrigin(const FilesOrigin&) = delete;
@@ -76,8 +76,8 @@ private:
   std::wstring m_Name;
   std::wstring m_Path;
   int m_Priority;
-  boost::weak_ptr<FileRegister> m_FileRegister;
-  boost::weak_ptr<OriginConnection> m_OriginConnection;
+  std::weak_ptr<FileRegister> m_FileRegister;
+  std::weak_ptr<OriginConnection> m_OriginConnection;
   mutable std::mutex m_Mutex;
 };
 

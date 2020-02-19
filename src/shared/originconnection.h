@@ -17,14 +17,14 @@ public:
 
   std::pair<FilesOrigin&, bool> getOrCreate(
     const std::wstring &originName, const std::wstring &directory, int priority,
-    const boost::shared_ptr<FileRegister>& fileRegister,
-    const boost::shared_ptr<OriginConnection>& originConnection,
+    const std::shared_ptr<FileRegister>& fileRegister,
+    const std::shared_ptr<OriginConnection>& originConnection,
     DirectoryStats& stats);
 
   FilesOrigin& createOrigin(
     const std::wstring &originName, const std::wstring &directory, int priority,
-    boost::shared_ptr<FileRegister> fileRegister,
-    boost::shared_ptr<OriginConnection> originConnection);
+    std::shared_ptr<FileRegister> fileRegister,
+    std::shared_ptr<OriginConnection> originConnection);
 
   bool exists(const std::wstring &name);
 
@@ -47,8 +47,8 @@ private:
 
   FilesOrigin& createOriginNoLock(
     const std::wstring &originName, const std::wstring &directory, int priority,
-    boost::shared_ptr<FileRegister> fileRegister,
-    boost::shared_ptr<OriginConnection> originConnection);
+    std::shared_ptr<FileRegister> fileRegister,
+    std::shared_ptr<OriginConnection> originConnection);
 };
 
 } // namespace

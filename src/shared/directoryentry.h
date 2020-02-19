@@ -26,20 +26,6 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 namespace env
 {
   class DirectoryWalker;
-  struct Directory;
-  struct File;
-}
-
-namespace std
-{
-  template <>
-  struct hash<MOShared::DirectoryEntryFileKey>
-  {
-    using argument_type = MOShared::DirectoryEntryFileKey;
-    using result_type = std::size_t;
-
-    inline result_type operator()(const argument_type& key) const;
-  };
 }
 
 
@@ -54,8 +40,8 @@ public:
 
   DirectoryEntry(
     std::wstring name, DirectoryEntry* parent, OriginID originID,
-    boost::shared_ptr<FileRegister> fileRegister,
-    boost::shared_ptr<OriginConnection> originConnection);
+    std::shared_ptr<FileRegister> fileRegister,
+    std::shared_ptr<OriginConnection> originConnection);
 
   ~DirectoryEntry();
 
@@ -119,7 +105,7 @@ public:
     return m_Name;
   }
 
-  boost::shared_ptr<FileRegister> getFileRegister()
+  std::shared_ptr<FileRegister> getFileRegister()
   {
     return m_FileRegister;
   }
@@ -233,8 +219,8 @@ private:
   using SubDirectories = std::vector<DirectoryEntry*>;
   using SubDirectoriesLookup = std::unordered_map<std::wstring, DirectoryEntry*>;
 
-  boost::shared_ptr<FileRegister> m_FileRegister;
-  boost::shared_ptr<OriginConnection> m_OriginConnection;
+  std::shared_ptr<FileRegister> m_FileRegister;
+  std::shared_ptr<OriginConnection> m_OriginConnection;
 
   std::wstring m_Name;
   FilesMap m_Files;
@@ -289,16 +275,5 @@ private:
 };
 
 } // namespace MOShared
-
-
-namespace std
-{
-  hash<MOShared::DirectoryEntryFileKey>::result_type
-  hash<MOShared::DirectoryEntryFileKey>::operator()(
-    const argument_type& key) const
-  {
-    return key.hash;
-  }
-}
 
 #endif // MO_REGISTER_DIRECTORYENTRY_INCLUDED

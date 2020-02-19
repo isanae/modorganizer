@@ -23,8 +23,8 @@ FilesOrigin::FilesOrigin()
 
 FilesOrigin::FilesOrigin(
   OriginID ID, const std::wstring &name, const std::wstring &path, int priority,
-  boost::shared_ptr<MOShared::FileRegister> fileRegister,
-  boost::shared_ptr<MOShared::OriginConnection> originConnection) :
+  std::shared_ptr<MOShared::FileRegister> fileRegister,
+  std::shared_ptr<MOShared::OriginConnection> originConnection) :
   m_ID(ID), m_Disabled(false), m_Name(name), m_Path(path),
   m_Priority(priority), m_FileRegister(fileRegister),
   m_OriginConnection(originConnection)

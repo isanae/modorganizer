@@ -35,7 +35,7 @@ class FilesOrigin;
 class FileEntry;
 struct DirectoryStats;
 
-using FileEntryPtr = boost::shared_ptr<FileEntry>;
+using FileEntryPtr = std::shared_ptr<FileEntry>;
 using FileIndex = unsigned int;
 using OriginID = int;
 
@@ -89,6 +89,24 @@ struct DirectoryStats
 
   static std::string csvHeader();
   std::string toCsv() const;
+};
+
+} // namespace
+
+
+namespace std
+{
+
+template <>
+struct hash<MOShared::DirectoryEntryFileKey>
+{
+  using argument_type = MOShared::DirectoryEntryFileKey;
+  using result_type = std::size_t;
+
+  inline result_type operator()(const argument_type& key) const
+  {
+    return key.hash;
+  }
 };
 
 } // namespace

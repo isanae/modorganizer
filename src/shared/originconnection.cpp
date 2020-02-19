@@ -15,8 +15,8 @@ OriginConnection::OriginConnection()
 
 std::pair<FilesOrigin&, bool> OriginConnection::getOrCreate(
   const std::wstring &originName, const std::wstring &directory, int priority,
-  const boost::shared_ptr<FileRegister>& fileRegister,
-  const boost::shared_ptr<OriginConnection>& originConnection,
+  const std::shared_ptr<FileRegister>& fileRegister,
+  const std::shared_ptr<OriginConnection>& originConnection,
   DirectoryStats& stats)
 {
   std::unique_lock lock(m_Mutex);
@@ -39,8 +39,8 @@ std::pair<FilesOrigin&, bool> OriginConnection::getOrCreate(
 
 FilesOrigin& OriginConnection::createOrigin(
   const std::wstring &originName, const std::wstring &directory, int priority,
-  boost::shared_ptr<FileRegister> fileRegister,
-  boost::shared_ptr<OriginConnection> originConnection)
+  std::shared_ptr<FileRegister> fileRegister,
+  std::shared_ptr<OriginConnection> originConnection)
 {
   std::scoped_lock lock(m_Mutex);
 
@@ -123,8 +123,8 @@ OriginID OriginConnection::createID()
 
 FilesOrigin& OriginConnection::createOriginNoLock(
   const std::wstring &originName, const std::wstring &directory, int priority,
-  boost::shared_ptr<FileRegister> fileRegister,
-  boost::shared_ptr<OriginConnection> originConnection)
+  std::shared_ptr<FileRegister> fileRegister,
+  std::shared_ptr<OriginConnection> originConnection)
 {
   OriginID newID = createID();
 

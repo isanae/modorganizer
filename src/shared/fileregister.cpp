@@ -10,7 +10,7 @@ namespace MOShared
 
 using namespace MOBase;
 
-FileRegister::FileRegister(boost::shared_ptr<OriginConnection> originConnection)
+FileRegister::FileRegister(std::shared_ptr<OriginConnection> originConnection)
   : m_OriginConnection(originConnection), m_NextIndex(0)
 {
 }

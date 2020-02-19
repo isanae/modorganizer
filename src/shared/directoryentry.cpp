@@ -84,8 +84,8 @@ DirectoryEntry::DirectoryEntry(
 
 DirectoryEntry::DirectoryEntry(
   std::wstring name, DirectoryEntry* parent, OriginID originID,
-  boost::shared_ptr<FileRegister> fileRegister,
-  boost::shared_ptr<OriginConnection> originConnection) :
+  std::shared_ptr<FileRegister> fileRegister,
+  std::shared_ptr<OriginConnection> originConnection) :
     m_FileRegister(fileRegister), m_OriginConnection(originConnection),
     m_Name(std::move(name)), m_Parent(parent), m_Populated(false), m_TopLevel(false)
 {
