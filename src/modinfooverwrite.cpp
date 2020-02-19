@@ -6,8 +6,8 @@
 #include <QApplication>
 #include <QDirIterator>
 
-ModInfoOverwrite::ModInfoOverwrite(PluginContainer *pluginContainer, MOShared::DirectoryEntry **directoryStructure) 
-  : ModInfoWithConflictInfo(pluginContainer, directoryStructure)
+ModInfoOverwrite::ModInfoOverwrite(PluginContainer *pluginContainer, OrganizerCore& core)
+  : ModInfoWithConflictInfo(pluginContainer, core)
 {
   testValid();
 }
@@ -61,7 +61,7 @@ QString ModInfoOverwrite::getDescription() const
             "modified (i.e. by the construction kit)");
 }
 
-QStringList ModInfoOverwrite::archives(bool checkOnDisk) 
+QStringList ModInfoOverwrite::archives(bool checkOnDisk)
 {
   QStringList result;
   QDir dir(this->absolutePath());

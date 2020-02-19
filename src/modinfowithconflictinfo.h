@@ -7,10 +7,8 @@
 
 class ModInfoWithConflictInfo : public ModInfo
 {
-
 public:
-
-  ModInfoWithConflictInfo(PluginContainer *pluginContainer, MOShared::DirectoryEntry **directoryStructure);
+  ModInfoWithConflictInfo(PluginContainer *pluginContainer, OrganizerCore& core);
 
   std::vector<ModInfo::EConflictFlag> getConflictFlags() const;
   virtual std::vector<ModInfo::EFlag> getFlags() const;
@@ -70,8 +68,7 @@ private:
   bool hasHiddenFiles() const;
 
 private:
-
-  MOShared::DirectoryEntry **m_DirectoryStructure;
+  OrganizerCore& m_Core;
 
   mutable EConflictType m_CurrentConflictState;
   mutable EConflictType m_ArchiveConflictState;
@@ -86,9 +83,6 @@ private:
   mutable std::set<unsigned int> m_ArchiveOverwrittenList; // indices of mods with archive files overwriting this mod
   mutable std::set<unsigned int> m_ArchiveLooseOverwriteList; // indices of mods with archives being overwritten by this mod's loose files
   mutable std::set<unsigned int> m_ArchiveLooseOverwrittenList; // indices of mods with loose files overwriting this mod's archive files
-
 };
-
-
 
 #endif // MODINFOWITHCONFLICTINFO_H

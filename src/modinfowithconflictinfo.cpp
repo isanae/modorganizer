@@ -1,5 +1,6 @@
 #include "modinfowithconflictinfo.h"
 #include "utility.h"
+#include "organizercore.h"
 #include "shared/directoryentry.h"
 #include "shared/filesorigin.h"
 #include "shared/fileentry.h"
@@ -9,8 +10,12 @@ using namespace MOBase;
 using namespace MOShared;
 namespace fs = std::filesystem;
 
-ModInfoWithConflictInfo::ModInfoWithConflictInfo(PluginContainer *pluginContainer, DirectoryEntry **directoryStructure)
-  : ModInfo(pluginContainer), m_DirectoryStructure(directoryStructure), m_HasLooseOverwrite(false), m_HasHiddenFiles(false) {}
+ModInfoWithConflictInfo::ModInfoWithConflictInfo(
+  PluginContainer *pluginContainer, OrganizerCore& core) :
+    ModInfo(pluginContainer), m_Core(core), m_HasLooseOverwrite(false),
+    m_HasHiddenFiles(false)
+{
+}
 
 void ModInfoWithConflictInfo::clearCaches()
 {
@@ -18,7 +23,7 @@ void ModInfoWithConflictInfo::clearCaches()
 }
 
 std::vector<ModInfo::EFlag> ModInfoWithConflictInfo::getFlags() const
-{ 
+{
   std::vector<ModInfo::EFlag> result = std::vector<ModInfo::EFlag>();
   if (hasHiddenFiles()) {
     result.push_back(ModInfo::FLAG_HIDDEN_FILES);
@@ -85,9 +90,11 @@ void ModInfoWithConflictInfo::doConflictCheck() const
   bool providesAnything = false;
   bool hasHiddenFiles = false;
 
+  auto* ds = m_Core.directoryStructure();
+
   int dataID = 0;
-  if ((*m_DirectoryStructure)->originExists(L"data")) {
-    dataID = (*m_DirectoryStructure)->getOriginByName(L"data").getID();
+  if (ds->originExists(L"data")) {
+    dataID = ds->getOriginByName(L"data").getID();
   }
 
   std::wstring name = ToWString(this->name());
@@ -97,8 +104,8 @@ void ModInfoWithConflictInfo::doConflictCheck() const
   m_ArchiveConflictState = CONFLICT_NONE;
   m_ArchiveConflictLooseState = CONFLICT_NONE;
 
-  if ((*m_DirectoryStructure)->originExists(name)) {
-    FilesOrigin &origin = (*m_DirectoryStructure)->getOriginByName(name);
+  if (ds->originExists(name)) {
+    FilesOrigin &origin = ds->getOriginByName(name);
     std::vector<FileEntryPtr> files = origin.getFiles();
     std::set<const DirectoryEntry*> checkedDirs;
 
@@ -156,7 +163,7 @@ void ModInfoWithConflictInfo::doConflictCheck() const
 
         // If this is not the origin then determine the correct overwrite
         if (file->getOrigin() != origin.getID()) {
-          FilesOrigin &altOrigin = (*m_DirectoryStructure)->getOriginByID(file->getOrigin());
+          FilesOrigin &altOrigin = ds->getOriginByID(file->getOrigin());
           unsigned int altIndex = ModInfo::getIndex(ToQString(altOrigin.getName()));
           if (file->getArchive().first.size() == 0)
             if (archiveData.first.size() == 0)
@@ -172,7 +179,7 @@ void ModInfoWithConflictInfo::doConflictCheck() const
         // Sort out the alternatives
         for (auto altInfo : alternatives) {
           if ((altInfo.first != dataID) && (altInfo.first != origin.getID())) {
-            FilesOrigin &altOrigin = (*m_DirectoryStructure)->getOriginByID(altInfo.first);
+            FilesOrigin &altOrigin = ds->getOriginByID(altInfo.first);
             QString altOriginName = ToQString(altOrigin.getName());
             unsigned int altIndex = ModInfo::getIndex(altOriginName);
             if (altInfo.second.first.size() == 0) {
@@ -265,9 +272,11 @@ ModInfoWithConflictInfo::EConflictType ModInfoWithConflictInfo::isLooseArchiveCo
 
 bool ModInfoWithConflictInfo::isRedundant() const
 {
+  auto* ds = m_Core.directoryStructure();
+
   std::wstring name = ToWString(this->name());
-  if ((*m_DirectoryStructure)->originExists(name)) {
-    FilesOrigin &origin = (*m_DirectoryStructure)->getOriginByName(name);
+  if (ds->originExists(name)) {
+    FilesOrigin &origin = ds->getOriginByName(name);
     std::vector<FileEntryPtr> files = origin.getFiles();
     bool ignore = false;
     for (auto iter = files.begin(); iter != files.end(); ++iter) {

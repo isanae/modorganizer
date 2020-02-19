@@ -5,13 +5,10 @@
 
 class ModInfoBackup : public ModInfoRegular
 {
-
-  Q_OBJECT
-
+  Q_OBJECT;
   friend class ModInfo;
 
 public:
-
   virtual bool updateAvailable() const { return false; }
   virtual bool updateIgnored() const { return false; }
   virtual bool downgradeAvailable() const { return false; }
@@ -43,10 +40,9 @@ public:
   virtual void addInstalledFile(int, int) {}
 
 private:
-
-  ModInfoBackup(PluginContainer *pluginContainer, const MOBase::IPluginGame *game, const QDir &path, MOShared::DirectoryEntry **directoryStructure);
-
+  ModInfoBackup(
+    PluginContainer *pluginContainer, const MOBase::IPluginGame *game,
+    const QDir &path, OrganizerCore& core);
 };
-
 
 #endif // MODINFOBACKUP_H

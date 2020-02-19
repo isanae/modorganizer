@@ -32,16 +32,17 @@ namespace env
 namespace MOShared
 {
 
+// a directory has files, subdirectories and a list of origins having the
+// directory
+//
 class DirectoryEntry
 {
 public:
-  DirectoryEntry(
-    std::wstring name, DirectoryEntry* parent, OriginID originID);
+  //DirectoryEntry(
+  //  std::wstring name, DirectoryEntry* parent, OriginID originID);
+  //
 
-  DirectoryEntry(
-    std::wstring name, DirectoryEntry* parent, OriginID originID,
-    std::shared_ptr<FileRegister> fileRegister,
-    std::shared_ptr<OriginConnection> originConnection);
+  static std::unique_ptr<DirectoryEntry> createRoot();
 
   ~DirectoryEntry();
 
@@ -236,6 +237,11 @@ private:
   mutable std::mutex m_FilesMutex;
   mutable std::mutex m_OriginsMutex;
 
+
+  DirectoryEntry(
+    std::wstring name, DirectoryEntry* parent, OriginID originID,
+    std::shared_ptr<FileRegister> fileRegister,
+    std::shared_ptr<OriginConnection> originConnection);
 
   FileEntryPtr insert(
     std::wstring_view fileName, FilesOrigin& origin, FILETIME fileTime,

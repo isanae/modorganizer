@@ -98,7 +98,7 @@ OrganizerCore::OrganizerCore(Settings &settings)
   , m_ModList(m_PluginContainer, this)
   , m_PluginList(this)
   , m_DirectoryRefresher(new DirectoryRefresher(settings.refreshThreadCount()))
-  , m_DirectoryStructure(new DirectoryEntry(L"data", nullptr, 0))
+  , m_DirectoryStructure(DirectoryEntry::createRoot())
   , m_DownloadManager(NexusInterface::instance(m_PluginContainer), this)
   , m_DirectoryUpdate(false)
   , m_ArchivesInit(false)
@@ -162,7 +162,7 @@ OrganizerCore::~OrganizerCore()
   m_ModList.setProfile(nullptr);
   //  NexusInterface::instance()->cleanup();
 
-  delete m_DirectoryStructure;
+  m_DirectoryStructure.reset();
 }
 
 void OrganizerCore::storeSettings()
@@ -207,7 +207,7 @@ void OrganizerCore::updateExecutablesList()
 
 void OrganizerCore::updateModInfoFromDisc() {
   ModInfo::updateFromDisc(
-    m_Settings.paths().mods(), &m_DirectoryStructure,
+    m_Settings.paths().mods(), *this,
     m_PluginContainer, m_Settings.interface().displayForeign(), managedGame());
 }
 
@@ -630,7 +630,8 @@ MOBase::IModInterface *OrganizerCore::createMod(GuessedValue<QString> &name)
     settingsFile.endArray();
   }
 
-  return ModInfo::createFrom(m_PluginContainer, m_GamePlugin, QDir(targetDirectory), &m_DirectoryStructure)
+  return ModInfo::createFrom(
+    m_PluginContainer, m_GamePlugin, QDir(targetDirectory), *this)
       .data();
 }
 
@@ -826,7 +827,8 @@ QString OrganizerCore::resolvePath(const QString &fileName) const
 QStringList OrganizerCore::listDirectories(const QString &directoryName) const
 {
   QStringList result;
-  DirectoryEntry *dir = m_DirectoryStructure;
+  DirectoryEntry *dir = m_DirectoryStructure.get();
+
   if (!directoryName.isEmpty())
     dir = dir->findSubDirectoryRecursive(ToWString(directoryName));
   if (dir != nullptr) {
@@ -844,7 +846,8 @@ QStringList OrganizerCore::findFiles(
     const std::function<bool(const QString &)> &filter) const
 {
   QStringList result;
-  DirectoryEntry *dir = m_DirectoryStructure;
+  DirectoryEntry *dir = m_DirectoryStructure.get();
+
   if (!path.isEmpty())
     dir = dir->findSubDirectoryRecursive(ToWString(path));
   if (dir != nullptr) {
@@ -880,7 +883,8 @@ QList<MOBase::IOrganizer::FileInfo> OrganizerCore::findFileInfos(
     const
 {
   QList<IOrganizer::FileInfo> result;
-  DirectoryEntry *dir = m_DirectoryStructure;
+  DirectoryEntry *dir = m_DirectoryStructure.get();
+
   if (!path.isEmpty())
     dir = dir->findSubDirectoryRecursive(ToWString(path));
   if (dir != nullptr) {
@@ -1094,7 +1098,7 @@ void OrganizerCore::refreshModList(bool saveChanges)
   }
 
   ModInfo::updateFromDisc(
-    m_Settings.paths().mods(), &m_DirectoryStructure,
+    m_Settings.paths().mods(), *this,
     m_PluginContainer, m_Settings.interface().displayForeign(), managedGame());
 
   m_CurrentProfile->refreshModStatus();
@@ -1259,9 +1263,9 @@ void OrganizerCore::updateModsInDirectoryStructure(QMap<unsigned int, ModInfo::P
   }
 
   m_DirectoryRefresher->addMultipleModsFilesToStructure(
-    m_DirectoryStructure, entries);
+    m_DirectoryStructure.get(), entries);
 
-  DirectoryRefresher::cleanStructure(m_DirectoryStructure);
+  DirectoryRefresher::cleanStructure(m_DirectoryStructure.get());
   // need to refresh plugin list now so we can activate esps
   refreshESPList(true);
   // activate all esps of the specified mod so the bsas get activated along with
@@ -1284,7 +1288,7 @@ void OrganizerCore::updateModsInDirectoryStructure(QMap<unsigned int, ModInfo::P
   // finally also add files from bsas to the directory structure
   for (auto idx : modInfo.keys()) {
     m_DirectoryRefresher->addModBSAToStructure(
-      m_DirectoryStructure, modInfo[idx]->name(),
+      m_DirectoryStructure.get(), modInfo[idx]->name(),
       m_CurrentProfile->getModPriority(idx), modInfo[idx]->absolutePath(),
       modInfo[idx]->archives());
   }
@@ -1413,26 +1417,33 @@ void OrganizerCore::directory_refreshed()
   log::debug("directory refreshed, finishing up");
   TimeThis tt("OrganizerCore::directory_refreshed()");
 
-  DirectoryEntry *newStructure = m_DirectoryRefresher->stealDirectoryStructure();
-  Q_ASSERT(newStructure != m_DirectoryStructure);
+  DirectoryEntry* oldStructure = nullptr;
 
-  if (newStructure == nullptr) {
-    // TODO: don't know why this happens, this slot seems to get called twice
-    // with only one emit
-    return;
+  {
+    DirectoryEntry *newStructure = m_DirectoryRefresher->stealDirectoryStructure();
+    Q_ASSERT(newStructure != m_DirectoryStructure.get());
+
+    if (newStructure == nullptr) {
+      // TODO: don't know why this happens, this slot seems to get called twice
+      // with only one emit
+      return;
+    }
+
+    oldStructure = m_DirectoryStructure.release();
+    m_DirectoryStructure.reset(newStructure);
   }
 
-  std::swap(m_DirectoryStructure, newStructure);
+  if (oldStructure) {
+    if (m_StructureDeleter.joinable()) {
+      m_StructureDeleter.join();
+    }
 
-  if (m_StructureDeleter.joinable()) {
-    m_StructureDeleter.join();
+    m_StructureDeleter = std::thread([=]{
+      log::debug("structure deleter thread start");
+      delete oldStructure;
+      log::debug("structure deleter thread done");
+    });
   }
-
-  m_StructureDeleter = std::thread([=]{
-    log::debug("structure deleter thread start");
-    delete newStructure;
-    log::debug("structure deleter thread done");
-  });
 
   m_DirectoryUpdate = false;
 
@@ -1623,8 +1634,10 @@ void OrganizerCore::syncOverwrite()
   });
 
   ModInfo::Ptr modInfo = ModInfo::getByIndex(overwriteIndex);
-  SyncOverwriteDialog syncDialog(modInfo->absolutePath(), m_DirectoryStructure,
-                                 qApp->activeWindow());
+
+  SyncOverwriteDialog syncDialog(
+    modInfo->absolutePath(), m_DirectoryStructure.get(), qApp->activeWindow());
+
   if (syncDialog.exec() == QDialog::Accepted) {
     syncDialog.apply(QDir::fromNativeSeparators(m_Settings.paths().mods()));
     modInfo->testValid();

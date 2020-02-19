@@ -30,7 +30,9 @@ QString ModInfoSeparator::name() const
 }
 
 
-ModInfoSeparator::ModInfoSeparator(PluginContainer *pluginContainer, const MOBase::IPluginGame *game, const QDir &path, MOShared::DirectoryEntry **directoryStructure)
-  : ModInfoRegular(pluginContainer, game, path, directoryStructure)
+ModInfoSeparator::ModInfoSeparator(
+  PluginContainer *pluginContainer, const MOBase::IPluginGame *game,
+  const QDir &path, OrganizerCore& core)
+    : ModInfoRegular(pluginContainer, game, path, core)
 {
 }

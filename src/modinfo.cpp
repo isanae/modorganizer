@@ -79,31 +79,31 @@ bool ModInfo::isRegularName(const QString& name)
 }
 
 
-ModInfo::Ptr ModInfo::createFrom(PluginContainer *pluginContainer, const MOBase::IPluginGame *game, const QDir &dir, DirectoryEntry **directoryStructure)
+ModInfo::Ptr ModInfo::createFrom(
+  PluginContainer *pluginContainer, const MOBase::IPluginGame *game,
+  const QDir &dir, OrganizerCore& core)
 {
   QMutexLocker locker(&s_Mutex);
   ModInfo::Ptr result;
 
   if (isBackupName(dir.dirName())) {
-    result = ModInfo::Ptr(new ModInfoBackup(pluginContainer, game, dir, directoryStructure));
+    result = ModInfo::Ptr(new ModInfoBackup(pluginContainer, game, dir, core));
   } else if (isSeparatorName(dir.dirName())) {
-    result = Ptr(new ModInfoSeparator(pluginContainer, game, dir, directoryStructure));
+    result = Ptr(new ModInfoSeparator(pluginContainer, game, dir, core));
   } else {
-    result = ModInfo::Ptr(new ModInfoRegular(pluginContainer, game, dir, directoryStructure));
+    result = ModInfo::Ptr(new ModInfoRegular(pluginContainer, game, dir, core));
   }
   s_Collection.push_back(result);
   return result;
 }
 
-ModInfo::Ptr ModInfo::createFromPlugin(const QString &modName,
-                                       const QString &espName,
-                                       const QStringList &bsaNames,
-                                       ModInfo::EModType modType,
-                                       DirectoryEntry **directoryStructure,
-                                       PluginContainer *pluginContainer) {
+ModInfo::Ptr ModInfo::createFromPlugin(
+  const QString &modName, const QString &espName, const QStringList &bsaNames,
+  ModInfo::EModType modType, OrganizerCore& core, PluginContainer *pluginContainer)
+{
   QMutexLocker locker(&s_Mutex);
   ModInfo::Ptr result = ModInfo::Ptr(
-      new ModInfoForeign(modName, espName, bsaNames, modType, directoryStructure, pluginContainer));
+      new ModInfoForeign(modName, espName, bsaNames, modType, core, pluginContainer));
   s_Collection.push_back(result);
   return result;
 }
@@ -129,12 +129,13 @@ QString ModInfo::getContentTypeName(int contentType)
   }
 }
 
-void ModInfo::createFromOverwrite(PluginContainer *pluginContainer,
-                                  MOShared::DirectoryEntry **directoryStructure)
+void ModInfo::createFromOverwrite(
+  PluginContainer *pluginContainer, OrganizerCore& core)
 {
   QMutexLocker locker(&s_Mutex);
 
-  s_Collection.push_back(ModInfo::Ptr(new ModInfoOverwrite(pluginContainer, directoryStructure)));
+  s_Collection.push_back(ModInfo::Ptr(
+    new ModInfoOverwrite(pluginContainer, core)));
 }
 
 unsigned int ModInfo::getNumMods()
@@ -245,11 +246,10 @@ unsigned int ModInfo::findMod(const boost::function<bool (ModInfo::Ptr)> &filter
 }
 
 
-void ModInfo::updateFromDisc(const QString &modDirectory,
-                             DirectoryEntry **directoryStructure,
-                             PluginContainer *pluginContainer,
-                             bool displayForeign,
-                             MOBase::IPluginGame const *game)
+void ModInfo::updateFromDisc(
+  const QString &modDirectory, OrganizerCore& core,
+  PluginContainer *pluginContainer, bool displayForeign,
+  MOBase::IPluginGame const *game)
 {
   TimeThis tt("ModInfo::updateFromDisc()");
 
@@ -262,7 +262,7 @@ void ModInfo::updateFromDisc(const QString &modDirectory,
     mods.setFilter(QDir::Dirs | QDir::NoDotAndDotDot);
     QDirIterator modIter(mods);
     while (modIter.hasNext()) {
-      createFrom(pluginContainer, game, QDir(modIter.next()), directoryStructure);
+      createFrom(pluginContainer, game, QDir(modIter.next()), core);
     }
   }
 
@@ -272,16 +272,17 @@ void ModInfo::updateFromDisc(const QString &modDirectory,
       ModInfo::EModType modType = game->DLCPlugins().contains(unmanaged->referenceFile(modName).fileName(), Qt::CaseInsensitive) ? ModInfo::EModType::MOD_DLC :
                          (game->CCPlugins().contains(unmanaged->referenceFile(modName).fileName(), Qt::CaseInsensitive) ? ModInfo::EModType::MOD_CC : ModInfo::EModType::MOD_DEFAULT);
 
-      createFromPlugin(unmanaged->displayName(modName),
-                       unmanaged->referenceFile(modName).absoluteFilePath(),
-                       unmanaged->secondaryFiles(modName),
-                       modType,
-                       directoryStructure,
-                       pluginContainer);
+      createFromPlugin(
+        unmanaged->displayName(modName),
+        unmanaged->referenceFile(modName).absoluteFilePath(),
+        unmanaged->secondaryFiles(modName),
+        modType,
+        core,
+        pluginContainer);
     }
   }
 
-  createFromOverwrite(pluginContainer, directoryStructure);
+  createFromOverwrite(pluginContainer, core);
 
   std::sort(s_Collection.begin(), s_Collection.end(), ModInfo::ByName);
 

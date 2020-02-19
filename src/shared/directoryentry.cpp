@@ -74,15 +74,6 @@ static bool DirCompareByName(const DirectoryEntry* lhs, const DirectoryEntry* rh
 
 
 DirectoryEntry::DirectoryEntry(
-  std::wstring name, DirectoryEntry* parent, OriginID originID) :
-    m_OriginConnection(new OriginConnection),
-    m_Name(std::move(name)), m_Parent(parent), m_Populated(false), m_TopLevel(true)
-{
-  m_FileRegister.reset(new FileRegister(m_OriginConnection));
-  m_Origins.insert(originID);
-}
-
-DirectoryEntry::DirectoryEntry(
   std::wstring name, DirectoryEntry* parent, OriginID originID,
   std::shared_ptr<FileRegister> fileRegister,
   std::shared_ptr<OriginConnection> originConnection) :
@@ -90,6 +81,15 @@ DirectoryEntry::DirectoryEntry(
     m_Name(std::move(name)), m_Parent(parent), m_Populated(false), m_TopLevel(false)
 {
   m_Origins.insert(originID);
+}
+
+std::unique_ptr<DirectoryEntry> DirectoryEntry::createRoot()
+{
+  auto oc = std::make_shared<OriginConnection>();
+  auto fr = std::make_shared<FileRegister>(oc);
+
+  return std::unique_ptr<DirectoryEntry>(
+    new DirectoryEntry(L"data", nullptr, 0, fr, oc));
 }
 
 DirectoryEntry::~DirectoryEntry()

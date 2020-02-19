@@ -3,15 +3,12 @@
 
 #include "modinforegular.h"
 
-class ModInfoSeparator:
-    public ModInfoRegular
+class ModInfoSeparator : public ModInfoRegular
 {
   Q_OBJECT;
-
   friend class ModInfo;
 
 public:
-
   virtual bool updateAvailable() const { return false; }
   virtual bool updateIgnored() const { return false; }
   virtual bool downgradeAvailable() const { return false; }
@@ -70,11 +67,9 @@ public:
   }
 
 private:
-
-  ModInfoSeparator
-    (
-      PluginContainer* pluginContainer, const MOBase::IPluginGame* game, const QDir& path,
-      MOShared::DirectoryEntry** directoryStructure);
+  ModInfoSeparator(
+    PluginContainer* pluginContainer, const MOBase::IPluginGame* game,
+    const QDir& path, OrganizerCore& core);
 };
 
 #endif

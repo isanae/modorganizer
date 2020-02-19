@@ -13,17 +13,13 @@
  **/
 class ModInfoRegular : public ModInfoWithConflictInfo
 {
-
-  Q_OBJECT
-
+  Q_OBJECT;
   friend class ModInfo;
 
 public:
-
   ~ModInfoRegular();
 
   virtual bool isRegular() const { return true; }
-
   virtual bool isEmpty() const;
 
   bool isAlternate() { return m_IsAlternate; }
@@ -44,7 +40,10 @@ public:
   /**
    * @return true if the current update is being ignored
    */
-  virtual bool updateIgnored() const { return m_IgnoredVersion.isValid() && m_IgnoredVersion == m_NewestVersion; }
+  virtual bool updateIgnored() const
+  {
+    return m_IgnoredVersion.isValid() && m_IgnoredVersion == m_NewestVersion;
+  }
 
   /**
    * @brief test if there is a newer version of the mod
@@ -157,13 +156,20 @@ public:
    * @brief sets the new primary category of the mod
    * @param categoryID the category to set
    */
-  virtual void setPrimaryCategory(int categoryID) { m_PrimaryCategory = categoryID; m_MetaInfoChanged = true; }
+  virtual void setPrimaryCategory(int categoryID)
+  {
+    m_PrimaryCategory = categoryID;
+    m_MetaInfoChanged = true;
+  }
 
   /**
    * @brief sets the download repository
    * @param repository
    */
-  virtual void setRepository(const QString &repository) { m_Repository = repository; }
+  virtual void setRepository(const QString &repository)
+  {
+    m_Repository = repository;
+  }
 
   /**
    * update the endorsement state for the mod. This only changes the
@@ -402,24 +408,18 @@ public:
   virtual void setCustomURL(QString const &) override;
   virtual QString getCustomURL() const override;
 
-private:
-
-  void setEndorsedState(EEndorsedState endorsedState);
-  void setTrackedState(ETrackedState trackedState);
+protected:
+  ModInfoRegular(
+    PluginContainer *pluginContainer, const MOBase::IPluginGame *game,
+    const QDir &path, OrganizerCore& core);
 
 private slots:
-
   void nxmDescriptionAvailable(QString, int modID, QVariant userData, QVariant resultData);
   void nxmEndorsementToggled(QString, int, QVariant userData, QVariant resultData);
   void nxmTrackingToggled(QString, int, QVariant userData, bool tracked);
   void nxmRequestFailed(QString, int modID, int fileID, QVariant userData, QNetworkReply::NetworkError error, const QString &errorMessage);
 
-protected:
-
-  ModInfoRegular(PluginContainer *pluginContainer, const MOBase::IPluginGame *game, const QDir &path, MOShared::DirectoryEntry **directoryStructure);
-
 private:
-
   QString m_Name;
   QString m_Path;
   QString m_InstallationFile;
@@ -460,8 +460,10 @@ private:
   mutable std::vector<ModInfo::EContent> m_CachedContent;
   mutable QTime m_LastContentCheck;
 
-  bool needsDescriptionUpdate() const;
-};
 
+  bool needsDescriptionUpdate() const;
+  void setEndorsedState(EEndorsedState endorsedState);
+  void setTrackedState(ETrackedState trackedState);
+};
 
 #endif // MODINFOREGULAR_H

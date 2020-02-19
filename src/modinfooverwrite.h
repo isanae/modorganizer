@@ -7,13 +7,10 @@
 
 class ModInfoOverwrite : public ModInfoWithConflictInfo
 {
-
-  Q_OBJECT
-
+  Q_OBJECT;
   friend class ModInfo;
 
 public:
-
   virtual bool updateAvailable() const { return false; }
   virtual bool updateIgnored() const { return false; }
   virtual bool downgradeAvailable() const { return false; }
@@ -67,9 +64,7 @@ public:
   virtual void addInstalledFile(int, int) {}
 
 private:
-
-  ModInfoOverwrite(PluginContainer *pluginContainer, MOShared::DirectoryEntry **directoryStructure );
-
+  ModInfoOverwrite(PluginContainer *pluginContainer, OrganizerCore& core);
 };
 
 #endif // MODINFOOVERWRITE_H

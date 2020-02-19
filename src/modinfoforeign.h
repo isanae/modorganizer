@@ -5,13 +5,10 @@
 
 class ModInfoForeign : public ModInfoWithConflictInfo
 {
-
-  Q_OBJECT
-
+  Q_OBJECT;
   friend class ModInfo;
 
 public:
-
   virtual bool updateAvailable() const { return false; }
   virtual bool updateIgnored() const { return false; }
   virtual bool downgradeAvailable() const { return false; }
@@ -66,18 +63,18 @@ public:
   virtual void addInstalledFile(int, int) {}
 
 protected:
-  ModInfoForeign(const QString &modName, const QString &referenceFile,
-                 const QStringList &archives, ModInfo::EModType modType,
-                 MOShared::DirectoryEntry **directoryStructure, PluginContainer *pluginContainer);
-private:
+  ModInfoForeign(
+    const QString &modName, const QString &referenceFile,
+    const QStringList &archives, ModInfo::EModType modType,
+    OrganizerCore& core, PluginContainer *pluginContainer);
 
+private:
   QString m_Name;
   QString m_InternalName;
   QString m_ReferenceFile;
   QStringList m_Archives;
   QDateTime m_CreationTime;
   int m_Priority;
-
 };
 
 #endif // MODINFOFOREIGN_H

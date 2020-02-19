@@ -42,6 +42,8 @@ class QDateTime;
 namespace MOBase { class IPluginGame; }
 namespace MOShared { class DirectoryEntry; }
 
+class OrganizerCore;
+
 /**
  * @brief Represents meta information about a single mod.
  *
@@ -51,11 +53,9 @@ namespace MOShared { class DirectoryEntry; }
  **/
 class ModInfo : public QObject, public MOBase::IModInterface
 {
-
-  Q_OBJECT
+  Q_OBJECT;
 
 public:
-
   typedef QSharedPointer<ModInfo> Ptr;
 
   static QString s_HiddenExt;
@@ -133,18 +133,20 @@ public:
   };
 
 
-public:
-
   /**
    * @brief read the mod directory and Mod ModInfo objects for all subdirectories
    **/
-  static void updateFromDisc(const QString &modDirectory,
-                             MOShared::DirectoryEntry **directoryStructure,
-                             PluginContainer *pluginContainer,
-                             bool displayForeign,
-                             MOBase::IPluginGame const *game);
+  static void updateFromDisc(
+    const QString &modDirectory, OrganizerCore& core,
+    PluginContainer *pluginContainer, bool displayForeign,
+    MOBase::IPluginGame const *game);
 
-  static void clear() { s_Collection.clear(); s_ModsByName.clear(); s_ModsByModID.clear(); }
+  static void clear()
+  {
+    s_Collection.clear();
+    s_ModsByName.clear();
+    s_ModsByModID.clear();
+  }
 
   /**
    * @brief retrieve the number of mods
@@ -209,7 +211,9 @@ public:
   /**
    * @brief run a limited batch of mod update checks for "newest version" information
    */
-  static void manualUpdateCheck(PluginContainer *pluginContainer, QObject *receiver, std::multimap<QString, int> IDs);
+  static void manualUpdateCheck(
+    PluginContainer *pluginContainer, QObject *receiver,
+    std::multimap<QString, int> IDs);
 
   /**
    * @brief query nexus information for every mod and update the "newest version" information
@@ -217,14 +221,18 @@ public:
    **/
   static bool checkAllForUpdate(PluginContainer *pluginContainer, QObject *receiver);
 
-  static std::set<QSharedPointer<ModInfo>> filteredMods(QString gameName, QVariantList updateData, bool addOldMods = false, bool markUpdated = false);
+  static std::set<QSharedPointer<ModInfo>> filteredMods(
+    QString gameName, QVariantList updateData,
+    bool addOldMods = false, bool markUpdated = false);
 
   /**
    * @brief create a new mod from the specified directory and add it to the collection
    * @param dir directory to create from
    * @return pointer to the info-structure of the newly created/added mod
    */
-  static ModInfo::Ptr createFrom(PluginContainer *pluginContainer, const MOBase::IPluginGame *game, const QDir &dir, MOShared::DirectoryEntry **directoryStructure);
+  static ModInfo::Ptr createFrom(
+    PluginContainer *pluginContainer, const MOBase::IPluginGame *game,
+    const QDir &dir, OrganizerCore& core);
 
   /**
    * @brief create a new "foreign-managed" mod from a tuple of plugin and archives
@@ -232,7 +240,10 @@ public:
    * @param bsaNames names of archives
    * @return a new mod
    */
-  static ModInfo::Ptr createFromPlugin(const QString &modName, const QString &espName, const QStringList &bsaNames, ModInfo::EModType modType, MOShared::DirectoryEntry **directoryStructure, PluginContainer *pluginContainer);
+  static ModInfo::Ptr createFromPlugin(
+    const QString &modName, const QString &espName,
+    const QStringList &bsaNames, ModInfo::EModType modType,
+    OrganizerCore& core, PluginContainer *pluginContainer);
 
   // whether the given name is used for separators
   //
@@ -789,7 +800,6 @@ public:
   QUrl parseCustomURL() const;
 
 signals:
-
   /**
    * @brief emitted whenever the information of a mod changes
    *
@@ -798,6 +808,12 @@ signals:
   void modDetailsUpdated(bool success);
 
 protected:
+  static std::vector<ModInfo::Ptr> s_Collection;
+  static std::map<QString, unsigned int> s_ModsByName;
+  int m_PrimaryCategory;
+  std::set<int> m_Categories;
+  MOBase::VersionInfo m_Version;
+  bool m_PluginSelected = false;
 
   ModInfo(PluginContainer *pluginContainer);
 
@@ -805,31 +821,13 @@ protected:
   static bool ByName(const ModInfo::Ptr &LHS, const ModInfo::Ptr &RHS);
 
 private:
-
-  static void createFromOverwrite(PluginContainer *pluginContainer,
-                                  MOShared::DirectoryEntry **directoryStructure);
-
-protected:
-
-  static std::vector<ModInfo::Ptr> s_Collection;
-  static std::map<QString, unsigned int> s_ModsByName;
-
-  int m_PrimaryCategory;
-  std::set<int> m_Categories;
-
-  MOBase::VersionInfo m_Version;
-
-  bool m_PluginSelected = false;
-
-private:
-
   static QMutex s_Mutex;
   static std::map<std::pair<QString, int>, std::vector<unsigned int> > s_ModsByModID;
   static int s_NextID;
-
   bool m_Valid;
 
+  static void createFromOverwrite(
+    PluginContainer *pluginContainer, OrganizerCore& core);
 };
-
 
 #endif // MODINFO_H
