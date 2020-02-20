@@ -30,7 +30,6 @@ public:
   }
 
   bool removeFile(FileIndex index);
-  void removeOrigin(FileIndex index, OriginID originID);
   void removeOriginMulti(std::set<FileIndex> indices, OriginID originID);
 
   void sortOrigins();
@@ -43,7 +42,6 @@ private:
   std::shared_ptr<OriginConnection> m_OriginConnection;
   std::atomic<FileIndex> m_NextIndex;
 
-  void unregisterFile(FileEntryPtr file);
   FileIndex generateIndex();
 };
 

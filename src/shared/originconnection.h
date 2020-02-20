@@ -26,7 +26,12 @@ public:
   bool exists(std::wstring_view name);
   FilesOrigin& getByID(OriginID id);
   FilesOrigin& getByName(std::wstring_view name);
+
   const FilesOrigin* findByID(OriginID id) const;
+  FilesOrigin* findByID(OriginID id)
+  {
+    return const_cast<FilesOrigin*>(std::as_const(*this).findByID(id));
+  }
 
   void changePriorityLookup(int oldPriority, int newPriority);
 

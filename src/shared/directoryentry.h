@@ -267,27 +267,24 @@ public:
   //
   void addFromOrigin(const OriginInfo& origin, DirectoryStats& stats);
 
+  // parses the given archive and adds all files from it to this directory
+  //
   void addFromBSA(
     const OriginInfo& originInfo, const fs::path& archive, int order,
     DirectoryStats& stats);
 
+  // remove files from the directory structure that are known to be
+  // irrelevant to the game
+  //
+  void cleanupIrrelevant();
+
+  // adds the given origin to this directory and its parent recursively
+  //
   void propagateOrigin(OriginID origin);
 
-  void removeFile(FileIndex index);
-
-  // remove the specified file from the tree. This can be a path leading to a
-  // file in a subdirectory
-  bool removeFile(const std::wstring& filePath, OriginID* origin = nullptr);
-
-  /**
-   * @brief remove the specified directory
-   * @param path directory to remove
-   */
-  void removeDir(const std::wstring& path);
-
-  bool remove(const std::wstring& fileName, OriginID* origin);
-
-  void removeFiles(const std::set<FileIndex>& indices);
+  // removes the given file from this directory
+  //
+  void removeFile(std::wstring_view name);
 
   void dump(const std::wstring& file) const;
 
@@ -324,43 +321,68 @@ private:
     std::shared_ptr<OriginConnection> originConnection);
 
 
-  bool containsArchive(std::wstring archiveName);
+  // returns whether any file in this directory comes from the given archive
+  //
+  bool containsArchive(std::wstring_view archiveName);
 
+  // helpers for findSubDirectoryRecursive() and findFileRecursive()
+  //
+  const DirectoryEntry* findSubDirectoryRecursiveImpl(std::wstring_view path) const;
+  FileEntryPtr findFileRecursiveImpl(std::wstring_view path) const;
+
+  // inserts the given file in the list and in the register
+  //
   FileEntryPtr insert(
     std::wstring_view fileName, FilesOrigin& origin, FILETIME fileTime,
     std::wstring_view archive, int order, DirectoryStats& stats);
 
+  // walks each file and directory in the given path recursively, calls
+  // onDirectoryStart() when a directory is entered, onDirectoryEnd() when
+  // a directory is finished and onFile() for every file
+  //
   void addFiles(
     env::DirectoryWalker& walker, FilesOrigin& origin,
     const std::wstring& path, DirectoryStats& stats);
-
-  void addFiles(
-    FilesOrigin& origin, BSA::Folder::Ptr archiveFolder, FILETIME fileTime,
-    const std::wstring& archiveName, int order, DirectoryStats& stats);
-
-  DirectoryEntry* createSubDirectory(
-    std::wstring_view name, OriginID originID, DirectoryStats& stats);
-
-  DirectoryEntry* createSubDirectories(
-    std::wstring_view path, OriginID originID, DirectoryStats& stats);
-
-  const DirectoryEntry* findSubDirectoryRecursiveImpl(std::wstring_view path) const;
-  FileEntryPtr findFileRecursiveImpl(std::wstring_view path) const;
-
-  void removeDirRecursive();
-
-  void addDirectoryToList(std::unique_ptr<DirectoryEntry> e, std::wstring nameLc);
-  void removeDirectoryFromList(SubDirectories::iterator itor);
-
-  void addFileToList(std::wstring fileNameLower, FileIndex index);
-  void removeFileFromList(FileIndex index);
-  void removeFilesFromList(const std::set<FileIndex>& indices);
 
   struct Context;
   static void onDirectoryStart(Context* cx, std::wstring_view path);
   static void onDirectoryEnd(Context* cx, std::wstring_view path);
   static void onFile(Context* cx, std::wstring_view path, FILETIME ft);
 
+  // sorts the subdirectories by name, case insensitive
+  //
+  void sortSubDirectories();
+
+  // adds all the files and folders from the given archive recursively
+  //
+  void addFiles(
+    FilesOrigin& origin, const BSA::Folder::Ptr& archiveFolder,
+    FILETIME archiveFileTime, const std::wstring& archiveName,
+    int order, DirectoryStats& stats);
+
+  // creates the given subdirectory or returns an existing one
+  //
+  DirectoryEntry* getOrCreateSubDirectory(
+    std::wstring_view name, OriginID originID, DirectoryStats& stats);
+
+  // splits `path` on separators and calls getOrCreateSubDirectory()
+  // recursively
+  //
+  DirectoryEntry* getOrCreateSubDirectories(
+    std::wstring_view path, OriginID originID, DirectoryStats& stats);
+
+  // calls removeSelfRecursive() on the given directory, then removes it from
+  // both lists in this directory, which deletes the associated DirectoryEntry
+  //
+  void removeDirectory(SubDirectoriesLookup::iterator itor);
+
+  // removes the files recursively from the register
+  //
+  void removeSelfRecursive();
+
+  // dumps this directory recursively in the given file, parentPath is used
+  // to build the complete relative path
+  //
   void dump(std::FILE* f, const std::wstring& parentPath) const;
 };
 

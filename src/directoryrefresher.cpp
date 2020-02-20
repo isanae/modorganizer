@@ -72,19 +72,6 @@ void DirectoryRefresher::setMods(const std::vector<std::tuple<QString, QString, 
   m_EnabledArchives = managedArchives;
 }
 
-void DirectoryRefresher::cleanStructure(DirectoryEntry *structure)
-{
-  static const wchar_t *files[] = { L"meta.ini", L"readme.txt" };
-  for (int i = 0; i < sizeof(files) / sizeof(wchar_t*); ++i) {
-    structure->removeFile(files[i]);
-  }
-
-  static const wchar_t *dirs[] = { L"fomod" };
-  for (int i = 0; i < sizeof(dirs) / sizeof(wchar_t*); ++i) {
-    structure->removeDir(std::wstring(dirs[i]));
-  }
-}
-
 void DirectoryRefresher::addModBSAToStructure(
   DirectoryEntry* root, const QString& modName,
   int priority, const QString& directory, const QStringList& archives)
@@ -356,7 +343,7 @@ void DirectoryRefresher::refresh()
 
     m_Root->getFileRegister()->sortOrigins();
 
-    cleanStructure(m_Root.get());
+    m_Root->cleanupIrrelevant();
 
     m_lastFileCount = m_Root->getFileRegister()->highestCount();
     log::debug("refresher saw {} files", m_lastFileCount);

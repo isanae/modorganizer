@@ -77,11 +77,6 @@ public:
     const std::vector<std::tuple<QString, QString, int> > &mods,
     const std::set<QString> &managedArchives);
 
-  // remove files from the directory structure that are known to be
-  // irrelevant to the game
-  //
-  static void cleanStructure(MOShared::DirectoryEntry *structure);
-
   // add files for a mod to the directory structure, including bsas
   //
   void addModToStructure(

@@ -50,12 +50,6 @@ void elapsedImpl(std::chrono::nanoseconds& out, F&& f)
 #define elapsed(OUT, F) (F)();
 //#define elapsed(OUT, F) elapsedImpl(OUT, F);
 
-static bool DirCompareByName(
-  const std::unique_ptr<DirectoryEntry>& lhs,
-  const std::unique_ptr<DirectoryEntry>& rhs)
-{
-  return _wcsicmp(lhs->getName().c_str(), rhs->getName().c_str()) < 0;
-}
 
 // calls f(c, last) on each component, where `c` is the name and `last` is
 // true only for the last component; if f() returns false, stops the iteration
@@ -315,146 +309,117 @@ void DirectoryEntry::addFromBSA(
   addFiles(origin, bsa.getRoot(), ft, archiveName, order, stats);
 }
 
-void DirectoryEntry::propagateOrigin(OriginID origin)
+void DirectoryEntry::cleanupIrrelevant()
 {
-  {
-    std::scoped_lock lock(m_OriginsMutex);
-    m_Origins.insert(origin);
+  // names must be lowercase
+  static const std::wstring files[] = {L"meta.ini", L"readme.txt"};
+  static const std::wstring dirs[] = {L"fomod"};
+
+  for (auto&& f : files) {
+    auto itor = m_FilesLookup.find(FileKeyView(f));
+    if (itor != m_FilesLookup.end()) {
+      // this will eventually call removeFile() on this directory
+      m_FileRegister->removeFile(itor->second);
+    }
   }
 
-  if (m_Parent != nullptr) {
-    m_Parent->propagateOrigin(origin);
+  for (auto&& d : dirs) {
+    auto itor = m_SubDirectoriesLookup.find(FileKeyView(d));
+    if (itor != m_SubDirectoriesLookup.end()) {
+      removeDirectory(itor);
+    }
   }
 }
 
-bool DirectoryEntry::containsArchive(std::wstring archiveName)
+void DirectoryEntry::propagateOrigin(OriginID origin)
 {
-  for (auto iter = m_Files.begin(); iter != m_Files.end(); ++iter) {
-    FileEntryPtr entry = m_FileRegister->getFile(iter->second);
-    if (entry->isFromArchive(archiveName)) {
-      return true;
+  DirectoryEntry* d = this;
+
+  while (d) {
+    {
+      std::scoped_lock lock(d->m_OriginsMutex);
+      d->m_Origins.insert(origin);
+    }
+
+    d = d->m_Parent;
+  }
+}
+
+void DirectoryEntry::removeFile(std::wstring_view name)
+{
+  const auto lcname = ToLowerCopy(name);
+
+  {
+    auto itor = m_Files.find(lcname);
+    if (itor == m_Files.end()) {
+      log::error("DirectoryEntry::removeFile(): '{}' not in list", name);
+    } else {
+      m_Files.erase(itor);
+    }
+  }
+
+  {
+    auto itor = m_FilesLookup.find(FileKeyView(lcname));
+    if (itor == m_FilesLookup.end()) {
+      log::error("DirectoryEntry::removeFile(): '{}' not in lookup", name);
+    } else {
+      m_FilesLookup.erase(itor);
+    }
+  }
+}
+
+bool DirectoryEntry::containsArchive(std::wstring_view archiveName)
+{
+  for (const auto& [name, index] : m_Files) {
+    if (auto file=m_FileRegister->getFile(index)) {
+      if (file->isFromArchive(archiveName)) {
+        return true;
+      }
     }
   }
 
   return false;
 }
 
-void DirectoryEntry::removeFile(FileIndex index)
-{
-  removeFileFromList(index);
-}
-
-bool DirectoryEntry::removeFile(const std::wstring &filePath, OriginID* origin)
-{
-  size_t pos = filePath.find_first_of(L"\\/");
-
-  if (pos == std::string::npos) {
-    return this->remove(filePath, origin);
-  }
-
-  std::wstring dirName = filePath.substr(0, pos);
-  std::wstring rest = filePath.substr(pos + 1);
-
-  DirectoryStats dummy;
-  DirectoryEntry* entry = findSubDirectoryRecursive(dirName);
-
-  if (entry != nullptr) {
-    return entry->removeFile(rest, origin);
-  } else {
-    return false;
-  }
-}
-
-void DirectoryEntry::removeDir(const std::wstring &path)
-{
-  size_t pos = path.find_first_of(L"\\/");
-
-  if (pos == std::string::npos) {
-    for (auto iter = m_SubDirectories.begin(); iter != m_SubDirectories.end(); ++iter) {
-      auto& entry = *iter;
-
-      if (CaseInsensitiveEqual(entry->getName(), path)) {
-        entry->removeDirRecursive();
-        removeDirectoryFromList(iter);
-        break;
-      }
-    }
-  } else {
-    std::wstring dirName = path.substr(0, pos);
-    std::wstring rest = path.substr(pos + 1);
-
-    DirectoryStats dummy;
-    DirectoryEntry* entry = findSubDirectoryRecursive(dirName);
-
-    if (entry != nullptr) {
-      entry->removeDir(rest);
-    }
-  }
-}
-
-bool DirectoryEntry::remove(const std::wstring &fileName, OriginID* origin)
-{
-  const auto lcFileName = ToLowerCopy(fileName);
-
-  auto iter = m_Files.find(lcFileName);
-  bool b = false;
-
-  if (iter != m_Files.end()) {
-    if (origin != nullptr) {
-      FileEntryPtr entry = m_FileRegister->getFile(iter->second);
-      if (entry.get() != nullptr) {
-        bool ignore;
-        *origin = entry->getOrigin(ignore);
-      }
-    }
-
-    b = m_FileRegister->removeFile(iter->second);
-  }
-
-  return b;
-}
-
-void DirectoryEntry::removeFiles(const std::set<FileIndex> &indices)
-{
-  removeFilesFromList(indices);
-}
-
 FileEntryPtr DirectoryEntry::insert(
   std::wstring_view fileName, FilesOrigin &origin, FILETIME fileTime,
   std::wstring_view archive, int order, DirectoryStats& stats)
 {
-  std::wstring fileNameLower = ToLowerCopy(fileName);
   FileEntryPtr fe;
 
-  FileKey key(std::move(fileNameLower));
-  // fileNameLower has moved from this point
-
   {
+    FileKey key(ToLowerCopy(fileName));
+
     std::unique_lock lock(m_FilesMutex);
 
     FilesLookup::iterator itor;
-
     elapsed(stats.filesLookupTimes, [&]{
       itor = m_FilesLookup.find(key);
     });
 
     if (itor != m_FilesLookup.end()) {
+      // file exists
       lock.unlock();
       fe = m_FileRegister->getFile(itor->second);
     } else {
+      // file not found, create it
       fe = m_FileRegister->createFile(
         std::wstring(fileName.begin(), fileName.end()), this, stats);
 
       elapsed(stats.addFileTimes, [&] {
-        addFileToList(std::move(key.value), fe->getIndex());
+        m_FilesLookup.emplace(key.value, fe->getIndex());
+        m_Files.emplace(std::move(key.value), fe->getIndex());
+        // key has been moved from this point
       });
     }
   }
 
+  // add the origin to the file
   elapsed(stats.addOriginToFileTimes, [&]{
     fe->addOrigin(origin.getID(), fileTime, archive, order);
   });
 
+  // add the file to the origin
   elapsed(stats.addFileToOriginTimes, [&]{
     origin.addFile(fe->getIndex());
   });
@@ -462,10 +427,18 @@ FileEntryPtr DirectoryEntry::insert(
   return fe;
 }
 
+// given to the DirectoryWalker, passed to every callback
+//
 struct DirectoryEntry::Context
 {
-  FilesOrigin& origin;
+  // stats
   DirectoryStats& stats;
+
+  // origin the files are being added from
+  FilesOrigin& origin;
+
+  // stack of directories, pushed in onDirectoryStart(), popped in
+  // onDirectoryEnd()
   std::stack<DirectoryEntry*> current;
 };
 
@@ -473,7 +446,7 @@ void DirectoryEntry::addFiles(
   env::DirectoryWalker& walker, FilesOrigin &origin,
   const std::wstring& path, DirectoryStats& stats)
 {
-  Context cx = {origin, stats};
+  Context cx = {stats, origin};
   cx.current.push(this);
 
   walker.forEachEntry(path, &cx,
@@ -493,20 +466,15 @@ void DirectoryEntry::addFiles(
     }
   );
 
-  {
-    std::scoped_lock lock(m_SubDirMutex);
-
-    std::sort(
-      m_SubDirectories.begin(),
-      m_SubDirectories.end(),
-      &DirCompareByName);
-  }
+  sortSubDirectories();
 }
 
 void DirectoryEntry::onDirectoryStart(Context* cx, std::wstring_view path)
 {
+  // creates the directory and pushes it on the stack
+
   elapsed(cx->stats.dirTimes, [&] {
-    auto* sd = cx->current.top()->createSubDirectory(
+    auto* sd = cx->current.top()->getOrCreateSubDirectory(
       path, cx->origin.getID(), cx->stats);
 
     cx->current.push(sd);
@@ -515,40 +483,49 @@ void DirectoryEntry::onDirectoryStart(Context* cx, std::wstring_view path)
 
 void DirectoryEntry::onDirectoryEnd(Context* cx, std::wstring_view path)
 {
+  // sorts the directory and pops it
+
   elapsed(cx->stats.dirTimes, [&] {
     auto* current = cx->current.top();
-
-    {
-      std::scoped_lock lock(current->m_SubDirMutex);
-
-      std::sort(
-        current->m_SubDirectories.begin(),
-        current->m_SubDirectories.end(),
-        &DirCompareByName);
-    }
-
+    current->sortSubDirectories();
     cx->current.pop();
   });
 }
 
 void DirectoryEntry::onFile(Context* cx, std::wstring_view path, FILETIME ft)
 {
+  // adds the file to the current directory
+
   elapsed(cx->stats.fileTimes, [&]{
     cx->current.top()->insert(path, cx->origin, ft, L"", -1, cx->stats);
   });
 }
 
+void DirectoryEntry::sortSubDirectories()
+{
+  std::scoped_lock lock(m_SubDirMutex);
+
+  std::sort(
+    m_SubDirectories.begin(),
+    m_SubDirectories.end(),
+    [](auto&& lhs, auto&& rhs) {
+      return (_wcsicmp(lhs->getName().c_str(), rhs->getName().c_str()) < 0);
+    });
+}
+
 void DirectoryEntry::addFiles(
-  FilesOrigin& origin, const BSA::Folder::Ptr archiveFolder, FILETIME fileTime,
-  const std::wstring& archiveName, int order, DirectoryStats& stats)
+  FilesOrigin& origin, const BSA::Folder::Ptr& archiveFolder,
+  FILETIME archiveFileTime, const std::wstring& archiveName,
+  int order, DirectoryStats& stats)
 {
   // add files
   const auto fileCount = archiveFolder->getNumFiles();
+
   for (unsigned int i=0; i<fileCount; ++i) {
     const BSA::File::Ptr file = archiveFolder->getFile(i);
 
     auto f = insert(
-      ToWString(file->getName(), true), origin, fileTime,
+      ToWString(file->getName(), true), origin, archiveFileTime,
       archiveName, order, stats);
 
     if (f) {
@@ -565,14 +542,15 @@ void DirectoryEntry::addFiles(
   for (unsigned int i=0; i<dirCount; ++i) {
     const BSA::Folder::Ptr folder = archiveFolder->getSubFolder(i);
 
-    DirectoryEntry* folderEntry = createSubDirectories(
+    DirectoryEntry* folderEntry = getOrCreateSubDirectories(
       ToWString(folder->getName(), true), origin.getID(), stats);
 
-    folderEntry->addFiles(origin, folder, fileTime, archiveName, order, stats);
+    folderEntry->addFiles(
+      origin, folder, archiveFileTime, archiveName, order, stats);
   }
 }
 
-DirectoryEntry* DirectoryEntry::createSubDirectory(
+DirectoryEntry* DirectoryEntry::getOrCreateSubDirectory(
   std::wstring_view name, OriginID originID, DirectoryStats& stats)
 {
   std::wstring nameLc = ToLowerCopy(name);
@@ -596,28 +574,52 @@ DirectoryEntry* DirectoryEntry::createSubDirectory(
   auto* p = entry.get();
 
   elapsed(stats.addDirectoryTimes, [&] {
-    addDirectoryToList(std::move(entry), std::move(nameLc));
+    m_SubDirectoriesLookup.emplace(std::move(nameLc), entry.get());
+    m_SubDirectories.push_back(std::move(entry));
     // nameLc is moved from this point
   });
 
   return p;
 }
 
-DirectoryEntry* DirectoryEntry::createSubDirectories(
+DirectoryEntry* DirectoryEntry::getOrCreateSubDirectories(
   std::wstring_view path, OriginID originID, DirectoryStats& stats)
 {
   DirectoryEntry* cwd = this;
 
   forEachPathComponent(path, [&](std::wstring_view name, bool) {
-    cwd = cwd->createSubDirectory(name, originID, stats);
+    cwd = cwd->getOrCreateSubDirectory(name, originID, stats);
     return true;
   });
 
   return cwd;
 }
 
-void DirectoryEntry::removeDirRecursive()
+void DirectoryEntry::removeDirectory(SubDirectoriesLookup::iterator itor)
 {
+  // remove files from subdirectories
+  itor->second->removeSelfRecursive();
+
+  auto itor2 = std::find_if(
+    m_SubDirectories.begin(), m_SubDirectories.end(), [&](auto&& d) {
+      return (d.get() == itor->second);
+    });
+
+  if (itor2 == m_SubDirectories.end()) {
+    log::error("entry {} not in sub directories map", itor->second->getName());
+  } else {
+    m_SubDirectories.erase(itor2);
+  }
+
+  // careful: from this point, the directory entry has been deleted
+
+  m_SubDirectoriesLookup.erase(itor);
+}
+
+void DirectoryEntry::removeSelfRecursive()
+{
+  // careful: FileRegister::removeFile() eventually calls removeFile() on this
+  // directory
   while (!m_Files.empty()) {
     m_FileRegister->removeFile(m_Files.begin()->second);
   }
@@ -625,94 +627,13 @@ void DirectoryEntry::removeDirRecursive()
   m_FilesLookup.clear();
 
   for (auto& entry : m_SubDirectories) {
-    entry->removeDirRecursive();
+    entry->removeSelfRecursive();
   }
 
   m_SubDirectories.clear();
   m_SubDirectoriesLookup.clear();
 }
 
-void DirectoryEntry::addDirectoryToList(
-  std::unique_ptr<DirectoryEntry> e, std::wstring nameLc)
-{
-  m_SubDirectoriesLookup.emplace(std::move(nameLc), e.get());
-  m_SubDirectories.push_back(std::move(e));
-}
-
-void DirectoryEntry::removeDirectoryFromList(SubDirectories::iterator itor)
-{
-  const auto& entry = *itor;
-
-  {
-    auto itor2 = std::find_if(
-      m_SubDirectoriesLookup.begin(), m_SubDirectoriesLookup.end(),
-      [&](auto&& d) { return (d.second == entry.get()); });
-
-    if (itor2 == m_SubDirectoriesLookup.end()) {
-      log::error("entry {} not in sub directories map", entry->getName());
-    } else {
-      m_SubDirectoriesLookup.erase(itor2);
-    }
-  }
-
-  m_SubDirectories.erase(itor);
-}
-
-void DirectoryEntry::removeFileFromList(FileIndex index)
-{
-  auto removeFrom = [&](auto& list) {
-    auto iter = std::find_if(
-      list.begin(), list.end(),
-      [&index](auto&& pair) { return (pair.second == index); }
-    );
-
-    if (iter == list.end()) {
-      auto f = m_FileRegister->getFile(index);
-
-      if (f) {
-        log::error(
-          "can't remove file '{}', not in directory entry '{}'",
-          f->getName(), getName());
-      } else {
-        log::error(
-          "can't remove file with index {}, not in directory entry '{}' and "
-          "not in register",
-          index, getName());
-      }
-    } else {
-      list.erase(iter);
-    }
-  };
-
-  removeFrom(m_FilesLookup);
-  removeFrom(m_Files);
-}
-
-void DirectoryEntry::removeFilesFromList(const std::set<FileIndex>& indices)
-{
-  for (auto iter = m_Files.begin(); iter != m_Files.end();) {
-    if (indices.find(iter->second) != indices.end()) {
-      iter = m_Files.erase(iter);
-    } else {
-      ++iter;
-    }
-  }
-
-  for (auto iter = m_FilesLookup.begin(); iter != m_FilesLookup.end();) {
-    if (indices.find(iter->second) != indices.end()) {
-      iter = m_FilesLookup.erase(iter);
-    } else {
-      ++iter;
-    }
-  }
-}
-
-void DirectoryEntry::addFileToList(std::wstring fileNameLower, FileIndex index)
-{
-  m_FilesLookup.emplace(fileNameLower, index);
-  m_Files.emplace(std::move(fileNameLower), index);
-  // fileNameLower has been moved from this point
-}
 
 struct DumpFailed : public std::runtime_error
 {
@@ -748,9 +669,13 @@ void DirectoryEntry::dump(std::FILE* f, const std::wstring& parentPath) const
   {
     std::scoped_lock lock(m_FilesMutex);
 
-    for (auto&& index : m_Files) {
-      const auto file = m_FileRegister->getFile(index.second);
+    for (const auto& [name, index]: m_Files) {
+      const auto file = m_FileRegister->getFile(index);
+
       if (!file) {
+        log::debug(
+          "DirectoryEntry::dump(): file index {} in directory '{}' not "
+          "found in register", index, getName());
         continue;
       }
 

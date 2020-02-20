@@ -2895,7 +2895,7 @@ void MainWindow::displayModInformation(
                                              , modInfo->absolutePath()
                                              , modInfo->stealFiles()
                                              , modInfo->archives());
-      DirectoryRefresher::cleanStructure(m_OrganizerCore.directoryStructure());
+      m_OrganizerCore.directoryStructure()->cleanupIrrelevant();
       m_OrganizerCore.directoryStructure()->getFileRegister()->sortOrigins();
       m_OrganizerCore.refreshLists();
     }
@@ -5164,7 +5164,7 @@ void MainWindow::originModified(int originID)
   m_OrganizerCore.directoryStructure()->addFromOrigin(
     {origin.getName(), origin.getPath(), origin.getPriority()}, dummy);
 
-  DirectoryRefresher::cleanStructure(m_OrganizerCore.directoryStructure());
+  m_OrganizerCore.directoryStructure()->cleanupIrrelevant();
 }
 
 

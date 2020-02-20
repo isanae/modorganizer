@@ -1266,7 +1266,7 @@ void OrganizerCore::updateModsInDirectoryStructure(QMap<unsigned int, ModInfo::P
   m_DirectoryRefresher->addMultipleModsFilesToStructure(
     m_DirectoryStructure.get(), entries);
 
-  DirectoryRefresher::cleanStructure(m_DirectoryStructure.get());
+  m_DirectoryStructure->cleanupIrrelevant();
   // need to refresh plugin list now so we can activate esps
   refreshESPList(true);
   // activate all esps of the specified mod so the bsas get activated along with

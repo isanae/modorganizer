@@ -184,7 +184,7 @@ void FileEntry::sortOrigins()
   }
 }
 
-bool FileEntry::isFromArchive(std::wstring archiveName) const
+bool FileEntry::isFromArchive(std::wstring_view archiveName) const
 {
   std::scoped_lock lock(m_OriginsMutex);
 
