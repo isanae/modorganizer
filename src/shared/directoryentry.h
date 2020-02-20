@@ -35,6 +35,13 @@ namespace MOShared
 // a directory has files, subdirectories and a list of origins having the
 // directory
 //
+// threads-safety: this class is thread-safe when adding stuff to it, mostly
+// so it can be used with DirectoryRefresher; however, most of the functions
+// that are used later (getFiles(), etc.) do not use the mutexes and therefore
+// are not thread-safe
+//
+// this is for performance, but also because of laziness
+//
 class DirectoryEntry
 {
 public:
@@ -61,35 +68,35 @@ public:
   //
   bool isTopLevel() const
   {
-    return (m_Parent == nullptr);
+    return (m_parent == nullptr);
   }
 
   // whether this directory is empty of files and subdirectories
   //
   bool isEmpty() const
   {
-    return (m_Files.empty() && m_SubDirectories.empty());
+    return (m_files.empty() && m_dirs.empty());
   }
 
   // whether this directory has files
   //
   bool hasFiles() const
   {
-    return !m_Files.empty();
+    return !m_files.empty();
   }
 
   // this directory's parent, may be null if this is a root directory
   //
   const DirectoryEntry* getParent() const
   {
-    return m_Parent;
+    return m_parent;
   }
 
   // directory name
   //
   const std::wstring& getName() const
   {
-    return m_Name;
+    return m_name;
   }
 
   // returns files that are inside this directory; each file inside this
@@ -104,7 +111,7 @@ public:
   //
   const SubDirectories& getSubDirectories() const
   {
-    return m_SubDirectories;
+    return m_dirs;
   }
 
   // returns the associated file register; all directories and files share the
@@ -112,7 +119,7 @@ public:
   //
   std::shared_ptr<FileRegister> getFileRegister() const
   {
-    return m_FileRegister;
+    return m_register;
   }
 
   // forwards to OriginConnection::exists()
@@ -144,7 +151,7 @@ public:
   template <class F>
   void forEachDirectory(F&& f) const
   {
-    for (auto&& d : m_SubDirectories) {
+    for (auto&& d : m_dirs) {
       if (!f(*d)) {
         break;
       }
@@ -161,8 +168,8 @@ public:
   template <class F>
   void forEachFile(F&& f) const
   {
-    for (auto&& p : m_Files) {
-      if (auto file=m_FileRegister->getFile(p.second)) {
+    for (auto&& p : m_files) {
+      if (auto file=m_register->getFile(p.second)) {
         if (!f(*file)) {
           break;
         }
@@ -176,7 +183,7 @@ public:
   template <class F>
   void forEachFileIndex(F&& f) const
   {
-    for (auto&& p : m_Files) {
+    for (auto&& p : m_files) {
       if (!f(p.second)) {
         break;
       }
@@ -299,20 +306,41 @@ private:
   using SubDirectoriesLookup = std::unordered_map<
     FileKey, DirectoryEntry*, std::hash<FileKey>, std::equal_to<>>;
 
-  std::shared_ptr<FileRegister> m_FileRegister;
-  std::shared_ptr<OriginConnection> m_OriginConnection;
+  // these are shared across all directories
+  std::shared_ptr<FileRegister> m_register;
+  std::shared_ptr<OriginConnection> m_connection;
 
-  std::wstring m_Name;
-  FilesMap m_Files;
-  FilesLookup m_FilesLookup;
-  SubDirectories m_SubDirectories;
-  SubDirectoriesLookup m_SubDirectoriesLookup;
+  // directory name
+  std::wstring m_name;
 
-  DirectoryEntry* m_Parent;
-  std::set<OriginID> m_Origins;
-  mutable std::mutex m_SubDirMutex;
-  mutable std::mutex m_FilesMutex;
-  mutable std::mutex m_OriginsMutex;
+
+  // map of files, sorted
+  FilesMap m_files;
+
+  // hash map of files for lookups
+  FilesLookup m_filesLookup;
+
+  // vector of directories, sorted
+  SubDirectories m_dirs;
+
+  // hash map of directories for lookups
+  SubDirectoriesLookup m_dirsLookup;
+
+  // parent directory
+  DirectoryEntry* m_parent;
+
+  // origins having this directory
+  std::set<OriginID> m_origins;
+
+
+  // protects m_files and m_filesLookup
+  mutable std::mutex m_filesMutex;
+
+  // protects m_dirs and m_dirsLookup
+  mutable std::mutex m_dirsMutex;
+
+  // protects m_origins
+  mutable std::mutex m_originsMutex;
 
 
   DirectoryEntry(

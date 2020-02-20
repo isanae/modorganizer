@@ -10,9 +10,15 @@ namespace MOShared
 
 using namespace MOBase;
 
-FileRegister::FileRegister(std::shared_ptr<OriginConnection> originConnection)
-  : m_OriginConnection(originConnection), m_NextIndex(0)
+FileRegister::FileRegister(std::shared_ptr<OriginConnection> oc)
+  : m_OriginConnection(std::move(oc)), m_NextIndex(0)
 {
+}
+
+std::shared_ptr<FileRegister> FileRegister::create(
+  std::shared_ptr<OriginConnection> oc)
+{
+  return std::shared_ptr<FileRegister>(new FileRegister(std::move(oc)));
 }
 
 bool FileRegister::indexValid(FileIndex index) const

@@ -10,7 +10,8 @@ namespace MOShared
 class FileRegister
 {
 public:
-  FileRegister(std::shared_ptr<OriginConnection> originConnection);
+  static std::shared_ptr<FileRegister> create(
+    std::shared_ptr<OriginConnection> oc);
 
   // non-copyable
   FileRegister(const FileRegister&) = delete;
@@ -41,6 +42,8 @@ private:
   FileMap m_Files;
   std::shared_ptr<OriginConnection> m_OriginConnection;
   std::atomic<FileIndex> m_NextIndex;
+
+  FileRegister(std::shared_ptr<OriginConnection> oc);
 
   FileIndex generateIndex();
 };
