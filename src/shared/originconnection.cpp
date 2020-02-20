@@ -13,58 +13,56 @@ OriginConnection::OriginConnection()
 {
 }
 
-std::pair<FilesOrigin&, bool> OriginConnection::getOrCreate(
-  const std::wstring &originName, const std::wstring &directory, int priority,
-  const std::shared_ptr<FileRegister>& fileRegister,
-  const std::shared_ptr<OriginConnection>& originConnection,
-  DirectoryStats& stats)
+std::shared_ptr<OriginConnection> OriginConnection::create()
+{
+  return std::shared_ptr<OriginConnection>(new OriginConnection);
+}
+
+std::pair<FilesOrigin&, bool> OriginConnection::getOrCreateOrigin(
+  std::wstring_view name, const fs::path& path, int priority,
+  const std::shared_ptr<FileRegister>& fr)
 {
   std::unique_lock lock(m_Mutex);
 
-  auto itor = m_OriginsNameMap.find(originName);
+  auto itor = m_OriginsNameMap.find(name);
 
   if (itor == m_OriginsNameMap.end()) {
-    FilesOrigin& origin = createOriginNoLock(
-      originName, directory, priority, fileRegister, originConnection);
-
+    FilesOrigin& origin = createOriginNoLock(name, path, priority, fr);
     return {origin, true};
   } else {
     FilesOrigin& origin = m_Origins[itor->second];
     lock.unlock();
 
-    origin.enable(true, stats);
+    origin.enable(true);
     return {origin, false};
   }
 }
 
 FilesOrigin& OriginConnection::createOrigin(
-  const std::wstring &originName, const std::wstring &directory, int priority,
-  std::shared_ptr<FileRegister> fileRegister,
-  std::shared_ptr<OriginConnection> originConnection)
+  std::wstring_view name, const fs::path& directory, int priority,
+  std::shared_ptr<FileRegister> fr)
 {
   std::scoped_lock lock(m_Mutex);
-
-  return createOriginNoLock(
-    originName, directory, priority, fileRegister, originConnection);
+  return createOriginNoLock(name, directory, priority, fr);
 }
 
-bool OriginConnection::exists(const std::wstring &name)
+bool OriginConnection::exists(std::wstring_view name)
 {
   std::scoped_lock lock(m_Mutex);
   return m_OriginsNameMap.find(name) != m_OriginsNameMap.end();
 }
 
-FilesOrigin& OriginConnection::getByID(OriginID ID)
+FilesOrigin& OriginConnection::getByID(OriginID id)
 {
   std::scoped_lock lock(m_Mutex);
-  return m_Origins[ID];
+  return m_Origins[id];
 }
 
-const FilesOrigin* OriginConnection::findByID(OriginID ID) const
+const FilesOrigin* OriginConnection::findByID(OriginID id) const
 {
   std::scoped_lock lock(m_Mutex);
 
-  auto itor = m_Origins.find(ID);
+  auto itor = m_Origins.find(id);
 
   if (itor == m_Origins.end()) {
     return nullptr;
@@ -73,7 +71,7 @@ const FilesOrigin* OriginConnection::findByID(OriginID ID) const
   }
 }
 
-FilesOrigin& OriginConnection::getByName(const std::wstring &name)
+FilesOrigin& OriginConnection::getByName(std::wstring_view name)
 {
   std::scoped_lock lock(m_Mutex);
 
@@ -83,7 +81,11 @@ FilesOrigin& OriginConnection::getByName(const std::wstring &name)
     return m_Origins[iter->second];
   } else {
     std::ostringstream stream;
-    stream << QObject::tr("invalid origin name: ").toStdString() << ToString(name, true);
+
+    stream
+      << QObject::tr("invalid origin name: ").toStdString()
+      << ToString(std::wstring(name.begin(), name.end()), true);
+
     throw std::runtime_error(stream.str());
   }
 }
@@ -122,21 +124,19 @@ OriginID OriginConnection::createID()
 }
 
 FilesOrigin& OriginConnection::createOriginNoLock(
-  const std::wstring &originName, const std::wstring &directory, int priority,
-  std::shared_ptr<FileRegister> fileRegister,
-  std::shared_ptr<OriginConnection> originConnection)
+  std::wstring_view name, const fs::path& directory, int priority,
+  std::shared_ptr<FileRegister> fr)
 {
   OriginID newID = createID();
+  auto self = shared_from_this();
 
   auto itor = m_Origins.emplace(
     std::piecewise_construct,
     std::forward_as_tuple(newID),
-    std::forward_as_tuple(
-      newID, originName, directory, priority,
-      fileRegister, originConnection))
-    .first;
+    std::forward_as_tuple(newID, name, directory, priority, fr, self))
+      .first;
 
-  m_OriginsNameMap.insert({originName, newID});
+  m_OriginsNameMap.insert({std::wstring(name.begin(), name.end()), newID});
   m_OriginsPriorityMap.insert({priority, newID});
 
   return itor->second;

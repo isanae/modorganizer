@@ -175,7 +175,7 @@ void FileEntry::sortOrigins()
     }
 
     return true;
-    });
+  });
 
   if (!m_Alternatives.empty()) {
     m_Origin = m_Alternatives.back().first;

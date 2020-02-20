@@ -815,8 +815,10 @@ QString OrganizerCore::resolvePath(const QString &fileName) const
   if (m_DirectoryStructure == nullptr) {
     return QString();
   }
-  const FileEntryPtr file
-      = m_DirectoryStructure->searchFile(ToWString(fileName), nullptr);
+
+  const FileEntryPtr file = m_DirectoryStructure->findFileRecursive(
+    fileName.toStdWString());
+
   if (file.get() != nullptr) {
     return ToQString(file->getFullPath());
   } else {
@@ -862,7 +864,8 @@ QStringList OrganizerCore::findFiles(
 QStringList OrganizerCore::getFileOrigins(const QString &fileName) const
 {
   QStringList result;
-  const FileEntryPtr file = m_DirectoryStructure->searchFile(ToWString(fileName), nullptr);
+  const FileEntryPtr file = m_DirectoryStructure->findFileRecursive(
+    fileName.toStdWString());
 
   if (file.get() != nullptr) {
     result.append(ToQString(
@@ -969,7 +972,8 @@ bool OrganizerCore::previewFileWithAlternatives(
 
 
 
-  const FileEntryPtr file = directoryStructure()->searchFile(ToWString(fileName), nullptr);
+  const FileEntryPtr file = directoryStructure()->findFileRecursive(
+    fileName.toStdWString());
 
   if (file.get() == nullptr) {
     reportError(tr("file not found: %1").arg(qUtf8Printable(fileName)));
@@ -1163,11 +1167,10 @@ void OrganizerCore::refreshBSAList()
 
 void OrganizerCore::refreshLists()
 {
-  if ((m_CurrentProfile != nullptr) && m_DirectoryStructure->isPopulated()) {
+  if ((m_CurrentProfile != nullptr)) {
     refreshESPList(true);
     refreshBSAList();
-  } // no point in refreshing lists if no files have been added to the directory
-    // tree
+  }
 }
 
 void OrganizerCore::updateModActiveState(int index, bool active)

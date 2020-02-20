@@ -5162,7 +5162,7 @@ void MainWindow::originModified(int originID)
 
   DirectoryStats dummy;
   m_OrganizerCore.directoryStructure()->addFromOrigin(
-    origin.getName(), origin.getPath(), origin.getPriority(), dummy);
+    {origin.getName(), origin.getPath(), origin.getPriority()}, dummy);
 
   DirectoryRefresher::cleanStructure(m_OrganizerCore.directoryStructure());
 }

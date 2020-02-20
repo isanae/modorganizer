@@ -31,7 +31,6 @@ namespace MOShared
 {
 
 using namespace MOBase;
-const int MAXPATH_UNICODE = 32767;
 
 template <class F>
 void elapsedImpl(std::chrono::nanoseconds& out, F&& f)
@@ -51,27 +50,40 @@ void elapsedImpl(std::chrono::nanoseconds& out, F&& f)
 #define elapsed(OUT, F) (F)();
 //#define elapsed(OUT, F) elapsedImpl(OUT, F);
 
-static bool SupportOptimizedFind()
-{
-  // large fetch and basic info for FindFirstFileEx is supported on win server 2008 r2, win 7 and newer
-
-  OSVERSIONINFOEX versionInfo;
-  versionInfo.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
-  versionInfo.dwMajorVersion = 6;
-  versionInfo.dwMinorVersion = 1;
-
-  ULONGLONG mask = ::VerSetConditionMask(
-    ::VerSetConditionMask(0, VER_MAJORVERSION, VER_GREATER_EQUAL),
-    VER_MINORVERSION, VER_GREATER_EQUAL);
-
-  return (::VerifyVersionInfo(&versionInfo, VER_MAJORVERSION | VER_MINORVERSION, mask) == TRUE);
-}
-
 static bool DirCompareByName(
   const std::unique_ptr<DirectoryEntry>& lhs,
   const std::unique_ptr<DirectoryEntry>& rhs)
 {
   return _wcsicmp(lhs->getName().c_str(), rhs->getName().c_str()) < 0;
+}
+
+// calls f(c, last) on each component, where `c` is the name and `last` is
+// true only for the last component; if f() returns false, stops the iteration
+//
+template <class F>
+void forEachPathComponent(std::wstring_view path, F&& f)
+{
+  if (path.empty()) {
+    return;
+  }
+
+  std::size_t start = 0;
+
+  for (;;) {
+    const std::size_t sep = path.find_first_of(L"\\/", start);
+
+    if (sep == std::string::npos) {
+      // last component
+      f(path, true);
+      break;
+    }
+
+    if (!f(path.substr(0, sep), false)) {
+      break;
+    }
+
+    start = sep + 1;
+  }
 }
 
 
@@ -80,44 +92,196 @@ DirectoryEntry::DirectoryEntry(
   std::shared_ptr<FileRegister> fileRegister,
   std::shared_ptr<OriginConnection> originConnection) :
     m_FileRegister(fileRegister), m_OriginConnection(originConnection),
-    m_Name(std::move(name)), m_Parent(parent), m_Populated(false), m_TopLevel(false)
+    m_Name(std::move(name)), m_Parent(parent)
 {
   m_Origins.insert(originID);
 }
 
 std::unique_ptr<DirectoryEntry> DirectoryEntry::createRoot()
 {
-  auto oc = std::make_shared<OriginConnection>();
+  auto oc = OriginConnection::create();
   auto fr = std::make_shared<FileRegister>(oc);
 
   return std::unique_ptr<DirectoryEntry>(
     new DirectoryEntry(L"data", nullptr, 0, fr, oc));
 }
 
-void DirectoryEntry::addFromOrigin(
-  const std::wstring &originName, const std::wstring &directory, int priority,
-  DirectoryStats& stats)
+std::vector<FileEntryPtr> DirectoryEntry::getFiles() const
 {
-  env::DirectoryWalker walker;
-  addFromOrigin(walker, originName, directory, priority, stats);
+  std::vector<FileEntryPtr> result;
+
+  for (const auto& [name, index] : m_Files) {
+    result.push_back(m_FileRegister->getFile(index));
+  }
+
+  return result;
+}
+
+bool DirectoryEntry::originExists(std::wstring_view name) const
+{
+  return m_OriginConnection->exists(name);
+}
+
+FilesOrigin& DirectoryEntry::getOriginByID(OriginID id) const
+{
+  return m_OriginConnection->getByID(id);
+}
+
+FilesOrigin& DirectoryEntry::getOriginByName(std::wstring_view name) const
+{
+  return m_OriginConnection->getByName(name);
+}
+
+const FilesOrigin* DirectoryEntry::findOriginByID(OriginID id) const
+{
+  return m_OriginConnection->findByID(id);
+}
+
+OriginID DirectoryEntry::anyOrigin() const
+{
+  // look for any file that's not from an archive
+  for (const auto& [name, index] : m_Files) {
+    if (auto file=m_FileRegister->getFile(index)) {
+      if (!file->isFromArchive()) {
+        return file->getOrigin();
+      }
+    }
+  }
+
+  // recurse into subdirectories
+  for (const auto& dir : m_SubDirectories) {
+    const OriginID o = dir->anyOrigin();
+    if (o != InvalidOriginID){
+      return o;
+    }
+  }
+
+  // use an origin from this directory
+  if (!m_Origins.empty()) {
+    return *(m_Origins.begin());
+  }
+
+  // this directory has no origins
+  return InvalidOriginID;
+}
+
+const DirectoryEntry* DirectoryEntry::findSubDirectory(
+  std::wstring_view name) const
+{
+  return findSubDirectory(FileKeyView(ToLowerCopy(name)));
+}
+
+const DirectoryEntry* DirectoryEntry::findSubDirectory(FileKeyView key) const
+{
+  auto itor = m_SubDirectoriesLookup.find(key);
+  if (itor == m_SubDirectoriesLookup.end()) {
+    return nullptr;
+  }
+
+  return itor->second;
+}
+
+const DirectoryEntry* DirectoryEntry::findSubDirectoryRecursive(
+  std::wstring_view path, bool alreadyLowerCase) const
+{
+  if (alreadyLowerCase) {
+    return findSubDirectoryRecursiveImpl(path);
+  } else {
+    return findSubDirectoryRecursiveImpl(ToLowerCopy(path));
+  }
+}
+
+const DirectoryEntry* DirectoryEntry::findSubDirectoryRecursiveImpl(
+  std::wstring_view path) const
+{
+  const DirectoryEntry* cwd = this;
+
+  forEachPathComponent(path, [&](std::wstring_view name, bool) {
+    cwd = cwd->findSubDirectory(FileKeyView(name));
+    return (cwd != nullptr);
+  });
+
+  return cwd;
+}
+
+FileEntryPtr DirectoryEntry::findFile(std::wstring_view name) const
+{
+  return findFile(FileKeyView(ToLowerCopy(name)));
+}
+
+FileEntryPtr DirectoryEntry::findFile(FileKeyView key) const
+{
+  auto itor = m_FilesLookup.find(key);
+  if (itor == m_FilesLookup.end()) {
+    return {};
+  }
+
+  return m_FileRegister->getFile(itor->second);
+}
+
+FileEntryPtr DirectoryEntry::findFileRecursive(
+  std::wstring_view path, bool alreadyLowerCase) const
+{
+  if (alreadyLowerCase) {
+    return findFileRecursiveImpl(path);
+  } else {
+    return findFileRecursiveImpl(ToLowerCopy(path));
+  }
+}
+
+FileEntryPtr DirectoryEntry::findFileRecursiveImpl(std::wstring_view path) const
+{
+  FileEntryPtr file;
+  const DirectoryEntry* cwd = this;
+
+  forEachPathComponent(path, [&](std::wstring_view name, bool last) {
+    if (last) {
+      // last component, this must be a file; an empty name means the path
+      // ended with a separator and so cannot represent a valid file
+      if (!name.empty()) {
+        file = cwd->findFile(FileKeyView(name));
+      }
+
+      return true;
+    } else {
+      // this component is a subdirectory
+      cwd = cwd->findSubDirectory(FileKeyView(name));
+      return (cwd != nullptr);
+    }
+  });
+
+  return file;
+}
+
+FilesOrigin& DirectoryEntry::getOrCreateOrigin(const OriginInfo& originInfo)
+{
+  return m_OriginConnection->getOrCreateOrigin(
+    originInfo.name, originInfo.path, originInfo.priority, m_FileRegister)
+      .first;
+}
+
+
+void DirectoryEntry::addFromOrigin(
+  const OriginInfo& originInfo,
+  env::DirectoryWalker& walker, DirectoryStats& stats)
+{
+  FilesOrigin &origin = getOrCreateOrigin(originInfo);
+
+  if (!originInfo.path.empty()) {
+    addFiles(walker, origin, originInfo.path, stats);
+  }
 }
 
 void DirectoryEntry::addFromOrigin(
-  env::DirectoryWalker& walker, const std::wstring &originName,
-  const std::wstring &directory, int priority, DirectoryStats& stats)
+  const OriginInfo& originInfo, DirectoryStats& stats)
 {
-  FilesOrigin &origin = createOrigin(originName, directory, priority, stats);
-
-  if (!directory.empty()) {
-    addFiles(walker, origin, directory, stats);
-  }
-
-  m_Populated = true;
+  env::DirectoryWalker walker;
+  addFromOrigin(originInfo, walker, stats);
 }
 
 void DirectoryEntry::addFromAllBSAs(
-  const std::wstring& originName, const std::wstring& directory,
-  int priority, const std::vector<std::wstring>& archives,
+  const OriginInfo& originInfo,
+  const std::vector<std::wstring>& archives,
   const std::set<std::wstring>& enabledArchives,
   const std::vector<std::wstring>& loadOrder,
   DirectoryStats& stats)
@@ -148,46 +312,44 @@ void DirectoryEntry::addFromAllBSAs(
       }
     }
 
-    addFromBSA(
-      originName, directory, archivePath.native(),
-      priority, order, stats);
+    addFromBSA(originInfo, archivePath, order, stats);
   }
 }
 
 void DirectoryEntry::addFromBSA(
-  const std::wstring& originName, const std::wstring& directory,
-  const std::wstring& archivePath, int priority, int order, DirectoryStats& stats)
+  const OriginInfo& originInfo, const fs::path& archive,
+  int order, DirectoryStats& stats)
 {
-  FilesOrigin& origin = createOrigin(originName, directory, priority, stats);
-  const auto archiveName = std::filesystem::path(archivePath).filename().native();
+  FilesOrigin& origin = getOrCreateOrigin(originInfo);
+
+  const auto archiveName = archive.filename().native();
 
   if (containsArchive(archiveName)) {
     return;
   }
 
-  BSA::Archive archive;
-  BSA::EErrorCode res = archive.read(ToString(archivePath, false).c_str(), false);
+  BSA::Archive bsa;
+  BSA::EErrorCode res = bsa.read(
+    ToString(archive.native(), false).c_str(), false);
 
   if ((res != BSA::ERROR_NONE) && (res != BSA::ERROR_INVALIDHASHES)) {
-    log::error("invalid bsa '{}', error {}", archivePath, res);
+    log::error("invalid bsa '{}', error {}", archive, res);
     return;
   }
 
   std::error_code ec;
-  const auto lwt = std::filesystem::last_write_time(archivePath, ec);
+  const auto lwt = std::filesystem::last_write_time(archive, ec);
   FILETIME ft = {};
 
   if (ec) {
     log::warn(
       "failed to get last modified date for '{}', {}",
-      archivePath, ec.message());
+      archive, ec.message());
   } else {
     ft = ToFILETIME(lwt);
   }
 
-  addFiles(origin, archive.getRoot(), ft, archiveName, order, stats);
-
-  m_Populated = true;
+  addFiles(origin, bsa.getRoot(), ft, archiveName, order, stats);
 }
 
 void DirectoryEntry::propagateOrigin(OriginID origin)
@@ -202,118 +364,6 @@ void DirectoryEntry::propagateOrigin(OriginID origin)
   }
 }
 
-bool DirectoryEntry::originExists(const std::wstring &name) const
-{
-  return m_OriginConnection->exists(name);
-}
-
-FilesOrigin &DirectoryEntry::getOriginByID(OriginID ID) const
-{
-  return m_OriginConnection->getByID(ID);
-}
-
-FilesOrigin &DirectoryEntry::getOriginByName(const std::wstring &name) const
-{
-  return m_OriginConnection->getByName(name);
-}
-
-const FilesOrigin* DirectoryEntry::findOriginByID(OriginID ID) const
-{
-  return m_OriginConnection->findByID(ID);
-}
-
-OriginID DirectoryEntry::anyOrigin() const
-{
-  bool ignore;
-
-  for (auto iter = m_Files.begin(); iter != m_Files.end(); ++iter) {
-    FileEntryPtr entry = m_FileRegister->getFile(iter->second);
-    if ((entry.get() != nullptr) && !entry->isFromArchive()) {
-      return entry->getOrigin(ignore);
-    }
-  }
-
-  // if we got here, no file directly within this directory is a valid indicator for a mod, thus
-  // we continue looking in subdirectories
-  for (auto&& entry : m_SubDirectories) {
-    OriginID res = entry->anyOrigin();
-    if (res != InvalidOriginID){
-      return res;
-    }
-  }
-
-  return *(m_Origins.begin());
-}
-
-std::vector<FileEntryPtr> DirectoryEntry::getFiles() const
-{
-  std::vector<FileEntryPtr> result;
-
-  for (auto iter = m_Files.begin(); iter != m_Files.end(); ++iter) {
-    result.push_back(m_FileRegister->getFile(iter->second));
-  }
-
-  return result;
-}
-
-DirectoryEntry* DirectoryEntry::findSubDirectory(
-  const std::wstring &name, bool alreadyLowerCase) const
-{
-  SubDirectoriesLookup::const_iterator itor;
-
-  if (alreadyLowerCase) {
-    itor = m_SubDirectoriesLookup.find(name);
-  } else {
-    itor = m_SubDirectoriesLookup.find(ToLowerCopy(name));
-  }
-
-  if (itor == m_SubDirectoriesLookup.end()) {
-    return nullptr;
-  }
-
-  return itor->second;
-}
-
-DirectoryEntry* DirectoryEntry::findSubDirectoryRecursive(const std::wstring &path)
-{
-  DirectoryStats dummy;
-  return getSubDirectoryRecursive(path, false, dummy, InvalidOriginID);
-}
-
-const FileEntryPtr DirectoryEntry::findFile(
-  const std::wstring &name, bool alreadyLowerCase) const
-{
-  FilesLookup::const_iterator iter;
-
-  if (alreadyLowerCase) {
-    iter = m_FilesLookup.find(DirectoryEntryFileKey(name));
-  } else {
-    iter = m_FilesLookup.find(DirectoryEntryFileKey(ToLowerCopy(name)));
-  }
-
-  if (iter != m_FilesLookup.end()) {
-    return m_FileRegister->getFile(iter->second);
-  } else {
-    return FileEntryPtr();
-  }
-}
-
-const FileEntryPtr DirectoryEntry::findFile(const DirectoryEntryFileKey& key) const
-{
-  auto iter = m_FilesLookup.find(key);
-
-  if (iter != m_FilesLookup.end()) {
-    return m_FileRegister->getFile(iter->second);
-  } else {
-    return FileEntryPtr();
-  }
-}
-
-bool DirectoryEntry::hasFile(const std::wstring& name) const
-{
-  return m_Files.contains(ToLowerCopy(name));
-}
-
 bool DirectoryEntry::containsArchive(std::wstring archiveName)
 {
   for (auto iter = m_Files.begin(); iter != m_Files.end(); ++iter) {
@@ -324,54 +374,6 @@ bool DirectoryEntry::containsArchive(std::wstring archiveName)
   }
 
   return false;
-}
-
-const FileEntryPtr DirectoryEntry::searchFile(
-  const std::wstring &path, const DirectoryEntry** directory) const
-{
-  if (directory != nullptr) {
-    *directory = nullptr;
-  }
-
-  if ((path.length() == 0) || (path == L"*")) {
-    // no file name -> the path ended on a (back-)slash
-    if (directory != nullptr) {
-      *directory = this;
-    }
-
-    return FileEntryPtr();
-  }
-
-  const size_t len =  path.find_first_of(L"\\/");
-
-  if (len == std::string::npos) {
-    // no more path components
-    auto iter = m_Files.find(ToLowerCopy(path));
-
-    if (iter != m_Files.end()) {
-      return m_FileRegister->getFile(iter->second);
-    } else if (directory != nullptr) {
-      DirectoryEntry* temp = findSubDirectory(path);
-      if (temp != nullptr) {
-        *directory = temp;
-      }
-    }
-  } else {
-    // file is in a subdirectory, recurse into the matching subdirectory
-    std::wstring pathComponent = path.substr(0, len);
-    DirectoryEntry* temp = findSubDirectory(pathComponent);
-
-    if (temp != nullptr) {
-      if (len >= path.size()) {
-        log::error(QObject::tr("unexpected end of path").toStdString());
-        return FileEntryPtr();
-      }
-
-      return temp->searchFile(path.substr(len + 1), directory);
-    }
-  }
-
-  return FileEntryPtr();
 }
 
 void DirectoryEntry::removeFile(FileIndex index)
@@ -391,7 +393,7 @@ bool DirectoryEntry::removeFile(const std::wstring &filePath, OriginID* origin)
   std::wstring rest = filePath.substr(pos + 1);
 
   DirectoryStats dummy;
-  DirectoryEntry* entry = getSubDirectoryRecursive(dirName, false, dummy);
+  DirectoryEntry* entry = findSubDirectoryRecursive(dirName);
 
   if (entry != nullptr) {
     return entry->removeFile(rest, origin);
@@ -419,7 +421,7 @@ void DirectoryEntry::removeDir(const std::wstring &path)
     std::wstring rest = path.substr(pos + 1);
 
     DirectoryStats dummy;
-    DirectoryEntry* entry = getSubDirectoryRecursive(dirName, false, dummy);
+    DirectoryEntry* entry = findSubDirectoryRecursive(dirName);
 
     if (entry != nullptr) {
       entry->removeDir(rest);
@@ -449,28 +451,6 @@ bool DirectoryEntry::remove(const std::wstring &fileName, OriginID* origin)
   return b;
 }
 
-bool DirectoryEntry::hasContentsFromOrigin(OriginID originID) const
-{
-  return m_Origins.find(originID) != m_Origins.end();
-}
-
-FilesOrigin &DirectoryEntry::createOrigin(
-  const std::wstring &originName, const std::wstring &directory, int priority,
-  DirectoryStats& stats)
-{
-  auto r = m_OriginConnection->getOrCreate(
-    originName, directory, priority,
-    m_FileRegister, m_OriginConnection, stats);
-
-  if (r.second) {
-    ++stats.originCreate;
-  } else {
-    ++stats.originExists;
-  }
-
-  return r.first;
-}
-
 void DirectoryEntry::removeFiles(const std::set<FileIndex> &indices)
 {
   removeFilesFromList(indices);
@@ -483,7 +463,8 @@ FileEntryPtr DirectoryEntry::insert(
   std::wstring fileNameLower = ToLowerCopy(fileName);
   FileEntryPtr fe;
 
-  DirectoryEntryFileKey key(std::move(fileNameLower));
+  FileKey key(std::move(fileNameLower));
+  // fileNameLower has moved from this point
 
   {
     std::unique_lock lock(m_FilesMutex);
@@ -496,18 +477,14 @@ FileEntryPtr DirectoryEntry::insert(
 
     if (itor != m_FilesLookup.end()) {
       lock.unlock();
-      ++stats.fileExists;
       fe = m_FileRegister->getFile(itor->second);
     } else {
-      ++stats.fileCreate;
       fe = m_FileRegister->createFile(
         std::wstring(fileName.begin(), fileName.end()), this, stats);
 
       elapsed(stats.addFileTimes, [&] {
         addFileToList(std::move(key.value), fe->getIndex());
       });
-
-      // fileNameLower has moved from this point
     }
   }
 
@@ -566,8 +543,8 @@ void DirectoryEntry::addFiles(
 void DirectoryEntry::onDirectoryStart(Context* cx, std::wstring_view path)
 {
   elapsed(cx->stats.dirTimes, [&] {
-    auto* sd = cx->current.top()->getSubDirectory(
-      path, true, cx->stats, cx->origin.getID());
+    auto* sd = cx->current.top()->createSubDirectory(
+      path, cx->origin.getID(), cx->stats);
 
     cx->current.push(sd);
   });
@@ -625,15 +602,15 @@ void DirectoryEntry::addFiles(
   for (unsigned int i=0; i<dirCount; ++i) {
     const BSA::Folder::Ptr folder = archiveFolder->getSubFolder(i);
 
-    DirectoryEntry* folderEntry = getSubDirectoryRecursive(
-      ToWString(folder->getName(), true), true, stats, origin.getID());
+    DirectoryEntry* folderEntry = createSubDirectories(
+      ToWString(folder->getName(), true), origin.getID(), stats);
 
     folderEntry->addFiles(origin, folder, fileTime, archiveName, order, stats);
   }
 }
 
-DirectoryEntry* DirectoryEntry::getSubDirectory(
-  std::wstring_view name, bool create, DirectoryStats& stats, OriginID originID)
+DirectoryEntry* DirectoryEntry::createSubDirectory(
+  std::wstring_view name, OriginID originID, DirectoryStats& stats)
 {
   std::wstring nameLc = ToLowerCopy(name);
 
@@ -641,57 +618,39 @@ DirectoryEntry* DirectoryEntry::getSubDirectory(
 
   SubDirectoriesLookup::iterator itor;
   elapsed(stats.subdirLookupTimes, [&] {
-    itor = m_SubDirectoriesLookup.find(nameLc);
+    itor = m_SubDirectoriesLookup.find(FileKeyView(nameLc));
   });
 
   if (itor != m_SubDirectoriesLookup.end()) {
-    ++stats.subdirExists;
+    // already exists
     return itor->second;
   }
 
-  if (create) {
-    ++stats.subdirCreate;
+  std::unique_ptr<DirectoryEntry> entry(new DirectoryEntry(
+    std::wstring(name.begin(), name.end()), this, originID,
+    m_FileRegister, m_OriginConnection));
 
-    std::unique_ptr<DirectoryEntry> entry(new DirectoryEntry(
-      std::wstring(name.begin(), name.end()), this, originID,
-      m_FileRegister, m_OriginConnection));
+  auto* p = entry.get();
 
-    auto* p = entry.get();
+  elapsed(stats.addDirectoryTimes, [&] {
+    addDirectoryToList(std::move(entry), std::move(nameLc));
+    // nameLc is moved from this point
+  });
 
-    elapsed(stats.addDirectoryTimes, [&] {
-      addDirectoryToList(std::move(entry), std::move(nameLc));
-      // nameLc is moved from this point
-    });
-
-    return p;
-  } else {
-    return nullptr;
-  }
+  return p;
 }
 
-DirectoryEntry* DirectoryEntry::getSubDirectoryRecursive(
-  const std::wstring& path, bool create, DirectoryStats& stats, OriginID originID)
+DirectoryEntry* DirectoryEntry::createSubDirectories(
+  std::wstring_view path, OriginID originID, DirectoryStats& stats)
 {
-  if (path.length() == 0) {
-    // path ended with a backslash?
-    return this;
-  }
+  DirectoryEntry* cwd = this;
 
-  const size_t pos = path.find_first_of(L"\\/");
+  forEachPathComponent(path, [&](std::wstring_view name, bool) {
+    cwd = cwd->createSubDirectory(name, originID, stats);
+    return true;
+  });
 
-  if (pos == std::wstring::npos) {
-    return getSubDirectory(path, create, stats);
-  } else {
-    DirectoryEntry* nextChild = getSubDirectory(
-      path.substr(0, pos), create, stats, originID);
-
-    if (nextChild == nullptr) {
-      return nullptr;
-    } else {
-      return nextChild->getSubDirectoryRecursive(
-        path.substr(pos + 1), create, stats, originID);
-    }
-  }
+  return cwd;
 }
 
 void DirectoryEntry::removeDirRecursive()

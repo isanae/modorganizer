@@ -113,9 +113,11 @@ void DirectoryRefresher::addModBSAToStructure(
   DirectoryStats dummy;
 
   root->addFromAllBSAs(
-    modName.toStdWString(),
-    QDir::toNativeSeparators(directory).toStdWString(),
-    priority,
+    {
+      modName.toStdWString(),
+      QDir::toNativeSeparators(directory).toStdWString(),
+      priority
+    },
     archivesW,
     enabledArchives,
     lo,
@@ -130,9 +132,8 @@ void DirectoryRefresher::stealModFilesIntoStructure(
 
   // instead of adding all the files of the target directory, we just change the root of the specified
   // files to this mod
-  DirectoryStats dummy;
-  FilesOrigin &origin = directoryStructure->createOrigin(
-    ToWString(modName), directoryW, priority, dummy);
+  FilesOrigin& origin = directoryStructure->getOrCreateOrigin(
+    {modName.toStdWString(), directoryW, priority});
 
   for (const QString &filename : stealFiles) {
     if (filename.isEmpty()) {
@@ -171,7 +172,7 @@ void DirectoryRefresher::addModFilesToStructure(
       directoryStructure, modName, priority, directory, stealFiles);
   } else {
     directoryStructure->addFromOrigin(
-      ToWString(modName), directoryW, priority, dummy);
+      {modName.toStdWString(), directoryW, priority}, dummy);
   }
 }
 
@@ -192,7 +193,7 @@ void DirectoryRefresher::addModToStructure(DirectoryEntry *directoryStructure
   } else {
     std::wstring directoryW = ToWString(QDir::toNativeSeparators(directory));
     directoryStructure->addFromOrigin(
-      ToWString(modName), directoryW, priority, dummy);
+      {modName.toStdWString(), directoryW, priority}, dummy);
   }
 
   if (Settings::instance().archiveParsing()) {
@@ -234,7 +235,7 @@ struct ModThread
     cv.wait(lock, [&]{ return ready; });
 
     SetThisThreadName(QString::fromStdWString(modName + L" refresher"));
-    ds->addFromOrigin(walker, modName, path, prio, *stats);
+    ds->addFromOrigin({modName, path, prio}, walker, *stats);
 
     if (Settings::instance().archiveParsing()) {
       const IPluginGame *game = qApp->property("managed_game").value<IPluginGame*>();
@@ -249,7 +250,7 @@ struct ModThread
       }
 
       ds->addFromAllBSAs(
-        modName, path, prio, archives, enabledArchives, lo, *stats);
+        {modName, path, prio}, archives, enabledArchives, lo, *stats);
     }
 
     if (progress) {
@@ -353,7 +354,7 @@ void DirectoryRefresher::refresh()
 
     {
       DirectoryStats dummy;
-      m_Root->addFromOrigin(L"data", dataDirectory, 0, dummy);
+      m_Root->addFromOrigin({L"data", dataDirectory, 0}, dummy);
     }
 
     std::sort(m_Mods.begin(), m_Mods.end(), [](auto lhs, auto rhs) {
@@ -397,18 +398,6 @@ DirectoryStats& DirectoryStats::operator+=(const DirectoryStats& o)
   addFileToOriginTimes += o.addFileToOriginTimes;
   addFileToRegisterTimes += o.addFileToRegisterTimes;
 
-  originExists += o.originExists;
-  originCreate += o.originCreate;
-  originsNeededEnabled += o.originsNeededEnabled;
-
-  subdirExists += o.subdirExists;
-  subdirCreate += o.subdirCreate;
-
-  fileExists += o.fileExists;
-  fileCreate += o.fileCreate;
-  filesInsertedInRegister += o.filesInsertedInRegister;
-  filesAssignedInRegister += o.filesAssignedInRegister;
-
   return *this;
 }
 
@@ -424,16 +413,8 @@ std::string DirectoryStats::csvHeader()
     "addFileTimes",
     "addOriginToFileTimes",
     "addFileToOriginTimes",
-    "addFileToRegisterTimes",
-    "originExists",
-    "originCreate",
-    "originsNeededEnabled",
-    "subdirExists",
-    "subdirCreate",
-    "fileExists",
-    "fileCreate",
-    "filesInsertedInRegister",
-    "filesAssignedInRegister"};
+    "addFileToRegisterTimes"
+  };
 
   return sl.join(",").toStdString();
 }
@@ -458,19 +439,7 @@ std::string DirectoryStats::toCsv() const
     << QString::number(s(addFileTimes))
     << QString::number(s(addOriginToFileTimes))
     << QString::number(s(addFileToOriginTimes))
-    << QString::number(s(addFileToRegisterTimes))
-
-    << QString::number(originExists)
-    << QString::number(originCreate)
-    << QString::number(originsNeededEnabled)
-
-    << QString::number(subdirExists)
-    << QString::number(subdirCreate)
-
-    << QString::number(fileExists)
-    << QString::number(fileCreate)
-    << QString::number(filesInsertedInRegister)
-    << QString::number(filesAssignedInRegister);
+    << QString::number(s(addFileToRegisterTimes));
 
   return oss.join(",").toStdString();
 }

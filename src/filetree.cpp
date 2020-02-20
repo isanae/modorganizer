@@ -494,8 +494,8 @@ void FileTree::onContextMenu(const QPoint &pos)
     if (item->isDirectory()) {
       addDirectoryMenus(menu, *item);
     } else {
-      const auto file = m_core.directoryStructure()->searchFile(
-        item->dataRelativeFilePath().toStdWString(), nullptr);
+      const auto file = m_core.directoryStructure()->findFileRecursive(
+        item->dataRelativeFilePath().toStdWString());
 
       if (file) {
         addFileMenus(menu, *file, item->originID());
@@ -573,8 +573,8 @@ bool FileTree::showShellMenu(QPoint pos)
     ++totalFiles;
 
     if (item->isConflicted()) {
-      const auto file = m_core.directoryStructure()->searchFile(
-        item->dataRelativeFilePath().toStdWString(), nullptr);
+      const auto file = m_core.directoryStructure()->findFileRecursive(
+        item->dataRelativeFilePath().toStdWString());
 
       if (!file) {
         log::error(

@@ -14,8 +14,7 @@ public:
   FilesOrigin();
 
   FilesOrigin(
-    OriginID ID, const std::wstring &name, const std::wstring &path,
-    int priority,
+    OriginID ID, std::wstring_view name, const fs::path& path, int priority,
     std::shared_ptr<FileRegister> fileRegister,
     std::shared_ptr<OriginConnection> originConnection);
 

@@ -529,7 +529,8 @@ void FileTreeModel::removeDisappearingDirectories(
       break;
     }
 
-    auto d = parentEntry.findSubDirectory(item->filenameWsLowerCase(), true);
+    auto d = parentEntry.findSubDirectory(
+      FileKeyView(item->filenameWsLowerCase()));
 
     if (d) {
       trace(log::debug("dir {} still there", item->filename()));
@@ -730,7 +731,7 @@ bool FileTreeModel::addNewFiles(
       range.add(std::move(toAdd));
       toAdd.clear();
     } else {
-      const auto file = parentEntry.getFileByIndex(fileIndex);
+      const auto file = parentEntry.getFileRegister()->getFile(fileIndex);
 
       if (!file) {
         log::error(
@@ -1018,8 +1019,8 @@ QString FileTreeModel::makeTooltip(const FileTreeItem& item) const
     line(tr("From"),         item.mod());
 
 
-  const auto file = m_core.directoryStructure()->searchFile(
-    item.dataRelativeFilePath().toStdWString(), nullptr);
+  const auto file = m_core.directoryStructure()->findFileRecursive(
+    item.dataRelativeFilePath().toStdWString());
 
   if (file) {
     const auto alternatives = file->getAlternatives();

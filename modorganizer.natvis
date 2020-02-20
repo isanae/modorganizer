@@ -9,4 +9,8 @@ file={m_wsFile}
  expanded={m_expanded}
 }}</DisplayString></Type>
 
+<Type Name="MOShared::DirectoryEntry"><DisplayString>{{
+name={m_Name}
+}}</DisplayString></Type>
+
 </AutoVisualizer>

@@ -7,6 +7,7 @@
 #include <ctime>
 #include <deque>
 #include <exception>
+#include <filesystem>
 #include <functional>
 #include <fstream>
 #include <iomanip>
@@ -265,3 +266,5 @@
 #include <QtPlugin>
 #include <QtTest/QtTest>
 #include <QStandardPaths>
+
+namespace fs = std::filesystem;

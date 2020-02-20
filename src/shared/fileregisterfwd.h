@@ -6,14 +6,45 @@ class DirectoryRefreshProgress;
 namespace MOShared
 {
 
-struct DirectoryEntryFileKey
+struct WStringKey;
+
+struct WStringViewKey
 {
-  DirectoryEntryFileKey(std::wstring v)
+  explicit WStringViewKey(std::wstring_view v)
+    : value(v), hash(getHash(value))
+  {
+  }
+
+  inline WStringViewKey(const WStringKey& k);
+
+  bool operator==(const WStringViewKey& o) const
+  {
+    return (value == o.value);
+  }
+
+  static std::size_t getHash(std::wstring_view value)
+  {
+    return std::hash<std::wstring_view>()(value);
+  }
+
+  std::wstring_view value;
+  const std::size_t hash;
+};
+
+
+struct WStringKey
+{
+  explicit WStringKey(std::wstring v)
     : value(std::move(v)), hash(getHash(value))
   {
   }
 
-  bool operator==(const DirectoryEntryFileKey& o) const
+  bool operator==(const WStringViewKey& o) const
+  {
+    return (value == o.value);
+  }
+
+  bool operator==(const WStringKey& o) const
   {
     return (value == o.value);
   }
@@ -28,6 +59,12 @@ struct DirectoryEntryFileKey
 };
 
 
+WStringViewKey::WStringViewKey(const WStringKey& k)
+  : value(k.value), hash(k.hash)
+{
+}
+
+
 class DirectoryEntry;
 class OriginConnection;
 class FileRegister;
@@ -37,6 +74,9 @@ struct DirectoryStats;
 
 using FileEntryPtr = std::shared_ptr<FileEntry>;
 using FileIndex = unsigned int;
+using FileKey = WStringKey;
+using FileKeyView = WStringViewKey;
+
 using OriginID = int;
 
 constexpr FileIndex InvalidFileIndex = UINT_MAX;
@@ -71,18 +111,6 @@ struct DirectoryStats
   std::chrono::nanoseconds addFileToOriginTimes;
   std::chrono::nanoseconds addFileToRegisterTimes;
 
-  int64_t originExists;
-  int64_t originCreate;
-  int64_t originsNeededEnabled;
-
-  int64_t subdirExists;
-  int64_t subdirCreate;
-
-  int64_t fileExists;
-  int64_t fileCreate;
-  int64_t filesInsertedInRegister;
-  int64_t filesAssignedInRegister;
-
   DirectoryStats();
 
   DirectoryStats& operator+=(const DirectoryStats& o);
@@ -98,10 +126,29 @@ namespace std
 {
 
 template <>
-struct hash<MOShared::DirectoryEntryFileKey>
+struct hash<MOShared::WStringKey>
 {
-  using argument_type = MOShared::DirectoryEntryFileKey;
+  using argument_type = MOShared::WStringKey;
   using result_type = std::size_t;
+  using is_transparent = void;
+
+  inline result_type operator()(const MOShared::WStringKey& key) const
+  {
+    return key.hash;
+  }
+
+  inline result_type operator()(const MOShared::WStringViewKey& key) const
+  {
+    return key.hash;
+  }
+};
+
+template <>
+struct hash<MOShared::WStringViewKey>
+{
+  using argument_type = MOShared::WStringViewKey;
+  using result_type = std::size_t;
+  using is_transparent = void;
 
   inline result_type operator()(const argument_type& key) const
   {

@@ -6,31 +6,27 @@
 namespace MOShared
 {
 
-class OriginConnection
+class OriginConnection : public std::enable_shared_from_this<OriginConnection>
 {
 public:
-  OriginConnection();
+  static std::shared_ptr<OriginConnection> create();
 
   // non-copyable
   OriginConnection(const OriginConnection&) = delete;
   OriginConnection& operator=(const OriginConnection&) = delete;
 
-  std::pair<FilesOrigin&, bool> getOrCreate(
-    const std::wstring &originName, const std::wstring &directory, int priority,
-    const std::shared_ptr<FileRegister>& fileRegister,
-    const std::shared_ptr<OriginConnection>& originConnection,
-    DirectoryStats& stats);
+  std::pair<FilesOrigin&, bool> getOrCreateOrigin(
+    std::wstring_view name, const fs::path& path, int priority,
+    const std::shared_ptr<FileRegister>& fileRegister);
 
   FilesOrigin& createOrigin(
-    const std::wstring &originName, const std::wstring &directory, int priority,
-    std::shared_ptr<FileRegister> fileRegister,
-    std::shared_ptr<OriginConnection> originConnection);
+    std::wstring_view name, const fs::path& directory, int priority,
+    std::shared_ptr<FileRegister> fileRegister);
 
-  bool exists(const std::wstring &name);
-
-  FilesOrigin &getByID(OriginID ID);
-  const FilesOrigin* findByID(OriginID ID) const;
-  FilesOrigin &getByName(const std::wstring &name);
+  bool exists(std::wstring_view name);
+  FilesOrigin& getByID(OriginID id);
+  FilesOrigin& getByName(std::wstring_view name);
+  const FilesOrigin* findByID(OriginID id) const;
 
   void changePriorityLookup(int oldPriority, int newPriority);
 
@@ -39,16 +35,17 @@ public:
 private:
   std::atomic<OriginID> m_NextID;
   std::map<OriginID, FilesOrigin> m_Origins;
-  std::map<std::wstring, OriginID> m_OriginsNameMap;
+  std::map<std::wstring, OriginID, std::less<>> m_OriginsNameMap;
   std::map<int, OriginID> m_OriginsPriorityMap;
   mutable std::mutex m_Mutex;
+
+  OriginConnection();
 
   OriginID createID();
 
   FilesOrigin& createOriginNoLock(
-    const std::wstring &originName, const std::wstring &directory, int priority,
-    std::shared_ptr<FileRegister> fileRegister,
-    std::shared_ptr<OriginConnection> originConnection);
+    std::wstring_view name, const fs::path& directory, int priority,
+    std::shared_ptr<FileRegister> fileRegister);
 };
 
 } // namespace
