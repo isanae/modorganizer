@@ -279,43 +279,6 @@ void DirectoryEntry::addFromOrigin(
   addFromOrigin(originInfo, walker, stats);
 }
 
-void DirectoryEntry::addFromAllBSAs(
-  const OriginInfo& originInfo,
-  const std::vector<std::wstring>& archives,
-  const std::set<std::wstring>& enabledArchives,
-  const std::vector<std::wstring>& loadOrder,
-  DirectoryStats& stats)
-{
-  for (const auto& archive : archives) {
-    const std::filesystem::path archivePath(archive);
-    const auto filename = archivePath.filename().native();
-
-    if (!enabledArchives.contains(filename)) {
-      continue;
-    }
-
-    const auto filenameLc = ToLowerCopy(filename);
-
-    int order = -1;
-
-    for (auto plugin : loadOrder)
-    {
-      const auto pluginNameLc =
-        ToLowerCopy(std::filesystem::path(plugin).stem().native());
-
-      if (filenameLc.starts_with(pluginNameLc + L" - ") ||
-          filenameLc.starts_with(pluginNameLc + L".")) {
-        auto itor = std::find(loadOrder.begin(), loadOrder.end(), plugin);
-        if (itor != loadOrder.end()) {
-          order = std::distance(loadOrder.begin(), itor);
-        }
-      }
-    }
-
-    addFromBSA(originInfo, archivePath, order, stats);
-  }
-}
-
 void DirectoryEntry::addFromBSA(
   const OriginInfo& originInfo, const fs::path& archive,
   int order, DirectoryStats& stats)

@@ -185,8 +185,10 @@ public:
 
 
   // looks for a directory that's an immediate child of this one and has the
-  // given name, may return null; `name` will be lowercased before it's looked
-  // up whereas key can be used as-is
+  // given name, may return null
+  //
+  // `name` will be lowercased before it's looked up; `key` must be constructed
+  // from a string that's already lowercase and so can be used as-is
   //
   const DirectoryEntry* findSubDirectory(std::wstring_view name) const;
   const DirectoryEntry* findSubDirectory(FileKeyView key) const;
@@ -227,8 +229,10 @@ public:
 
 
   // looks for a file that's an immediate child of this directory and has the
-  // given name, may return an empty FileEntryPtr; `name` will be lowercased
-  // before it's looked up whereas `key` can be used as-is
+  // given name, may return an empty FileEntryPtr
+  //
+  // `name` will be lowercased before it's looked up; `key` must be constructed
+  // from a string that's already lowercase and so can be used as-is
   //
   FileEntryPtr findFile(std::wstring_view name) const;
   FileEntryPtr findFile(FileKeyView key) const;
@@ -262,13 +266,6 @@ public:
   // convenience; forwards to the above with a new DirectoryWalker
   //
   void addFromOrigin(const OriginInfo& origin, DirectoryStats& stats);
-
-  void addFromAllBSAs(
-    const OriginInfo& originInfo,
-    const std::vector<std::wstring>& archives,
-    const std::set<std::wstring>& enabledArchives,
-    const std::vector<std::wstring>& loadOrder,
-    DirectoryStats& stats);
 
   void addFromBSA(
     const OriginInfo& originInfo, const fs::path& archive, int order,

@@ -95,33 +95,42 @@ void DirectoryRefresher::addModBSAToStructure(
   QStringList loadOrder = QStringList();
   gamePlugins->getLoadOrder(loadOrder);
 
-  std::vector<std::wstring> lo;
-  for (auto&& s : loadOrder) {
-    lo.push_back(s.toStdWString());
-  }
-
-  std::vector<std::wstring> archivesW;
-  for (auto&& a : archives) {
-    archivesW.push_back(a.toStdWString());
-  }
-
-  std::set<std::wstring> enabledArchives;
-  for (auto&& a : m_EnabledArchives) {
-    enabledArchives.insert(a.toStdWString());
-  }
-
   DirectoryStats dummy;
 
-  root->addFromAllBSAs(
+  for (const auto& archive : archives) {
+    const std::filesystem::path archivePath(archive.toStdWString());
+    const auto filename = QString::fromStdWString(archivePath.filename().native());
+
+    if (!m_EnabledArchives.contains(filename)) {
+      continue;
+    }
+
+    const auto filenameLc = filename.toLower();
+
+    int order = -1;
+
+    for (auto plugin : loadOrder)
     {
-      modName.toStdWString(),
-      QDir::toNativeSeparators(directory).toStdWString(),
-      priority
-    },
-    archivesW,
-    enabledArchives,
-    lo,
-    dummy);
+      const auto pluginNameLc =
+        ToLowerCopy(std::filesystem::path(plugin.toStdWString()).stem().native());
+
+      if (filenameLc.startsWith(pluginNameLc + L" - ") ||
+        filenameLc.startsWith(pluginNameLc + L".")) {
+        auto itor = std::find(loadOrder.begin(), loadOrder.end(), plugin);
+        if (itor != loadOrder.end()) {
+          order = std::distance(loadOrder.begin(), itor);
+        }
+      }
+    }
+
+    root->addFromBSA(
+      {
+        modName.toStdWString(),
+        QDir::toNativeSeparators(directory).toStdWString(),
+        priority
+      },
+      archivePath, order, dummy);
+  }
 }
 
 void DirectoryRefresher::stealModFilesIntoStructure(
@@ -205,13 +214,13 @@ void DirectoryRefresher::addModToStructure(DirectoryEntry *directoryStructure
 
 struct ModThread
 {
+  DirectoryRefresher* dr = nullptr;
   DirectoryRefreshProgress* progress = nullptr;
   DirectoryEntry* ds = nullptr;
   std::wstring modName;
   std::wstring path;
+  QStringList archives;
   int prio = -1;
-  std::vector<std::wstring> archives;
-  std::set<std::wstring> enabledArchives;
   DirectoryStats* stats =  nullptr;
   env::DirectoryWalker walker;
 
@@ -238,19 +247,10 @@ struct ModThread
     ds->addFromOrigin({modName, path, prio}, walker, *stats);
 
     if (Settings::instance().archiveParsing()) {
-      const IPluginGame *game = qApp->property("managed_game").value<IPluginGame*>();
-
-      GamePlugins *gamePlugins = game->feature<GamePlugins>();
-      QStringList loadOrder = QStringList();
-      gamePlugins->getLoadOrder(loadOrder);
-
-      std::vector<std::wstring> lo;
-      for (auto&& s : loadOrder) {
-        lo.push_back(s.toStdWString());
-      }
-
-      ds->addFromAllBSAs(
-        {modName, path, prio}, archives, enabledArchives, lo, *stats);
+      dr->addModBSAToStructure(
+        ds, QString::fromStdWString(modName), prio,
+        QString::fromStdWString(path),
+        archives);
     }
 
     if (progress) {
@@ -304,22 +304,13 @@ void DirectoryRefresher::addMultipleModsFilesToStructure(
       } else {
         auto& mt = g_threads.request();
 
+        mt.dr = this;
         mt.progress = progress;
         mt.ds = directoryStructure;
         mt.modName = e.modName.toStdWString();
         mt.path = QDir::toNativeSeparators(e.absolutePath).toStdWString();
         mt.prio = prio;
-
-        mt.archives.clear();
-        for (auto&& a : e.archives) {
-          mt.archives.push_back(a.toStdWString());
-        }
-
-        mt.enabledArchives.clear();
-        for (auto&& a : m_EnabledArchives) {
-          mt.enabledArchives.insert(a.toStdWString());
-        }
-
+        mt.archives = e.archives;
         mt.stats = &stats[i];
 
         mt.wakeup();
