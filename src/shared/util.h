@@ -62,6 +62,8 @@ inline FILETIME ToFILETIME(std::filesystem::file_time_type t)
   return ft;
 }
 
+int naturalCompare(const QString& a, const QString& b);
+
 } // namespace MOShared
 
 

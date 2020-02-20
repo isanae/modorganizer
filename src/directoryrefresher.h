@@ -21,13 +21,32 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #define MO_REGISTER_DIRECTORYREFRESHER_INCLUDED
 
 #include "fileregisterfwd.h"
-#include "profile.h"
 #include <QObject>
-#include <QMutex>
-#include <QStringList>
-#include <vector>
-#include <set>
-#include <tuple>
+#include <thread>
+
+
+class DirectoryRefreshProgress : QObject
+{
+  Q_OBJECT;
+
+public:
+  DirectoryRefreshProgress(DirectoryRefresher* r);
+
+  void start(std::size_t modCount);
+
+  bool finished() const;
+  int percentDone() const;
+
+  void finish();
+  void addDone();
+
+private:
+  DirectoryRefresher* m_refresher;
+  std::size_t m_modCount;
+  std::atomic<std::size_t> m_modDone;
+  std::atomic<bool> m_finished;
+};
+
 
 // used to asynchronously generate the virtual view of the combined data
 // directory
@@ -35,44 +54,35 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 class DirectoryRefresher : public QObject
 {
   Q_OBJECT;
+  friend class DirectoryRefreshProgress;
 
 public:
-  struct EntryInfo
+  struct ModEntry
   {
-    EntryInfo(const QString &modName, const QString &absolutePath,
-      const QStringList &stealFiles, const QStringList &archives, int priority)
-      : modName(modName), absolutePath(absolutePath), stealFiles(stealFiles)
-      , archives(archives), priority(priority)
-    {
-    }
-
     QString modName;
     QString absolutePath;
     QStringList stealFiles;
     QStringList archives;
     int priority;
+
+    ModEntry(
+      QString modName, QString absolutePath,
+      QStringList stealFiles, QStringList aarchives, int priority);
   };
 
   DirectoryRefresher(std::size_t threadCount);
+  ~DirectoryRefresher();
 
   // non-copyable
   DirectoryRefresher(const DirectoryRefresher&) = delete;
   DirectoryRefresher& operator=(const DirectoryRefresher&) = delete;
 
-  /**
-   * @brief retrieve the updated directory structure
-   *
-   * returns a pointer to the updated directory structure. DirectoryRefresher
-   * deletes its own pointer and the caller takes custody of the pointer
-   *
-   * @return updated directory structure
-   **/
-  MOShared::DirectoryEntry* stealDirectoryStructure();
+  // steals the internal DirectoryEntry pointer
+  //
+  std::unique_ptr<MOShared::DirectoryEntry> stealDirectoryStructure();
 
-  /**
-   * @brief sets up the mods to be included in the directory structure
-   * @param mods list of the mods to include
-   **/
+  // sets up the mods to be included in the directory structure
+  //
   void setMods(
     const std::vector<std::tuple<QString, QString, int> > &mods,
     const std::set<QString> &managedArchives);
@@ -98,14 +108,13 @@ public:
 
   void addMultipleModsFilesToStructure(
     MOShared::DirectoryEntry *directoryStructure,
-    const std::vector<EntryInfo>& entries,
+    const std::vector<ModEntry>& entries,
     DirectoryRefreshProgress* progress=nullptr);
 
-  void updateProgress(const DirectoryRefreshProgress* p);
+  void requestProgressUpdate();
 
-public slots:
   // generate a directory structure from the mods set earlier
-  void refresh();
+  void asyncRefresh();
 
 signals:
   void progress(const DirectoryRefreshProgress* p);
@@ -113,71 +122,22 @@ signals:
   void refreshed();
 
 private:
-  std::vector<EntryInfo> m_Mods;
+  std::vector<ModEntry> m_Mods;
   std::set<QString> m_EnabledArchives;
   std::unique_ptr<MOShared::DirectoryEntry> m_Root;
   QMutex m_RefreshLock;
   std::size_t m_threadCount;
   std::size_t m_lastFileCount;
+  std::thread m_thread;
+  DirectoryRefreshProgress m_progress;
+
+  void refreshThread();
+
+  void updateProgress(const DirectoryRefreshProgress* p);
 
   void stealModFilesIntoStructure(
     MOShared::DirectoryEntry *directoryStructure, const QString &modName,
     int priority, const QString &directory, const QStringList &stealFiles);
-};
-
-
-class DirectoryRefreshProgress : QObject
-{
-  Q_OBJECT;
-
-public:
-  DirectoryRefreshProgress(DirectoryRefresher* r) :
-    QObject(r), m_refresher(r), m_modCount(0), m_modDone(0), m_finished(false)
-  {
-  }
-
-  void start(std::size_t modCount)
-  {
-    m_modCount = modCount;
-    m_modDone = 0;
-    m_finished = false;
-  }
-
-
-  bool finished() const
-  {
-    return m_finished;
-  }
-
-  int percentDone() const
-  {
-    int percent = 100;
-
-    if (m_modCount > 0) {
-      const double d = static_cast<double>(m_modDone) / m_modCount;
-      percent = static_cast<int>(d * 100);
-    }
-
-    return percent;
-  }
-
-
-  void finish()
-  {
-    m_finished = true;
-  }
-
-  void addDone()
-  {
-    ++m_modDone;
-    m_refresher->updateProgress(this);
-  }
-
-private:
-  DirectoryRefresher* m_refresher;
-  std::size_t m_modCount;
-  std::atomic<std::size_t> m_modDone;
-  bool m_finished;
 };
 
 #endif // MO_REGISTER_DIRECTORYREFRESHER_INCLUDED

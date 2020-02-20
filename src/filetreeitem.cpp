@@ -2,7 +2,6 @@
 #include "filetreemodel.h"
 #include "modinfo.h"
 #include "util.h"
-#include "modinfodialogfwd.h"
 #include <log.h>
 #include <utility.h>
 

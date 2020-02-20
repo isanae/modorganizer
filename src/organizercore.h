@@ -142,6 +142,7 @@ public:
   void refreshBSAList();
 
   void refreshDirectoryStructure();
+  void requestRefresherUpdate();
   void updateModInDirectoryStructure(unsigned int index, ModInfo::Ptr modInfo);
   void updateModsInDirectoryStructure(QMap<unsigned int, ModInfo::Ptr> modInfos);
 
@@ -333,8 +334,6 @@ private:
 
   DownloadManager m_DownloadManager;
   InstallationManager m_InstallationManager;
-
-  QThread m_RefresherThread;
 
   std::thread m_StructureDeleter;
 

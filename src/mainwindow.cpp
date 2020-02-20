@@ -477,6 +477,8 @@ MainWindow::MainWindow(Settings &settings
   updatePluginCount();
   updateModCount();
   processUpdates();
+
+  m_OrganizerCore.requestRefresherUpdate();
 }
 
 void MainWindow::setupModList()

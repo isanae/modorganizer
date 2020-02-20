@@ -137,17 +137,10 @@ OrganizerCore::OrganizerCore(Settings &settings)
 
   connect(&m_PluginList, &PluginList::writePluginsList, &m_PluginListsWriter,
           &DelayedFileWriterBase::write);
-
-  // make directory refresher run in a separate thread
-  m_RefresherThread.start();
-  m_DirectoryRefresher->moveToThread(&m_RefresherThread);
 }
 
 OrganizerCore::~OrganizerCore()
 {
-  m_RefresherThread.exit();
-  m_RefresherThread.wait();
-
   if (m_StructureDeleter.joinable()) {
     m_StructureDeleter.join();
   }
@@ -1255,7 +1248,7 @@ void OrganizerCore::updateModInDirectoryStructure(unsigned int index,
 
 void OrganizerCore::updateModsInDirectoryStructure(QMap<unsigned int, ModInfo::Ptr> modInfo)
 {
-  std::vector<DirectoryRefresher::EntryInfo> entries;
+  std::vector<DirectoryRefresher::ModEntry> entries;
 
   for (auto idx : modInfo.keys()) {
     entries.push_back({
@@ -1392,6 +1385,11 @@ std::vector<QString> OrganizerCore::enabledArchives()
   return result;
 }
 
+void OrganizerCore::requestRefresherUpdate()
+{
+  m_DirectoryRefresher->requestProgressUpdate();
+}
+
 void OrganizerCore::refreshDirectoryStructure()
 {
   if (m_DirectoryUpdate) {
@@ -1409,8 +1407,7 @@ void OrganizerCore::refreshDirectoryStructure()
   m_DirectoryRefresher->setMods(
       activeModList, std::set<QString>(archives.begin(), archives.end()));
 
-  // runs refresh() in a thread
-  QTimer::singleShot(0, m_DirectoryRefresher.get(), SLOT(refresh()));
+  m_DirectoryRefresher->asyncRefresh();
 }
 
 void OrganizerCore::directory_refreshed()
@@ -1418,31 +1415,23 @@ void OrganizerCore::directory_refreshed()
   log::debug("directory refreshed, finishing up");
   TimeThis tt("OrganizerCore::directory_refreshed()");
 
-  DirectoryEntry* oldStructure = nullptr;
+  // stealing from refresher
+  std::unique_ptr<DirectoryEntry> s(
+    m_DirectoryRefresher->stealDirectoryStructure());
 
-  {
-    DirectoryEntry *newStructure = m_DirectoryRefresher->stealDirectoryStructure();
-    Q_ASSERT(newStructure != m_DirectoryStructure.get());
+  // swapping with current
+  std::swap(m_DirectoryStructure, s);
 
-    if (newStructure == nullptr) {
-      // TODO: don't know why this happens, this slot seems to get called twice
-      // with only one emit
-      return;
-    }
+  if (s) {
+    // deleting old structure in thread
 
-    oldStructure = m_DirectoryStructure.release();
-    m_DirectoryStructure.reset(newStructure);
-  }
-
-  if (oldStructure) {
     if (m_StructureDeleter.joinable()) {
       m_StructureDeleter.join();
     }
 
-    m_StructureDeleter = std::thread([=]{
-      log::debug("structure deleter thread start");
-      delete oldStructure;
-      log::debug("structure deleter thread done");
+    m_StructureDeleter = std::thread([p=s.release()]{
+      TimeThis tt("OrganizerCore structure deleter");
+      delete p;
     });
   }
 

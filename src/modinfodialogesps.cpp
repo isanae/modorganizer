@@ -2,10 +2,12 @@
 #include "ui_modinfodialog.h"
 #include "modinfodialog.h"
 #include "settings.h"
+#include "util.h"
 #include <report.h>
 #include <log.h>
 
 using namespace MOBase;
+using namespace MOShared;
 
 class ESPItem
 {

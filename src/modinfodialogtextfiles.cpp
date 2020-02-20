@@ -2,6 +2,7 @@
 #include "ui_modinfodialog.h"
 #include "modinfodialog.h"
 #include "settings.h"
+#include "util.h"
 #include <QMessageBox>
 
 class FileListModel : public QAbstractItemModel
@@ -61,7 +62,7 @@ public:
   void finished()
   {
     std::sort(m_files.begin(), m_files.end(), [](const auto& a, const auto& b) {
-      return (naturalCompare(a.text, b.text) < 0);
+      return (MOShared::naturalCompare(a.text, b.text) < 0);
     });
 
     endResetModel();

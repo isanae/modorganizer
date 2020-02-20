@@ -349,10 +349,6 @@ private:
     std::shared_ptr<OriginConnection> originConnection);
 
 
-  // returns whether any file in this directory comes from the given archive
-  //
-  bool containsArchive(std::wstring_view archiveName);
-
   // helpers for findSubDirectoryRecursive() and findFileRecursive()
   //
   const DirectoryEntry* findSubDirectoryRecursiveImpl(std::wstring_view path) const;

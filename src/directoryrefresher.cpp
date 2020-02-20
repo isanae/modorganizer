@@ -23,22 +23,13 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "shared/directoryentry.h"
 
 #include "iplugingame.h"
-#include "utility.h"
-#include "report.h"
 #include "modinfo.h"
 #include "settings.h"
 #include "envfs.h"
-#include "modinfodialogfwd.h"
 #include "util.h"
 
+#include <utility.h>
 #include <gameplugins.h>
-
-#include <QApplication>
-#include <QDir>
-#include <QString>
-#include <QTextCodec>
-
-#include <fstream>
 
 using namespace MOBase;
 using namespace MOShared;
@@ -46,15 +37,76 @@ using namespace MOShared;
 void dumpStats(std::vector<DirectoryStats>& stats);
 
 
-DirectoryRefresher::DirectoryRefresher(std::size_t threadCount)
-  : m_threadCount(threadCount), m_lastFileCount(0)
+DirectoryRefreshProgress::DirectoryRefreshProgress(DirectoryRefresher* r)
+  : m_refresher(r), m_modCount(0), m_modDone(0), m_finished(false)
 {
 }
 
-DirectoryEntry *DirectoryRefresher::stealDirectoryStructure()
+void DirectoryRefreshProgress::start(std::size_t modCount)
+{
+  m_modCount = modCount;
+  m_modDone = 0;
+  m_finished = false;
+
+  m_refresher->updateProgress(this);
+}
+
+
+bool DirectoryRefreshProgress::finished() const
+{
+  return m_finished;
+}
+
+int DirectoryRefreshProgress::percentDone() const
+{
+  int percent = 100;
+
+  if (m_modCount > 0) {
+    const double d = static_cast<double>(m_modDone) / m_modCount;
+    percent = static_cast<int>(d * 100);
+  }
+
+  return percent;
+}
+
+void DirectoryRefreshProgress::finish()
+{
+  m_finished = true;
+}
+
+void DirectoryRefreshProgress::addDone()
+{
+  ++m_modDone;
+  m_refresher->updateProgress(this);
+}
+
+
+DirectoryRefresher::ModEntry::ModEntry(
+  QString modName, QString absolutePath,
+  QStringList stealFiles, QStringList archives, int priority) :
+    modName(std::move(modName)), absolutePath(std::move(absolutePath)),
+    stealFiles(std::move(stealFiles)), archives(std::move(archives)),
+    priority(priority)
+{
+}
+
+
+DirectoryRefresher::DirectoryRefresher(std::size_t threadCount)
+  : m_threadCount(threadCount), m_lastFileCount(0), m_progress(this)
+{
+}
+
+DirectoryRefresher::~DirectoryRefresher()
+{
+  if (m_thread.joinable()) {
+    m_thread.join();
+  }
+}
+
+std::unique_ptr<DirectoryEntry> DirectoryRefresher::stealDirectoryStructure()
 {
   QMutexLocker locker(&m_RefreshLock);
-  return m_Root.release();
+  return std::move(m_Root);
 }
 
 void DirectoryRefresher::setMods(const std::vector<std::tuple<QString, QString, int> > &mods
@@ -66,7 +118,7 @@ void DirectoryRefresher::setMods(const std::vector<std::tuple<QString, QString, 
   for (auto mod = mods.begin(); mod != mods.end(); ++mod) {
     QString name = std::get<0>(*mod);
     ModInfo::Ptr info = ModInfo::getByIndex(ModInfo::getIndex(name));
-    m_Mods.push_back(EntryInfo(name, std::get<1>(*mod), info->stealFiles(), info->archives(), std::get<2>(*mod)));
+    m_Mods.push_back(ModEntry(name, std::get<1>(*mod), info->stealFiles(), info->archives(), std::get<2>(*mod)));
   }
 
   m_EnabledArchives = managedArchives;
@@ -258,15 +310,18 @@ void DirectoryRefresher::updateProgress(const DirectoryRefreshProgress* p)
   emit progress(p);
 }
 
+void DirectoryRefresher::requestProgressUpdate()
+{
+  if (!m_progress.finished()) {
+    updateProgress(&m_progress);
+  }
+}
+
 void DirectoryRefresher::addMultipleModsFilesToStructure(
   MOShared::DirectoryEntry *directoryStructure,
-  const std::vector<EntryInfo>& entries, DirectoryRefreshProgress* progress)
+  const std::vector<ModEntry>& entries, DirectoryRefreshProgress* progress)
 {
   std::vector<DirectoryStats> stats(entries.size());
-
-  if (progress) {
-    progress->start(entries.size());
-  }
 
   log::debug("refresher: using {} threads", m_threadCount);
   g_threads.setMax(m_threadCount);
@@ -314,11 +369,10 @@ void DirectoryRefresher::addMultipleModsFilesToStructure(
   }
 }
 
-void DirectoryRefresher::refresh()
+void DirectoryRefresher::refreshThread()
 {
   SetThisThreadName("DirectoryRefresher");
   TimeThis tt("DirectoryRefresher::refresh()");
-  auto* p = new DirectoryRefreshProgress(this);
 
   {
     QMutexLocker locker(&m_RefreshLock);
@@ -339,7 +393,7 @@ void DirectoryRefresher::refresh()
       return lhs.priority < rhs.priority;
     });
 
-    addMultipleModsFilesToStructure(m_Root.get(), m_Mods, p);
+    addMultipleModsFilesToStructure(m_Root.get(), m_Mods, &m_progress);
 
     m_Root->getFileRegister()->sortOrigins();
 
@@ -349,10 +403,20 @@ void DirectoryRefresher::refresh()
     log::debug("refresher saw {} files", m_lastFileCount);
   }
 
-  p->finish();
+  m_progress.finish();
 
-  emit progress(p);
+  emit progress(&m_progress);
   emit refreshed();
+}
+
+void DirectoryRefresher::asyncRefresh()
+{
+  if (m_thread.joinable()) {
+    m_thread.join();
+  }
+
+  m_progress.start(m_Mods.size());
+  m_thread = std::thread([&]{ refreshThread(); });
 }
 
 
@@ -434,7 +498,7 @@ void dumpStats(std::vector<DirectoryStats>& stats)
 
   std::sort(stats.begin(), stats.end(), [](auto&& a, auto&& b){
     return (naturalCompare(QString::fromStdString(a.mod), QString::fromStdString(b.mod)) < 0);
-    });
+  });
 
   std::ofstream out(file, std::ios::app);
 

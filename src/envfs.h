@@ -106,6 +106,15 @@ private:
       thread = std::thread([&]{ run(); });
     }
 
+    ~ThreadInfo()
+    {
+      if (thread.joinable()) {
+        stop = true;
+        wakeup();
+        thread.join();
+      }
+    }
+
     void wakeup()
     {
       {

@@ -1,12 +1,13 @@
 #include "modinfodialogconflicts.h"
 #include "ui_modinfodialog.h"
 #include "modinfodialog.h"
-#include "utility.h"
 #include "settings.h"
 #include "organizercore.h"
+#include "util.h"
 #include "shared/directoryentry.h"
 #include "shared/filesorigin.h"
 #include "shared/fileentry.h"
+#include <utility.h>
 
 using namespace MOShared;
 using namespace MOBase;
