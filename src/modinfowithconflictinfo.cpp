@@ -4,6 +4,7 @@
 #include "shared/directoryentry.h"
 #include "shared/filesorigin.h"
 #include "shared/fileentry.h"
+#include "directoryrefresher.h"
 #include <filesystem>
 
 using namespace MOBase;
@@ -90,7 +91,7 @@ void ModInfoWithConflictInfo::doConflictCheck() const
   bool providesAnything = false;
   bool hasHiddenFiles = false;
 
-  auto* ds = m_Core.directoryStructure();
+  auto* ds = m_Core.directoryStructure()->root();
 
   int dataID = 0;
   if (ds->originExists(L"data")) {
@@ -272,7 +273,7 @@ ModInfoWithConflictInfo::EConflictType ModInfoWithConflictInfo::isLooseArchiveCo
 
 bool ModInfoWithConflictInfo::isRedundant() const
 {
-  auto* ds = m_Core.directoryStructure();
+  auto* ds = m_Core.directoryStructure()->root();
 
   std::wstring name = ToWString(this->name());
   if (ds->originExists(name)) {

@@ -4,6 +4,7 @@
 #include "util.h"
 #include "shared/directoryentry.h"
 #include "shared/fileentry.h"
+#include "directoryrefresher.h"
 #include <log.h>
 
 using namespace MOBase;
@@ -155,7 +156,7 @@ void FileTreeModel::refresh()
   TimeThis tt("FileTreeModel::refresh()");
 
   m_fullyLoaded = false;
-  update(*m_root, *m_core.directoryStructure(), L"");
+  update(*m_root, *m_core.directoryStructure()->root(), L"");
 }
 
 void FileTreeModel::clear()
@@ -283,7 +284,7 @@ void FileTreeModel::fetchMore(const QModelIndex& parent)
 
   const auto path = item->dataRelativeFilePath();
 
-  auto* parentEntry = m_core.directoryStructure()
+  auto* parentEntry = m_core.directoryStructure()->root()
     ->findSubDirectoryRecursive(path.toStdWString());
 
   if (!parentEntry) {
@@ -963,7 +964,7 @@ std::wstring FileTreeModel::makeModName(
 {
   static const std::wstring Unmanaged = UnmanagedModName().toStdWString();
 
-  const auto& origin = m_core.directoryStructure()->getOriginByID(originID);
+  const auto& origin = m_core.directoryStructure()->root()->getOriginByID(originID);
 
   if (origin.getID() == 0) {
     return Unmanaged;
@@ -1019,7 +1020,7 @@ QString FileTreeModel::makeTooltip(const FileTreeItem& item) const
     line(tr("From"),         item.mod());
 
 
-  const auto file = m_core.directoryStructure()->findFileRecursive(
+  const auto file = m_core.directoryStructure()->root()->findFileRecursive(
     item.dataRelativeFilePath().toStdWString());
 
   if (file) {
@@ -1027,7 +1028,7 @@ QString FileTreeModel::makeTooltip(const FileTreeItem& item) const
     QStringList list;
 
     for (auto&& alt : file->getAlternatives()) {
-      const auto& origin = m_core.directoryStructure()->getOriginByID(alt.first);
+      const auto& origin = m_core.directoryStructure()->root()->getOriginByID(alt.first);
       list.push_back(QString::fromStdWString(origin.getName()));
     }
 

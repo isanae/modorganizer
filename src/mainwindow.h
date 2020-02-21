@@ -156,7 +156,7 @@ public:
 public slots:
   void modorder_changed();
   void esplist_changed();
-  void refresherProgress(const DirectoryRefreshProgress* p);
+  void onRefreshProgress(DirectoryRefreshProgress p);
 
   void directory_refreshed();
 

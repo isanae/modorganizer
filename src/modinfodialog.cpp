@@ -31,6 +31,7 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "modinfodialogfiletree.h"
 #include "shared/directoryentry.h"
 #include "shared/filesorigin.h"
+#include "directoryrefresher.h"
 #include <filesystem>
 
 using namespace MOBase;
@@ -618,7 +619,7 @@ void ModInfoDialog::switchToTab(ModInfoTabIDs id)
 
 MOShared::FilesOrigin* ModInfoDialog::getOrigin()
 {
-  auto* ds = m_core->directoryStructure();
+  auto* ds = m_core->directoryStructure()->root();
 
   if (!ds->originExists(m_mod->name().toStdWString())) {
     return nullptr;

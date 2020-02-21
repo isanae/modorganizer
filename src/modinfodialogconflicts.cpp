@@ -4,6 +4,7 @@
 #include "settings.h"
 #include "organizercore.h"
 #include "util.h"
+#include "directoryrefresher.h"
 #include "shared/directoryentry.h"
 #include "shared/filesorigin.h"
 #include "shared/fileentry.h"
@@ -847,7 +848,7 @@ std::vector<QAction*> ConflictsTab::createGotoActions(const ConflictItem* item)
 
 
   std::vector<QString> mods;
-  const auto& ds = *core().directoryStructure();
+  const auto& ds = *core().directoryStructure()->root();
 
   // add all alternatives
   for (const auto& alt : file->getAlternatives()) {
@@ -1013,7 +1014,7 @@ ConflictItem GeneralConflictsTab::createOverwriteItem(
   FileIndex index, bool archive, QString fileName, QString relativeName,
   const MOShared::AlternativesVector& alternatives)
 {
-  const auto& ds = *m_core.directoryStructure();
+  const auto& ds = *m_core.directoryStructure()->root();
   std::wstring altString;
 
   for (const auto& alt : alternatives) {
@@ -1043,7 +1044,7 @@ ConflictItem GeneralConflictsTab::createOverwrittenItem(
   FileIndex index, int fileOrigin, bool archive,
   QString fileName, QString relativeName)
 {
-  const auto& ds = *m_core.directoryStructure();
+  const auto& ds = *m_core.directoryStructure()->root();
   const FilesOrigin& realOrigin = ds.getOriginByID(fileOrigin);
 
   QString after = ToQString(realOrigin.getName());
@@ -1213,7 +1214,7 @@ std::optional<ConflictItem> AdvancedConflictsTab::createItem(
   QString fileName, QString relativeName,
   const MOShared::AlternativesVector& alternatives)
 {
-  const auto& ds = *m_core.directoryStructure();
+  const auto& ds = *m_core.directoryStructure()->root();
 
   std::wstring before, after;
 

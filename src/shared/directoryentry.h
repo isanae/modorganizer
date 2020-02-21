@@ -36,7 +36,7 @@ namespace MOShared
 // directory
 //
 // threads-safety: this class is thread-safe when adding stuff to it, mostly
-// so it can be used with DirectoryRefresher; however, most of the functions
+// so it can be used with DirectoryStructure; however, most of the functions
 // that are used later (getFiles(), etc.) do not use the mutexes and therefore
 // are not thread-safe
 //

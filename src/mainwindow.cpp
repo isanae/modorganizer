@@ -366,12 +366,12 @@ MainWindow::MainWindow(Settings &settings
   connect(ui->espFilterEdit, SIGNAL(textChanged(QString)), m_PluginListSortProxy, SLOT(updateFilter(QString)));
   connect(ui->espFilterEdit, SIGNAL(textChanged(QString)), this, SLOT(espFilterChanged(QString)));
 
-  connect(m_OrganizerCore.directoryRefresher(), SIGNAL(refreshed()), this, SLOT(directory_refreshed()));
+  qRegisterMetaType<DirectoryRefreshProgress>();
+
   connect(
-    m_OrganizerCore.directoryRefresher(),
-    &DirectoryRefresher::progress,
-    this, &MainWindow::refresherProgress);
-  connect(m_OrganizerCore.directoryRefresher(), SIGNAL(error(QString)), this, SLOT(showError(QString)));
+    &m_OrganizerCore,
+    SIGNAL(refreshProgress(DirectoryRefreshProgress)),
+    this, SLOT(onRefreshProgress(DirectoryRefreshProgress)));
 
   connect(&m_SavesWatcher, SIGNAL(directoryChanged(QString)), this, SLOT(refreshSavesIfOpen()));
 
@@ -478,7 +478,7 @@ MainWindow::MainWindow(Settings &settings
   updateModCount();
   processUpdates();
 
-  m_OrganizerCore.requestRefresherUpdate();
+  onRefreshProgress(m_OrganizerCore.directoryStructure()->progress());
 }
 
 void MainWindow::setupModList()
@@ -1880,7 +1880,7 @@ void MainWindow::updateBSAList(const QStringList &defaultArchives, const QString
   std::vector<std::pair<UINT32, QTreeWidgetItem*>> items;
 
   BSAInvalidation * invalidation = m_OrganizerCore.managedGame()->feature<BSAInvalidation>();
-  std::vector<FileEntryPtr> files = m_OrganizerCore.directoryStructure()->getFiles();
+  std::vector<FileEntryPtr> files = m_OrganizerCore.directoryStructure()->root()->getFiles();
 
   QStringList plugins = m_OrganizerCore.findFiles("", [](const QString &fileName) -> bool {
     return fileName.endsWith(".esp", Qt::CaseInsensitive)
@@ -1916,7 +1916,7 @@ void MainWindow::updateBSAList(const QStringList &defaultArchives, const QString
       }
 
       int originId = current->getOrigin();
-      FilesOrigin & origin = m_OrganizerCore.directoryStructure()->getOriginByID(originId);
+      FilesOrigin & origin = m_OrganizerCore.directoryStructure()->root()->getOriginByID(originId);
 
       QTreeWidgetItem * newItem = new QTreeWidgetItem(QStringList()
         << fileInfo.fileName()
@@ -1952,7 +1952,7 @@ void MainWindow::updateBSAList(const QStringList &defaultArchives, const QString
   for (auto iter = items.begin(); iter != items.end(); ++iter) {
     int originID = iter->second->data(1, Qt::UserRole).toInt();
 
-    const FilesOrigin& origin = m_OrganizerCore.directoryStructure()->getOriginByID(originID);
+    const FilesOrigin& origin = m_OrganizerCore.directoryStructure()->root()->getOriginByID(originID);
 
     QString modName;
     const unsigned int modIndex = ModInfo::getIndex(ToQString(origin.getName()));
@@ -2389,14 +2389,15 @@ void MainWindow::setESPListSorting(int index)
   }
 }
 
-void MainWindow::refresherProgress(const DirectoryRefreshProgress* p)
+void MainWindow::onRefreshProgress(DirectoryRefreshProgress p)
 {
-  if (p->finished()) {
-    setEnabled(true);
+  if (p.finished()) {
+   setEnabled(true);
     ui->statusBar->setProgress(100);
+    directory_refreshed();
   } else {
     setEnabled(false);
-    ui->statusBar->setProgress(p->percentDone());
+    ui->statusBar->setProgress(p.percentDone());
   }
 }
 
@@ -2424,13 +2425,13 @@ void MainWindow::modorder_changed()
     if (m_OrganizerCore.currentProfile()->modEnabled(i)) {
       ModInfo::Ptr modInfo = ModInfo::getByIndex(i);
       // priorities in the directory structure are one higher because data is 0
-      m_OrganizerCore.directoryStructure()->getOriginByName(ToWString(modInfo->internalName())).setPriority(priority + 1);
+      m_OrganizerCore.directoryStructure()->root()->getOriginByName(ToWString(modInfo->internalName())).setPriority(priority + 1);
     }
   }
   m_OrganizerCore.refreshBSAList();
   m_OrganizerCore.currentProfile()->writeModlist();
   m_ArchiveListWriter.write();
-  m_OrganizerCore.directoryStructure()->getFileRegister()->sortOrigins();
+  m_OrganizerCore.directoryStructure()->root()->getFileRegister()->sortOrigins();
 
   { // refresh selection
     QModelIndex current = ui->modList->currentIndex();
@@ -2506,8 +2507,8 @@ void MainWindow::modRenamed(const QString &oldName, const QString &newName)
 
   // also fix the directory structure
   try {
-    if (m_OrganizerCore.directoryStructure()->originExists(ToWString(oldName))) {
-      FilesOrigin &origin = m_OrganizerCore.directoryStructure()->getOriginByName(ToWString(oldName));
+    if (m_OrganizerCore.directoryStructure()->root()->originExists(ToWString(oldName))) {
+      FilesOrigin &origin = m_OrganizerCore.directoryStructure()->root()->getOriginByName(ToWString(oldName));
       origin.setName(ToWString(newName));
     } else {
 
@@ -2519,11 +2520,11 @@ void MainWindow::modRenamed(const QString &oldName, const QString &newName)
 
 void MainWindow::fileMoved(const QString &filePath, const QString &oldOriginName, const QString &newOriginName)
 {
-  const FileEntryPtr filePtr = m_OrganizerCore.directoryStructure()->findFile(ToWString(filePath));
+  const FileEntryPtr filePtr = m_OrganizerCore.directoryStructure()->root()->findFile(ToWString(filePath));
   if (filePtr.get() != nullptr) {
     try {
-      if (m_OrganizerCore.directoryStructure()->originExists(ToWString(newOriginName))) {
-        FilesOrigin &newOrigin = m_OrganizerCore.directoryStructure()->getOriginByName(ToWString(newOriginName));
+      if (m_OrganizerCore.directoryStructure()->root()->originExists(ToWString(newOriginName))) {
+        FilesOrigin &newOrigin = m_OrganizerCore.directoryStructure()->root()->getOriginByName(ToWString(newOriginName));
 
         QString fullNewPath = ToQString(newOrigin.getPath()) + "\\" + filePath;
         WIN32_FIND_DATAW findData;
@@ -2532,8 +2533,8 @@ void MainWindow::fileMoved(const QString &filePath, const QString &oldOriginName
         filePtr->addOrigin(newOrigin.getID(), findData.ftCreationTime, L"", -1);
         FindClose(hFind);
       }
-      if (m_OrganizerCore.directoryStructure()->originExists(ToWString(oldOriginName))) {
-        FilesOrigin &oldOrigin = m_OrganizerCore.directoryStructure()->getOriginByName(ToWString(oldOriginName));
+      if (m_OrganizerCore.directoryStructure()->root()->originExists(ToWString(oldOriginName))) {
+        FilesOrigin &oldOrigin = m_OrganizerCore.directoryStructure()->root()->getOriginByName(ToWString(oldOriginName));
         filePtr->removeOrigin(oldOrigin.getID());
       }
     } catch (const std::exception &e) {
@@ -2607,13 +2608,13 @@ void MainWindow::modlistSelectionsChanged(const QItemSelection &selected)
   }
   ui->modList->verticalScrollBar()->repaint();
 
-  m_OrganizerCore.pluginList()->highlightPlugins(ui->modList->selectionModel(), *m_OrganizerCore.directoryStructure(), *m_OrganizerCore.currentProfile());
+  m_OrganizerCore.pluginList()->highlightPlugins(ui->modList->selectionModel(), *m_OrganizerCore.directoryStructure()->root(), *m_OrganizerCore.currentProfile());
   ui->espList->verticalScrollBar()->repaint();
 }
 
 void MainWindow::esplistSelectionsChanged(const QItemSelection &selected)
 {
-  m_OrganizerCore.modList()->highlightMods(ui->espList->selectionModel(), *m_OrganizerCore.directoryStructure());
+  m_OrganizerCore.modList()->highlightMods(ui->espList->selectionModel(), *m_OrganizerCore.directoryStructure()->root());
   ui->modList->verticalScrollBar()->repaint();
 }
 
@@ -2885,22 +2886,21 @@ void MainWindow::displayModInformation(
   if (m_OrganizerCore.currentProfile()->modEnabled(modIndex)
       && !modInfo->hasFlag(ModInfo::FLAG_FOREIGN)) {
     FilesOrigin& origin = m_OrganizerCore.directoryStructure()
-      ->getOriginByName(ToWString(modInfo->name()));
+      ->root()->getOriginByName(ToWString(modInfo->name()));
 
     origin.enable(false);
 
-    if (m_OrganizerCore.directoryStructure()->originExists(ToWString(modInfo->name()))) {
+    if (m_OrganizerCore.directoryStructure()->root()->originExists(ToWString(modInfo->name()))) {
       FilesOrigin& origin = m_OrganizerCore.directoryStructure()
-        ->getOriginByName(ToWString(modInfo->name()));
+        ->root()->getOriginByName(ToWString(modInfo->name()));
 
       origin.enable(false);
 
-      m_OrganizerCore.directoryRefresher()->addModToStructure(
-        m_OrganizerCore.directoryStructure(),
-        {modInfo, m_OrganizerCore.currentProfile()->getModPriority(modIndex)});
+      m_OrganizerCore.directoryStructure()->addMods(
+        {{modInfo, m_OrganizerCore.currentProfile()->getModPriority(modIndex)}});
 
-      m_OrganizerCore.directoryStructure()->cleanupIrrelevant();
-      m_OrganizerCore.directoryStructure()->getFileRegister()->sortOrigins();
+      m_OrganizerCore.directoryStructure()->root()->cleanupIrrelevant();
+      m_OrganizerCore.directoryStructure()->root()->getFileRegister()->sortOrigins();
       m_OrganizerCore.refreshLists();
     }
   }
@@ -3111,7 +3111,7 @@ void MainWindow::restoreHiddenFiles_clicked()
             result = FileRenamer::RESULT_CANCEL;
             break;
           }
-          originModified((m_OrganizerCore.directoryStructure()->getOriginByName(
+          originModified((m_OrganizerCore.directoryStructure()->root()->getOriginByName(
             ToWString(modInfo->internalName()))).getID());
         }
       }
@@ -3128,7 +3128,7 @@ void MainWindow::restoreHiddenFiles_clicked()
 
       result = restoreHiddenFilesRecursive(renamer, modDir);
 
-      originModified((m_OrganizerCore.directoryStructure()->getOriginByName(
+      originModified((m_OrganizerCore.directoryStructure()->root()->getOriginByName(
         ToWString(modInfo->internalName()))).getID());
     }
   }
@@ -5161,14 +5161,14 @@ void MainWindow::languageChange(const QString &newLanguage)
 
 void MainWindow::originModified(int originID)
 {
-  FilesOrigin &origin = m_OrganizerCore.directoryStructure()->getOriginByID(originID);
+  FilesOrigin &origin = m_OrganizerCore.directoryStructure()->root()->getOriginByID(originID);
   origin.enable(false);
 
   DirectoryStats dummy;
-  m_OrganizerCore.directoryStructure()->addFromOrigin(
+  m_OrganizerCore.directoryStructure()->root()->addFromOrigin(
     {origin.getName(), origin.getPath(), origin.getPriority()}, dummy);
 
-  m_OrganizerCore.directoryStructure()->cleanupIrrelevant();
+  m_OrganizerCore.directoryStructure()->root()->cleanupIrrelevant();
 }
 
 
@@ -5808,9 +5808,9 @@ void MainWindow::extractBSATriggered()
       for (int i = 0; i < item->childCount(); ++i) {
         archives.append(item->child(i)->text(0));
       }
-      origin = QDir::fromNativeSeparators(ToQString(m_OrganizerCore.directoryStructure()->getOriginByName(ToWString(item->text(0))).getPath()));
+      origin = QDir::fromNativeSeparators(ToQString(m_OrganizerCore.directoryStructure()->root()->getOriginByName(ToWString(item->text(0))).getPath()));
     } else {
-      origin = QDir::fromNativeSeparators(ToQString(m_OrganizerCore.directoryStructure()->getOriginByName(ToWString(item->text(1))).getPath()));
+      origin = QDir::fromNativeSeparators(ToQString(m_OrganizerCore.directoryStructure()->root()->getOriginByName(ToWString(item->text(1))).getPath()));
       archives = QStringList({ item->text(0) });
     }
 

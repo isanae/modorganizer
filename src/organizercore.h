@@ -19,6 +19,7 @@
 #include <delayedfilewriter.h>
 #include <boost/signals2.hpp>
 #include "executableinfo.h"
+#include "fileregisterfwd.h"
 #include <log.h>
 
 #include <QDir>
@@ -36,7 +37,6 @@ class PluginListSortProxy;
 class Profile;
 class IUserInterface;
 class PluginContainer;
-class DirectoryRefresher;
 
 namespace MOBase
 {
@@ -103,8 +103,12 @@ public:
   Settings &settings();
   SelfUpdater *updater() { return &m_Updater; }
   InstallationManager *installationManager();
-  MOShared::DirectoryEntry *directoryStructure() { return m_DirectoryStructure.get(); }
-  DirectoryRefresher *directoryRefresher() { return m_DirectoryRefresher.get(); }
+
+  DirectoryStructure *directoryStructure()
+  {
+    return m_DirectoryStructure.get();
+  }
+
   ExecutablesList *executablesList() { return &m_ExecutablesList; }
   void setExecutablesList(const ExecutablesList &executablesList) {
     m_ExecutablesList = executablesList;
@@ -142,7 +146,6 @@ public:
   void refreshBSAList();
 
   void refreshDirectoryStructure();
-  void requestRefresherUpdate();
   void updateModInDirectoryStructure(unsigned int index, ModInfo::Ptr modInfo);
   void updateModsInDirectoryStructure(QMap<unsigned int, ModInfo::Ptr> modInfos);
 
@@ -259,6 +262,8 @@ signals:
 
   void managedGameChanged(MOBase::IPluginGame const *gamePlugin);
 
+  void refreshProgress(DirectoryRefreshProgress p);
+
   void close();
 
 private:
@@ -329,13 +334,10 @@ private:
   QStringList m_DefaultArchives;
   QStringList m_ActiveArchives;
 
-  std::unique_ptr<DirectoryRefresher> m_DirectoryRefresher;
-  std::unique_ptr<MOShared::DirectoryEntry> m_DirectoryStructure;
+  std::unique_ptr<DirectoryStructure> m_DirectoryStructure;
 
   DownloadManager m_DownloadManager;
   InstallationManager m_InstallationManager;
-
-  std::thread m_StructureDeleter;
 
   bool m_DirectoryUpdate;
   bool m_ArchivesInit;
@@ -347,6 +349,8 @@ private:
   UILocker m_UILocker;
 
   static CrashDumpsType m_globalCrashDumpsType;
+
+  void onRefreshProgress(DirectoryRefreshProgress p);
 };
 
 #endif // ORGANIZERCORE_H

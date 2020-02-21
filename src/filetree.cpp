@@ -6,6 +6,7 @@
 #include "shared/fileentry.h"
 #include "shared/directoryentry.h"
 #include "shared/filesorigin.h"
+#include "directoryrefresher.h"
 #include <log.h>
 #include <widgetutility.h>
 
@@ -357,7 +358,7 @@ void FileTree::openModInfo(FileTreeItem* item)
     return;
   }
 
-  const auto& origin = m_core.directoryStructure()->getOriginByID(originID);
+  const auto& origin = m_core.directoryStructure()->root()->getOriginByID(originID);
   const auto& name = QString::fromStdWString(origin.getName());
 
   unsigned int index = ModInfo::getIndex(name);
@@ -441,7 +442,7 @@ void FileTree::dumpToFile() const
     return;
   }
 
-  m_core.directoryStructure()->dump(file.toStdWString());
+  m_core.directoryStructure()->root()->dump(file.toStdWString());
 }
 
 void FileTree::onExpandedChanged(const QModelIndex& index, bool expanded)
@@ -494,7 +495,7 @@ void FileTree::onContextMenu(const QPoint &pos)
     if (item->isDirectory()) {
       addDirectoryMenus(menu, *item);
     } else {
-      const auto file = m_core.directoryStructure()->findFileRecursive(
+      const auto file = m_core.directoryStructure()->root()->findFileRecursive(
         item->dataRelativeFilePath().toStdWString());
 
       if (file) {
@@ -573,7 +574,7 @@ bool FileTree::showShellMenu(QPoint pos)
     ++totalFiles;
 
     if (item->isConflicted()) {
-      const auto file = m_core.directoryStructure()->findFileRecursive(
+      const auto file = m_core.directoryStructure()->root()->findFileRecursive(
         item->dataRelativeFilePath().toStdWString());
 
       if (!file) {
@@ -634,7 +635,7 @@ bool FileTree::showShellMenu(QPoint pos)
     bool hasDiscrepancies = false;
 
     for (auto&& m : menus) {
-      const auto* origin = m_core.directoryStructure()->findOriginByID(m.first);
+      const auto* origin = m_core.directoryStructure()->root()->findOriginByID(m.first);
       if (!origin) {
         log::error("origin {} not found for merged menus", m.first);
         continue;

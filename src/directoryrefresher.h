@@ -34,7 +34,12 @@ class DirectoryRefreshProgress : QObject
   Q_OBJECT;
 
 public:
-  DirectoryRefreshProgress(DirectoryRefresher* r);
+  using Callback = std::function<void (DirectoryRefreshProgress)>;
+
+  DirectoryRefreshProgress(Callback cb={});
+
+  DirectoryRefreshProgress(const DirectoryRefreshProgress& p);
+  DirectoryRefreshProgress& operator=(const DirectoryRefreshProgress& p);
 
   // resets with the given total
   //
@@ -59,78 +64,67 @@ public:
   void addDone();
 
 private:
-  DirectoryRefresher* m_refresher;
+  Callback m_callback;
   std::size_t m_total;
   std::atomic<std::size_t> m_done;
   std::atomic<bool> m_finished;
+
+  void notify();
 };
+
+Q_DECLARE_METATYPE(DirectoryRefreshProgress);
 
 
 // used to asynchronously walk the mod directories and build the directory
 // structure
 //
-class DirectoryRefresher : public QObject
+class DirectoryStructure
 {
-  Q_OBJECT;
   friend class DirectoryRefreshProgress;
 
 public:
-  DirectoryRefresher(std::size_t threadCount);
-  ~DirectoryRefresher();
+  using Progress = DirectoryRefreshProgress;
+  using ProgressCallback = Progress::Callback;
+
+  DirectoryStructure(std::size_t threadCount);
+  ~DirectoryStructure();
 
   // non-copyable
-  DirectoryRefresher(const DirectoryRefresher&) = delete;
-  DirectoryRefresher& operator=(const DirectoryRefresher&) = delete;
+  DirectoryStructure(const DirectoryStructure&) = delete;
+  DirectoryStructure& operator=(const DirectoryStructure&) = delete;
 
-  // steals the internal DirectoryEntry pointer
-  //
-  std::unique_ptr<MOShared::DirectoryEntry> stealDirectoryStructure();
+  MOShared::DirectoryEntry* root();
 
   // add files for a mod to the directory structure, including bsas
   //
-  void addModToStructure(
-    MOShared::DirectoryEntry *directoryStructure,
-    const Profile::ActiveMod& mod);
+  void addMods(const std::vector<Profile::ActiveMod>& mods);
 
   // add only the bsas of a mod to the directory structure
   //
-  void addModBSAToStructure(
-    MOShared::DirectoryEntry *directoryStructure,
-    const Profile::ActiveMod& mod);
-
-  void addMultipleModsBSAToStructure(
-    MOShared::DirectoryEntry *directoryStructure,
-    const std::vector<Profile::ActiveMod>& mods);
+  void addBSAs(const std::vector<Profile::ActiveMod>& mods);
 
   // add only regular files or a mod to the directory structure
   //
-  void addModFilesToStructure(
-    MOShared::DirectoryEntry *directoryStructure,
-    const Profile::ActiveMod& entry);
+  void addFiles(const std::vector<Profile::ActiveMod>& mods);
 
-  void addMultipleModsFilesToStructure(
-    MOShared::DirectoryEntry *directoryStructure,
+  DirectoryRefreshProgress progress() const;
+
+  // generate a new directory structure
+  //
+  void asyncRefresh(
     const std::vector<Profile::ActiveMod>& mods,
-    DirectoryRefreshProgress* progress=nullptr);
-
-  void requestProgressUpdate();
-
-  // generate a directory structure from the mods set earlier
-  void asyncRefresh(const std::vector<Profile::ActiveMod>& mods);
-
-signals:
-  void progress(const DirectoryRefreshProgress* p);
-  void error(const QString &error);
-  void refreshed();
+    ProgressCallback callback);
 
 private:
   struct ModThread
   {
-    DirectoryRefresher* refresher = nullptr;
-    DirectoryRefreshProgress* progress = nullptr;
-    MOShared::DirectoryEntry* ds = nullptr;
+    MOShared::DirectoryEntry* root = nullptr;
+    DirectoryStructure* structure = nullptr;
+    Progress* progress = nullptr;
     Profile::ActiveMod m;
     MOShared::DirectoryStats* stats =  nullptr;
+    bool files = false;
+    bool bsas = false;
 
     env::DirectoryWalker walker;
     std::condition_variable cv;
@@ -141,21 +135,33 @@ private:
     void run();
   };
 
-  std::unique_ptr<MOShared::DirectoryEntry> m_Root;
-  std::mutex m_RefreshLock;
+  std::unique_ptr<MOShared::DirectoryEntry> m_root;
+  std::mutex m_refreshLock;
   std::size_t m_threadCount;
-  std::size_t m_lastFileCount;
   std::thread m_thread;
+  std::thread m_deleter;
   env::ThreadPool<ModThread> m_modThreads;
-  DirectoryRefreshProgress m_progress;
+  Progress m_progress;
 
-  void refreshThread(const std::vector<Profile::ActiveMod>& mods);
+  void refreshThread(
+    const std::vector<Profile::ActiveMod>& mods,
+    ProgressCallback callback);
 
-  void updateProgress(const DirectoryRefreshProgress* p);
+  void addMods(
+    MOShared::DirectoryEntry* root,
+    const std::vector<Profile::ActiveMod>& mods, bool files, bool bsas,
+    Progress& p);
 
-  void stealModFilesIntoStructure(
-    MOShared::DirectoryEntry *directoryStructure,
-    const Profile::ActiveMod& entry);
+  void stealFiles(MOShared::DirectoryEntry* root, const Profile::ActiveMod& m);
+
+  void addFiles(
+    MOShared::DirectoryEntry* root,
+    env::DirectoryWalker& walker, MOShared::DirectoryStats& stats,
+    const Profile::ActiveMod& m);
+
+  void addBSAs(
+    MOShared::DirectoryEntry* root,
+    MOShared::DirectoryStats& stats, const Profile::ActiveMod& m);
 };
 
 #endif // MO_REGISTER_DIRECTORYREFRESHER_INCLUDED
