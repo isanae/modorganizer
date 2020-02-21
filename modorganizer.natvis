@@ -10,7 +10,7 @@ file={m_wsFile}
 }}</DisplayString></Type>
 
 <Type Name="MOShared::DirectoryEntry"><DisplayString>{{
-name={m_Name}
+name={m_name}
 }}</DisplayString></Type>
 
 </AutoVisualizer>

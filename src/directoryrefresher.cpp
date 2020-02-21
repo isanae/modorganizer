@@ -38,19 +38,18 @@ void dumpStats(std::vector<DirectoryStats>& stats);
 
 
 DirectoryRefreshProgress::DirectoryRefreshProgress(DirectoryRefresher* r)
-  : m_refresher(r), m_modCount(0), m_modDone(0), m_finished(false)
+  : m_refresher(r), m_total(0), m_done(0), m_finished(false)
 {
 }
 
-void DirectoryRefreshProgress::start(std::size_t modCount)
+void DirectoryRefreshProgress::start(std::size_t total)
 {
-  m_modCount = modCount;
-  m_modDone = 0;
+  m_total = total;
+  m_done = 0;
   m_finished = false;
 
   m_refresher->updateProgress(this);
 }
-
 
 bool DirectoryRefreshProgress::finished() const
 {
@@ -61,8 +60,8 @@ int DirectoryRefreshProgress::percentDone() const
 {
   int percent = 100;
 
-  if (m_modCount > 0) {
-    const double d = static_cast<double>(m_modDone) / m_modCount;
+  if (m_total > 0) {
+    const double d = static_cast<double>(m_done) / m_total;
     percent = static_cast<int>(d * 100);
   }
 
@@ -76,18 +75,46 @@ void DirectoryRefreshProgress::finish()
 
 void DirectoryRefreshProgress::addDone()
 {
-  ++m_modDone;
+  ++m_done;
   m_refresher->updateProgress(this);
 }
 
 
-DirectoryRefresher::ModEntry::ModEntry(
-  QString modName, QString absolutePath,
-  QStringList stealFiles, QStringList archives, int priority) :
-    modName(std::move(modName)), absolutePath(std::move(absolutePath)),
-    stealFiles(std::move(stealFiles)), archives(std::move(archives)),
-    priority(priority)
+void DirectoryRefresher::ModThread::wakeup()
 {
+  {
+    std::scoped_lock lock(mutex);
+    ready = true;
+  }
+
+  cv.notify_one();
+}
+
+void DirectoryRefresher::ModThread::run()
+{
+  std::unique_lock lock(mutex);
+  cv.wait(lock, [&]{ return ready; });
+
+  SetThisThreadName(m.mod->internalName() + " refresher");
+
+  ds->addFromOrigin(
+    {
+      m.mod->internalName().toStdWString(),
+      QDir::toNativeSeparators(m.mod->absolutePath()).toStdWString(),
+      m.priority
+    },
+    walker, *stats);
+
+  if (Settings::instance().archiveParsing()) {
+    refresher->addModBSAToStructure(ds, m);
+  }
+
+  if (progress) {
+    progress->addDone();
+  }
+
+  SetThisThreadName(QString::fromStdWString(L"idle refresher"));
+  ready = false;
 }
 
 
@@ -105,30 +132,46 @@ DirectoryRefresher::~DirectoryRefresher()
 
 std::unique_ptr<DirectoryEntry> DirectoryRefresher::stealDirectoryStructure()
 {
-  QMutexLocker locker(&m_RefreshLock);
+  std::scoped_lock lock(m_RefreshLock);
   return std::move(m_Root);
 }
 
-void DirectoryRefresher::setMods(const std::vector<std::tuple<QString, QString, int> > &mods
-                                 , const std::set<QString> &managedArchives)
+//void DirectoryRefresher::setMods(
+//  const std::vector<std::tuple<QString, QString, int>> &mods,
+//  const std::set<QString> &managedArchives)
+//{
+//  std::vector<ModEntry> v;
+//
+//  for (auto&& mod : mods) {
+//    QString name = std::get<0>(mod);
+//    QString path = std::get<1>(mod);
+//    int prio = std::get<2>(mod);
+//
+//    ModInfo::Ptr info = ModInfo::getByIndex(ModInfo::getIndex(name));
+//    v.push_back({name, path, info->stealFiles(), info->archives(), prio});
+//  }
+//
+//  {
+//    std::scoped_lock lock(m_RefreshLock);
+//    m_Mods = std::move(v);
+//    m_EnabledArchives = managedArchives;
+//  }
+//}
+
+void DirectoryRefresher::addMultipleModsBSAToStructure(
+  MOShared::DirectoryEntry *directoryStructure,
+  const std::vector<Profile::ActiveMod>& mods)
 {
-  QMutexLocker locker(&m_RefreshLock);
-
-  m_Mods.clear();
-  for (auto mod = mods.begin(); mod != mods.end(); ++mod) {
-    QString name = std::get<0>(*mod);
-    ModInfo::Ptr info = ModInfo::getByIndex(ModInfo::getIndex(name));
-    m_Mods.push_back(ModEntry(name, std::get<1>(*mod), info->stealFiles(), info->archives(), std::get<2>(*mod)));
+  for (const auto& m : mods) {
+    addModBSAToStructure(directoryStructure, m);
   }
-
-  m_EnabledArchives = managedArchives;
 }
 
 void DirectoryRefresher::addModBSAToStructure(
-  DirectoryEntry* root, const QString& modName,
-  int priority, const QString& directory, const QStringList& archives)
+  DirectoryEntry* root, const Profile::ActiveMod& m)
 {
-  const IPluginGame *game = qApp->property("managed_game").value<IPluginGame*>();
+  const IPluginGame *game =
+    qApp->property("managed_game").value<IPluginGame*>();
 
   GamePlugins *gamePlugins = game->feature<GamePlugins>();
   QStringList loadOrder = QStringList();
@@ -136,14 +179,9 @@ void DirectoryRefresher::addModBSAToStructure(
 
   DirectoryStats dummy;
 
-  for (const auto& archive : archives) {
+  for (const auto& archive : m.mod->archives()) {
     const std::filesystem::path archivePath(archive.toStdWString());
     const auto filename = QString::fromStdWString(archivePath.filename().native());
-
-    if (!m_EnabledArchives.contains(filename)) {
-      continue;
-    }
-
     const auto filenameLc = filename.toLower();
 
     int order = -1;
@@ -164,26 +202,25 @@ void DirectoryRefresher::addModBSAToStructure(
 
     root->addFromBSA(
       {
-        modName.toStdWString(),
-        QDir::toNativeSeparators(directory).toStdWString(),
-        priority
+        m.mod->internalName().toStdWString(),
+        QDir::toNativeSeparators(m.mod->absolutePath()).toStdWString(),
+        m.priority
       },
       archivePath, order, dummy);
   }
 }
 
 void DirectoryRefresher::stealModFilesIntoStructure(
-  DirectoryEntry *directoryStructure, const QString &modName,
-  int priority, const QString &directory, const QStringList &stealFiles)
+  DirectoryEntry *directoryStructure, const Profile::ActiveMod& m)
 {
-  std::wstring directoryW = ToWString(QDir::toNativeSeparators(directory));
+  std::wstring directoryW = ToWString(QDir::toNativeSeparators(m.mod->absolutePath()));
 
-  // instead of adding all the files of the target directory, we just change the root of the specified
-  // files to this mod
+  // instead of adding all the files of the target directory, we just change
+  // the root of the specified files to this mod
   FilesOrigin& origin = directoryStructure->getOrCreateOrigin(
-    {modName.toStdWString(), directoryW, priority});
+    {m.mod->internalName().toStdWString(), directoryW, m.priority});
 
-  for (const QString &filename : stealFiles) {
+  for (const QString &filename : m.mod->stealFiles()) {
     if (filename.isEmpty()) {
       log::warn("Trying to find file with no name");
       continue;
@@ -207,102 +244,40 @@ void DirectoryRefresher::stealModFilesIntoStructure(
 }
 
 void DirectoryRefresher::addModFilesToStructure(
-  DirectoryEntry *directoryStructure, const QString &modName,
-  int priority, const QString &directory, const QStringList &stealFiles)
+  DirectoryEntry *directoryStructure, const Profile::ActiveMod& m)
 {
   TimeThis tt("DirectoryRefresher::addModFilesToStructure()");
 
-  std::wstring directoryW = ToWString(QDir::toNativeSeparators(directory));
+  std::wstring directoryW = ToWString(QDir::toNativeSeparators(m.mod->absolutePath()));
   DirectoryStats dummy;
 
-  if (stealFiles.length() > 0) {
-    stealModFilesIntoStructure(
-      directoryStructure, modName, priority, directory, stealFiles);
+  if (m.mod->stealFiles().length() > 0) {
+    stealModFilesIntoStructure(directoryStructure, m);
   } else {
     directoryStructure->addFromOrigin(
-      {modName.toStdWString(), directoryW, priority}, dummy);
+      {m.mod->internalName().toStdWString(), directoryW, m.priority}, dummy);
   }
 }
 
-void DirectoryRefresher::addModToStructure(DirectoryEntry *directoryStructure
-  , const QString &modName
-  , int priority
-  , const QString &directory
-  , const QStringList &stealFiles
-  , const QStringList &archives)
+void DirectoryRefresher::addModToStructure(
+  DirectoryEntry *directoryStructure, const Profile::ActiveMod& m)
 {
   TimeThis tt("DirectoryRefresher::addModToStructure()");
 
   DirectoryStats dummy;
 
-  if (stealFiles.length() > 0) {
-    stealModFilesIntoStructure(
-      directoryStructure, modName, priority, directory, stealFiles);
+  if (!m.mod->stealFiles().empty()) {
+    stealModFilesIntoStructure(directoryStructure, m);
   } else {
-    std::wstring directoryW = ToWString(QDir::toNativeSeparators(directory));
+    std::wstring directoryW = ToWString(QDir::toNativeSeparators(m.mod->absolutePath()));
     directoryStructure->addFromOrigin(
-      {modName.toStdWString(), directoryW, priority}, dummy);
+      {m.mod->internalName().toStdWString(), directoryW, m.priority}, dummy);
   }
 
   if (Settings::instance().archiveParsing()) {
-    addModBSAToStructure(
-      directoryStructure, modName, priority, directory, archives);
+    addModBSAToStructure(directoryStructure, m);
   }
 }
-
-
-struct ModThread
-{
-  DirectoryRefresher* dr = nullptr;
-  DirectoryRefreshProgress* progress = nullptr;
-  DirectoryEntry* ds = nullptr;
-  std::wstring modName;
-  std::wstring path;
-  QStringList archives;
-  int prio = -1;
-  DirectoryStats* stats =  nullptr;
-  env::DirectoryWalker walker;
-
-  std::condition_variable cv;
-  std::mutex mutex;
-  bool ready = false;
-
-  void wakeup()
-  {
-    {
-      std::scoped_lock lock(mutex);
-      ready = true;
-    }
-
-    cv.notify_one();
-  }
-
-  void run()
-  {
-    std::unique_lock lock(mutex);
-    cv.wait(lock, [&]{ return ready; });
-
-    SetThisThreadName(QString::fromStdWString(modName + L" refresher"));
-    ds->addFromOrigin({modName, path, prio}, walker, *stats);
-
-    if (Settings::instance().archiveParsing()) {
-      dr->addModBSAToStructure(
-        ds, QString::fromStdWString(modName), prio,
-        QString::fromStdWString(path),
-        archives);
-    }
-
-    if (progress) {
-      progress->addDone();
-    }
-
-    SetThisThreadName(QString::fromStdWString(L"idle refresher"));
-    ready = false;
-  }
-};
-
-env::ThreadPool<ModThread> g_threads;
-
 
 void DirectoryRefresher::updateProgress(const DirectoryRefreshProgress* p)
 {
@@ -319,63 +294,61 @@ void DirectoryRefresher::requestProgressUpdate()
 
 void DirectoryRefresher::addMultipleModsFilesToStructure(
   MOShared::DirectoryEntry *directoryStructure,
-  const std::vector<ModEntry>& entries, DirectoryRefreshProgress* progress)
+  const std::vector<Profile::ActiveMod>& mods,
+  DirectoryRefreshProgress* progress)
 {
-  std::vector<DirectoryStats> stats(entries.size());
+  std::vector<DirectoryStats> stats(mods.size());
 
   log::debug("refresher: using {} threads", m_threadCount);
-  g_threads.setMax(m_threadCount);
+  m_modThreads.setMax(m_threadCount);
 
-  for (std::size_t i=0; i<entries.size(); ++i) {
-    const auto& e = entries[i];
+  for (std::size_t i=0; i<mods.size(); ++i) {
+    const auto& m = mods[i];
     const int prio = static_cast<int>(i + 1);
 
     if constexpr (DirectoryStats::EnableInstrumentation) {
-      stats[i].mod = entries[i].modName.toStdString();
+      stats[i].mod = m.mod->internalName().toStdString();
     }
 
     try
     {
-      if (e.stealFiles.length() > 0) {
-        stealModFilesIntoStructure(
-          directoryStructure, e.modName, prio, e.absolutePath, e.stealFiles);
+      if (m.mod->stealFiles().length() > 0) {
+        stealModFilesIntoStructure(directoryStructure, m);
 
         if (progress) {
           progress->addDone();
         }
       } else {
-        auto& mt = g_threads.request();
+        auto& mt = m_modThreads.request();
 
-        mt.dr = this;
+        mt.refresher = this;
         mt.progress = progress;
         mt.ds = directoryStructure;
-        mt.modName = e.modName.toStdWString();
-        mt.path = QDir::toNativeSeparators(e.absolutePath).toStdWString();
-        mt.prio = prio;
-        mt.archives = e.archives;
+        mt.m = m;
         mt.stats = &stats[i];
 
         mt.wakeup();
       }
     } catch (const std::exception& ex) {
-      emit error(tr("failed to read mod (%1): %2").arg(e.modName, ex.what()));
+      emit error(tr("failed to read mod (%1): %2").arg(m.mod->internalName(), ex.what()));
     }
   }
 
-  g_threads.waitForAll();
+  m_modThreads.waitForAll();
 
   if constexpr (DirectoryStats::EnableInstrumentation) {
     dumpStats(stats);
   }
 }
 
-void DirectoryRefresher::refreshThread()
+void DirectoryRefresher::refreshThread(
+  const std::vector<Profile::ActiveMod>& mods)
 {
   SetThisThreadName("DirectoryRefresher");
   TimeThis tt("DirectoryRefresher::refresh()");
 
   {
-    QMutexLocker locker(&m_RefreshLock);
+    std::scoped_lock lock(m_RefreshLock);
 
     m_Root = DirectoryEntry::createRoot();
 
@@ -389,11 +362,7 @@ void DirectoryRefresher::refreshThread()
       m_Root->addFromOrigin({L"data", dataDirectory, 0}, dummy);
     }
 
-    std::sort(m_Mods.begin(), m_Mods.end(), [](auto lhs, auto rhs) {
-      return lhs.priority < rhs.priority;
-    });
-
-    addMultipleModsFilesToStructure(m_Root.get(), m_Mods, &m_progress);
+    addMultipleModsFilesToStructure(m_Root.get(), mods, &m_progress);
 
     m_Root->getFileRegister()->sortOrigins();
 
@@ -409,14 +378,15 @@ void DirectoryRefresher::refreshThread()
   emit refreshed();
 }
 
-void DirectoryRefresher::asyncRefresh()
+void DirectoryRefresher::asyncRefresh(
+  const std::vector<Profile::ActiveMod>& mods)
 {
   if (m_thread.joinable()) {
     m_thread.join();
   }
 
-  m_progress.start(m_Mods.size());
-  m_thread = std::thread([&]{ refreshThread(); });
+  m_progress.start(mods.size());
+  m_thread = std::thread([this, mods]{ refreshThread(mods); });
 }
 
 

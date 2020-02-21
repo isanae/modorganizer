@@ -1238,56 +1238,6 @@ void OrganizerCore::updateModsActiveState(const QList<unsigned int> &modIndices,
   m_PluginListsWriter.writeImmediately(false);
 }
 
-void OrganizerCore::updateModInDirectoryStructure(unsigned int index,
-                                                  ModInfo::Ptr modInfo)
-{
-  QMap<unsigned int, ModInfo::Ptr> allModInfo;
-  allModInfo[index] = modInfo;
-  updateModsInDirectoryStructure(allModInfo);
-}
-
-void OrganizerCore::updateModsInDirectoryStructure(QMap<unsigned int, ModInfo::Ptr> modInfo)
-{
-  std::vector<DirectoryRefresher::ModEntry> entries;
-
-  for (auto idx : modInfo.keys()) {
-    entries.push_back({
-      modInfo[idx]->name(), modInfo[idx]->absolutePath(),
-      modInfo[idx]->stealFiles(), {}, m_CurrentProfile->getModPriority(idx)});
-  }
-
-  m_DirectoryRefresher->addMultipleModsFilesToStructure(
-    m_DirectoryStructure.get(), entries);
-
-  m_DirectoryStructure->cleanupIrrelevant();
-  // need to refresh plugin list now so we can activate esps
-  refreshESPList(true);
-  // activate all esps of the specified mod so the bsas get activated along with
-  // it
-  m_PluginList.blockSignals(true);
-  updateModsActiveState(modInfo.keys(), true);
-  m_PluginList.blockSignals(false);
-  // now we need to refresh the bsa list and save it so there is no confusion
-  // about what archives are available and active
-  refreshBSAList();
-  if (m_UserInterface != nullptr) {
-    m_UserInterface->archivesWriter().writeImmediately(false);
-  }
-
-  std::vector<QString> archives = enabledArchives();
-  m_DirectoryRefresher->setMods(
-    m_CurrentProfile->getActiveMods(),
-    std::set<QString>(archives.begin(), archives.end()));
-
-  // finally also add files from bsas to the directory structure
-  for (auto idx : modInfo.keys()) {
-    m_DirectoryRefresher->addModBSAToStructure(
-      m_DirectoryStructure.get(), modInfo[idx]->name(),
-      m_CurrentProfile->getModPriority(idx), modInfo[idx]->absolutePath(),
-      modInfo[idx]->archives());
-  }
-}
-
 void OrganizerCore::loggedInAction(QWidget* parent, std::function<void ()> f)
 {
   if (NexusInterface::instance(m_PluginContainer)->getAccessManager()->validated()) {
@@ -1390,6 +1340,49 @@ void OrganizerCore::requestRefresherUpdate()
   m_DirectoryRefresher->requestProgressUpdate();
 }
 
+void OrganizerCore::updateModInDirectoryStructure(
+  unsigned int index, ModInfo::Ptr modInfo)
+{
+  updateModsInDirectoryStructure({{index, modInfo}});
+}
+
+void OrganizerCore::updateModsInDirectoryStructure(QMap<unsigned int, ModInfo::Ptr> modInfo)
+{
+  std::vector<Profile::ActiveMod> mods;
+
+  for (auto idx : modInfo.keys()) {
+    mods.push_back({modInfo[idx], m_CurrentProfile->getModPriority(idx)});
+  }
+
+  m_DirectoryRefresher->addMultipleModsFilesToStructure(
+    m_DirectoryStructure.get(), mods);
+
+  m_DirectoryStructure->cleanupIrrelevant();
+
+  // need to refresh plugin list now so we can activate esps
+  refreshESPList(true);
+
+  // activate all esps of the specified mod so the bsas get activated along
+  // with it
+  m_PluginList.blockSignals(true);
+  updateModsActiveState(modInfo.keys(), true);
+  m_PluginList.blockSignals(false);
+
+  // now we need to refresh the bsa list and save it so there is no confusion
+  // about what archives are available and active
+  refreshBSAList();
+  if (m_UserInterface != nullptr) {
+    m_UserInterface->archivesWriter().writeImmediately(false);
+  }
+
+  if (m_ArchiveParsing) {
+    // finally also add files from bsas to the directory structure
+    std::vector<QString> archives = enabledArchives();
+    m_DirectoryRefresher->addMultipleModsBSAToStructure(
+      m_DirectoryStructure.get(), mods);
+  }
+}
+
 void OrganizerCore::refreshDirectoryStructure()
 {
   if (m_DirectoryUpdate) {
@@ -1398,16 +1391,10 @@ void OrganizerCore::refreshDirectoryStructure()
   }
 
   log::debug("refreshing structure");
+
   m_DirectoryUpdate = true;
-
   m_CurrentProfile->writeModlistNow(true);
-  const auto activeModList = m_CurrentProfile->getActiveMods();
-  const auto archives = enabledArchives();
-
-  m_DirectoryRefresher->setMods(
-      activeModList, std::set<QString>(archives.begin(), archives.end()));
-
-  m_DirectoryRefresher->asyncRefresh();
+  m_DirectoryRefresher->asyncRefresh(m_CurrentProfile->getActiveMods());
 }
 
 void OrganizerCore::directory_refreshed()
@@ -1844,21 +1831,23 @@ std::vector<Mapping> OrganizerCore::fileMapping(const QString &profileName,
 
   bool overwriteActive = false;
 
-  for (auto mod : profile.getActiveMods()) {
-    if (std::get<0>(mod).compare("overwrite", Qt::CaseInsensitive) == 0) {
+  for (const auto& m : profile.getActiveMods()) {
+    if (m.mod->hasFlag(ModInfo::FLAG_OVERWRITE)) {
       continue;
     }
 
-    unsigned int modIndex = ModInfo::getIndex(std::get<0>(mod));
+    unsigned int modIndex = ModInfo::getIndex(m.mod->internalName());
     ModInfo::Ptr modPtr   = ModInfo::getByIndex(modIndex);
 
-    bool createTarget = customOverwrite == std::get<0>(mod);
+    bool createTarget = (customOverwrite == m.mod->internalName());
 
     overwriteActive |= createTarget;
 
     if (modPtr->isRegular()) {
-      result.insert(result.end(), {QDir::toNativeSeparators(std::get<1>(mod)),
-                                   dataPath, true, createTarget});
+      result.insert(result.end(), {
+        QDir::toNativeSeparators(m.mod->absolutePath()),
+        dataPath, true, createTarget
+      });
     }
   }
 

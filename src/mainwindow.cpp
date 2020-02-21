@@ -2884,19 +2884,21 @@ void MainWindow::displayModInformation(
 
   if (m_OrganizerCore.currentProfile()->modEnabled(modIndex)
       && !modInfo->hasFlag(ModInfo::FLAG_FOREIGN)) {
-    FilesOrigin& origin = m_OrganizerCore.directoryStructure()->getOriginByName(ToWString(modInfo->name()));
+    FilesOrigin& origin = m_OrganizerCore.directoryStructure()
+      ->getOriginByName(ToWString(modInfo->name()));
+
     origin.enable(false);
 
     if (m_OrganizerCore.directoryStructure()->originExists(ToWString(modInfo->name()))) {
-      FilesOrigin& origin = m_OrganizerCore.directoryStructure()->getOriginByName(ToWString(modInfo->name()));
+      FilesOrigin& origin = m_OrganizerCore.directoryStructure()
+        ->getOriginByName(ToWString(modInfo->name()));
+
       origin.enable(false);
 
-      m_OrganizerCore.directoryRefresher()->addModToStructure(m_OrganizerCore.directoryStructure()
-                                             , modInfo->name()
-                                             , m_OrganizerCore.currentProfile()->getModPriority(modIndex)
-                                             , modInfo->absolutePath()
-                                             , modInfo->stealFiles()
-                                             , modInfo->archives());
+      m_OrganizerCore.directoryRefresher()->addModToStructure(
+        m_OrganizerCore.directoryStructure(),
+        {modInfo, m_OrganizerCore.currentProfile()->getModPriority(modIndex)});
+
       m_OrganizerCore.directoryStructure()->cleanupIrrelevant();
       m_OrganizerCore.directoryStructure()->getFileRegister()->sortOrigins();
       m_OrganizerCore.refreshLists();

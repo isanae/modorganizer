@@ -2,6 +2,7 @@
 #define ENV_ENVFS_H
 
 #include <thread>
+#include <condition_variable>
 
 namespace env
 {

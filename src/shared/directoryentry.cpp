@@ -68,11 +68,11 @@ void forEachPathComponent(std::wstring_view path, F&& f)
 
     if (sep == std::string::npos) {
       // last component
-      f(path, true);
+      f(path.substr(start), true);
       break;
     }
 
-    if (!f(path.substr(0, sep), false)) {
+    if (!f(path.substr(start, sep - start), false)) {
       break;
     }
 

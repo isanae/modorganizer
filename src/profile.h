@@ -55,6 +55,11 @@ public:
   typedef boost::shared_ptr<Profile> Ptr;
 
 public:
+  struct ActiveMod
+  {
+    ModInfo::Ptr mod;
+    int priority;
+  };
 
   /**
    * @brief constructor
@@ -231,9 +236,9 @@ public:
   /**
    * @brief retrieve a list of mods that are enabled in this profile
    *
-   * @return list of active mods sorted by priority (ascending). "first" is the mod name, "second" is its path
+   * @return list of active mods sorted by priority (ascending)
    **/
-  std::vector<std::tuple<QString, QString, int> > getActiveMods();
+  std::vector<ActiveMod> getActiveMods();
 
   /**
    * @brief retrieve a mod of the indexes ordered by priority

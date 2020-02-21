@@ -520,20 +520,24 @@ void Profile::updateIndices()
 }
 
 
-std::vector<std::tuple<QString, QString, int> > Profile::getActiveMods()
+std::vector<Profile::ActiveMod> Profile::getActiveMods()
 {
-  std::vector<std::tuple<QString, QString, int> > result;
-  for (std::map<int, unsigned int>::const_iterator iter = m_ModIndexByPriority.begin(); iter != m_ModIndexByPriority.end(); iter++ ) {
-    if ((iter->second != UINT_MAX) && m_ModStatus[iter->second].m_Enabled) {
-      ModInfo::Ptr modInfo = ModInfo::getByIndex(iter->second);
-      if (modInfo->hasFlag(ModInfo::FLAG_OVERWRITE))
-        result.push_back(std::make_tuple(modInfo->internalName(), modInfo->absolutePath(), INT_MAX));
-      else
-        result.push_back(std::make_tuple(modInfo->internalName(), modInfo->absolutePath(), m_ModStatus[iter->second].m_Priority));
+  std::vector<ActiveMod> v;
+
+  for (auto&& [prio, index] : m_ModIndexByPriority) {
+    if ((index != UINT_MAX) && m_ModStatus[index].m_Enabled) {
+      ModInfo::Ptr m = ModInfo::getByIndex(index);
+      int prio = INT_MAX;
+
+      if (!m->hasFlag(ModInfo::FLAG_OVERWRITE)) {
+        prio = m_ModStatus[index].m_Priority;
+      }
+
+      v.push_back({m, prio});
     }
   }
 
-  return result;
+  return v;
 }
 
 
