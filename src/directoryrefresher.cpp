@@ -362,7 +362,9 @@ void DirectoryStructure::refreshThread(
   root->getFileRegister()->sortOrigins();
   root->cleanupIrrelevant();
 
-  log::debug("refresher saw {} files", root->getFileRegister()->highestCount());
+  log::debug(
+    "refresher saw {} files in {} mods",
+    root->getFileRegister()->highestCount(), mods.size());
 
   {
     std::scoped_lock lock(m_refreshLock);

@@ -173,7 +173,11 @@ public:
 
   void wakeup()
   {
-    m_ready = true;
+    {
+      m_ready = true;
+      std::unique_lock lock(m_mutex);
+    }
+
     m_cv.notify_one();
   }
 
