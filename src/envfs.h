@@ -7,6 +7,38 @@
 namespace env
 {
 
+class Waiter
+{
+public:
+  Waiter()
+    : m_ready(false)
+  {
+  }
+
+  void wait()
+  {
+    std::unique_lock lock(m_mutex);
+    m_cv.wait(lock, [&]{ return m_ready; });
+    m_ready = false;
+  }
+
+  void wakeup()
+  {
+    {
+      std::scoped_lock lock(m_mutex);
+      m_ready = true;
+    }
+
+    m_cv.notify_one();
+  }
+
+private:
+  std::condition_variable m_cv;
+  std::mutex m_mutex;
+  bool m_ready;
+};
+
+
 template <class T>
 class ThreadPool
 {
@@ -95,14 +127,11 @@ private:
     std::atomic<bool> busy;
     T o;
 
-    std::condition_variable cv;
-    std::mutex mutex;
-    bool ready;
-
+    Waiter waiter;
     std::atomic<bool> stop;
 
     ThreadInfo()
-      : busy(true), ready(false), stop(false)
+      : busy(true), stop(false)
     {
       thread = std::thread([&]{ run(); });
     }
@@ -118,12 +147,7 @@ private:
 
     void wakeup()
     {
-      {
-        std::scoped_lock lock(mutex);
-        ready = true;
-      }
-
-      cv.notify_one();
+      waiter.wakeup();
     }
 
     void run()
@@ -131,16 +155,13 @@ private:
       busy = false;
 
       while (!stop) {
-        std::unique_lock lock(mutex);
-        cv.wait(lock, [&]{ return ready; });
+        waiter.wait();
 
         if (stop) {
           break;
         }
 
         o.run();
-
-        ready = false;
         busy = false;
       }
     }

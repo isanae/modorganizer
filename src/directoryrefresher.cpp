@@ -101,39 +101,52 @@ void DirectoryRefreshProgress::notify()
 }
 
 
+DirectoryStructure::ModThread::ModThread() :
+  m_structure(nullptr), m_root(nullptr), m_progress(nullptr), m_stats(nullptr),
+  m_addFiles(false), m_addBSAs(false)
+{
+}
+
+void DirectoryStructure::ModThread::set(
+  DirectoryStructure* s, MOShared::DirectoryEntry* root,
+  Profile::ActiveMod m, Progress* p, MOShared::DirectoryStats* stats,
+  bool addFiles, bool addBSAs)
+{
+  m_structure = s;
+  m_root = root;
+  m_progress = p;
+  m_mod = m;
+  m_stats = stats;
+  m_addFiles = addFiles;
+  m_addBSAs = addBSAs;
+}
+
 void DirectoryStructure::ModThread::wakeup()
 {
-  {
-    std::scoped_lock lock(mutex);
-    ready = true;
-  }
-
-  cv.notify_one();
+  m_waiter.wakeup();
 }
 
 void DirectoryStructure::ModThread::run()
 {
-  std::unique_lock lock(mutex);
-  cv.wait(lock, [&]{ return ready; });
+  m_waiter.wait();
 
-  SetThisThreadName(m.mod->internalName() + " refresher");
+  SetThisThreadName(m_mod.mod->internalName() + " refresher");
 
-  if (files) {
-    if (!m.mod->stealFiles().empty()) {
-      structure->stealFiles(root, m);
+  if (m_addFiles) {
+    if (!m_mod.mod->stealFiles().empty()) {
+      m_structure->stealFiles(m_root, m_mod);
     } else {
-      structure->addFiles(root, walker, *stats, m);
+      m_structure->addFiles(m_root, m_walker, *m_stats, m_mod);
     }
   }
 
-  if (bsas) {
-    structure->addBSAs(root, *stats, m);
+  if (m_addBSAs) {
+    m_structure->addBSAs(m_root, *m_stats, m_mod);
   }
 
-  progress->addDone();
+  m_progress->addDone();
 
   SetThisThreadName(QString::fromStdWString(L"idle refresher"));
-  ready = false;
 }
 
 
@@ -202,7 +215,7 @@ void DirectoryStructure::asyncRefresh(
 
 void DirectoryStructure::addMods(
   DirectoryEntry *root,
-  const std::vector<Profile::ActiveMod>& mods, bool files, bool bsas,
+  const std::vector<Profile::ActiveMod>& mods, bool addFiles, bool addBSAs,
   Progress& p)
 {
   std::vector<DirectoryStats> stats(mods.size());
@@ -222,14 +235,7 @@ void DirectoryStructure::addMods(
     {
       auto& mt = m_modThreads.request();
 
-      mt.root = root;
-      mt.structure = this;
-      mt.progress = &p;
-      mt.m = m;
-      mt.stats = &stats[i];
-      mt.files = files;
-      mt.bsas = bsas;
-
+      mt.set(this, root, m, &p, &stats[i], addFiles, addBSAs);
       mt.wakeup();
     } catch (const std::exception& e) {
       log::error("failed to read mod {}: {}", m.mod->internalName(), e.what());

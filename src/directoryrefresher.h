@@ -75,8 +75,8 @@ private:
 Q_DECLARE_METATYPE(DirectoryRefreshProgress);
 
 
-// used to asynchronously walk the mod directories and build the directory
-// structure
+// holds the root DirectoryEntry and can add mods synchronously or do a full
+// async refresh
 //
 class DirectoryStructure
 {
@@ -107,32 +107,41 @@ public:
   //
   void addFiles(const std::vector<Profile::ActiveMod>& mods);
 
+  // returns the progress of a current async refresh, finished() is true if
+  // there is no refresh running
+  //
   DirectoryRefreshProgress progress() const;
 
-  // generate a new directory structure
+  // generates a new directory structure, calls callback() regularly
   //
   void asyncRefresh(
     const std::vector<Profile::ActiveMod>& mods,
     ProgressCallback callback);
 
 private:
-  struct ModThread
+  class ModThread
   {
-    MOShared::DirectoryEntry* root = nullptr;
-    DirectoryStructure* structure = nullptr;
-    Progress* progress = nullptr;
-    Profile::ActiveMod m;
-    MOShared::DirectoryStats* stats =  nullptr;
-    bool files = false;
-    bool bsas = false;
+  public:
+    ModThread();
 
-    env::DirectoryWalker walker;
-    std::condition_variable cv;
-    std::mutex mutex;
-    bool ready = false;
+    void set(
+      DirectoryStructure* s, MOShared::DirectoryEntry* root,
+      Profile::ActiveMod m, Progress* p, MOShared::DirectoryStats* stats,
+      bool addFiles, bool addBSAs);
 
     void wakeup();
     void run();
+
+  private:
+    DirectoryStructure* m_structure;
+    MOShared::DirectoryEntry* m_root;
+    Profile::ActiveMod m_mod;
+    Progress* m_progress;
+    MOShared::DirectoryStats* m_stats;
+    bool m_addFiles;
+    bool m_addBSAs;
+    env::DirectoryWalker m_walker;
+    env::Waiter m_waiter;
   };
 
   std::unique_ptr<MOShared::DirectoryEntry> m_root;
@@ -149,7 +158,7 @@ private:
 
   void addMods(
     MOShared::DirectoryEntry* root,
-    const std::vector<Profile::ActiveMod>& mods, bool files, bool bsas,
+    const std::vector<Profile::ActiveMod>& mods, bool addFiles, bool addBSAs,
     Progress& p);
 
   void stealFiles(MOShared::DirectoryEntry* root, const Profile::ActiveMod& m);
