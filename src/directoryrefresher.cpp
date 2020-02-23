@@ -37,9 +37,15 @@ using namespace MOShared;
 void dumpStats(std::vector<DirectoryStats>& stats);
 
 
-DirectoryRefreshProgress::DirectoryRefreshProgress(Callback cb)
-  : m_callback(std::move(cb)), m_total(0), m_done(0), m_finished(false)
+DirectoryRefreshProgress::DirectoryRefreshProgress()
+  : m_total(0), m_done(0), m_finished(false)
 {
+}
+
+DirectoryRefreshProgress::DirectoryRefreshProgress(Callback cb, std::size_t t)
+  : m_callback(std::move(cb)), m_total(t), m_done(0), m_finished(false)
+{
+  notify();
 }
 
 DirectoryRefreshProgress::DirectoryRefreshProgress(const DirectoryRefreshProgress& p)
@@ -49,23 +55,21 @@ DirectoryRefreshProgress::DirectoryRefreshProgress(const DirectoryRefreshProgres
 
 DirectoryRefreshProgress& DirectoryRefreshProgress::operator=(const DirectoryRefreshProgress& p)
 {
-  m_callback = p.m_callback;
-  m_total = p.m_total;
-  m_done = p.m_done.load();
-  m_finished = p.m_finished.load();
-  return *this;
-}
+  if (&p != this) {
+    std::scoped_lock lock(m_mutex, p.m_mutex);
 
-void DirectoryRefreshProgress::start(std::size_t total)
-{
-  m_total = total;
-  m_done = 0;
-  m_finished = false;
-  notify();
+    m_callback = p.m_callback;
+    m_total = p.m_total;
+    m_done = p.m_done;
+    m_finished = p.m_finished;
+  }
+
+  return *this;
 }
 
 bool DirectoryRefreshProgress::finished() const
 {
+  std::scoped_lock lock(m_mutex);
   return m_finished;
 }
 
@@ -73,9 +77,13 @@ int DirectoryRefreshProgress::percentDone() const
 {
   int percent = 100;
 
-  if (m_total > 0) {
-    const double d = static_cast<double>(m_done) / m_total;
-    percent = static_cast<int>(d * 100);
+  {
+    std::scoped_lock lock(m_mutex);
+
+    if (m_total > 0) {
+      const double d = static_cast<double>(m_done) / m_total;
+      percent = static_cast<int>(d * 100);
+    }
   }
 
   return percent;
@@ -83,20 +91,35 @@ int DirectoryRefreshProgress::percentDone() const
 
 void DirectoryRefreshProgress::finish()
 {
-  m_finished = true;
+  {
+    std::scoped_lock lock(m_mutex);
+    m_finished = true;
+  }
+
   notify();
 }
 
 void DirectoryRefreshProgress::addDone()
 {
-  ++m_done;
+  {
+    std::scoped_lock lock(m_mutex);
+    ++m_done;
+  }
+
   notify();
 }
 
 void DirectoryRefreshProgress::notify()
 {
-  if (m_callback) {
-    m_callback(*this);
+  Callback cb;
+
+  {
+    std::scoped_lock lock(m_mutex);
+    cb = m_callback;
+  }
+
+  if (cb) {
+    cb(*this);
   }
 }
 
@@ -128,41 +151,57 @@ void DirectoryStructure::ModThread::wakeup()
 
 void DirectoryStructure::ModThread::run()
 {
-  m_waiter.wait();
+  try
+  {
+      m_waiter.wait();
 
-  SetThisThreadName(m_mod.mod->internalName() + " refresher");
+      SetThisThreadName(m_mod.mod->internalName() + " refresher");
 
-  if (m_addFiles) {
-    if (!m_mod.mod->stealFiles().empty()) {
-      m_structure->stealFiles(m_root, m_mod);
-    } else {
-      m_structure->addFiles(m_root, m_walker, *m_stats, m_mod);
-    }
+      if (m_addFiles) {
+        if (!m_mod.mod->associatedFiles().empty()) {
+          m_structure->addAssociatedFiles(m_root, m_mod);
+        } else {
+          m_structure->addFiles(m_root, m_walker, *m_stats, m_mod);
+        }
+      }
+
+      if (m_addBSAs) {
+        m_structure->addBSAs(m_root, *m_stats, m_mod);
+      }
+
+      m_progress->addDone();
+
+      SetThisThreadName(QString::fromStdWString(L"idle refresher"));
   }
-
-  if (m_addBSAs) {
-    m_structure->addBSAs(m_root, *m_stats, m_mod);
+  catch(std::exception& e)
+  {
+    log::error(
+      "unhandled exception in ModThread for '{}': {}",
+      m_mod.mod->internalName(), e.what());
   }
-
-  m_progress->addDone();
-
-  SetThisThreadName(QString::fromStdWString(L"idle refresher"));
+  catch(...)
+  {
+    log::error(
+      "unhandled unknown exception in ModThread for '{}'",
+      m_mod.mod->internalName());
+  }
 }
 
 
 DirectoryStructure::DirectoryStructure(std::size_t threadCount)
   : m_root(DirectoryEntry::createRoot()), m_threadCount(threadCount)
 {
+  log::debug("refresher is using {} threads", m_threadCount);
 }
 
 DirectoryStructure::~DirectoryStructure()
 {
-  if (m_thread.joinable()) {
-    m_thread.join();
+  if (m_refreshThread.joinable()) {
+    m_refreshThread.join();
   }
 
-  if (m_deleter.joinable()) {
-    m_deleter.join();
+  if (m_deleterThread.joinable()) {
+    m_deleterThread.join();
   }
 }
 
@@ -173,7 +212,7 @@ DirectoryEntry* DirectoryStructure::root()
 
 void DirectoryStructure::addMods(const std::vector<Profile::ActiveMod>& mods)
 {
-  std::scoped_lock lock(m_refreshLock);
+  std::scoped_lock lock(m_rootMutex);
   TimeThis tt("DirectoryStructure::addMods()");
 
   Progress p;
@@ -182,7 +221,7 @@ void DirectoryStructure::addMods(const std::vector<Profile::ActiveMod>& mods)
 
 void DirectoryStructure::addBSAs(const std::vector<Profile::ActiveMod>& mods)
 {
-  std::scoped_lock lock(m_refreshLock);
+  std::scoped_lock lock(m_rootMutex);
   TimeThis tt("DirectoryStructure::addBSAs()");
 
   Progress p;
@@ -191,7 +230,7 @@ void DirectoryStructure::addBSAs(const std::vector<Profile::ActiveMod>& mods)
 
 void DirectoryStructure::addFiles(const std::vector<Profile::ActiveMod>& mods)
 {
-  std::scoped_lock lock(m_refreshLock);
+  std::scoped_lock lock(m_rootMutex);
   TimeThis tt("DirectoryStructure::addFiles()");
 
   Progress p;
@@ -206,11 +245,22 @@ DirectoryRefreshProgress DirectoryStructure::progress() const
 void DirectoryStructure::asyncRefresh(
   const std::vector<Profile::ActiveMod>& mods, ProgressCallback callback)
 {
-  if (m_thread.joinable()) {
-    m_thread.join();
+  // make sure any previous refresh has finished
+  if (m_refreshThread.joinable()) {
+    m_refreshThread.join();
   }
 
-  m_thread = std::thread([=]{ refreshThread(mods, callback); });
+  m_refreshThread = std::thread([=]{ refreshThread(mods, callback); });
+}
+
+void DirectoryStructure::addFromData(DirectoryEntry* root)
+{
+  const auto* game = qApp->property("managed_game").value<IPluginGame*>();
+  const auto dir = game->dataDirectory().absolutePath();
+  const auto dirW = QDir::toNativeSeparators(dir).toStdWString();
+
+  DirectoryStats dummyStats;
+  root->addFromOrigin({L"data", dirW, DataOriginID}, dummyStats);
 }
 
 void DirectoryStructure::addMods(
@@ -218,11 +268,13 @@ void DirectoryStructure::addMods(
   const std::vector<Profile::ActiveMod>& mods, bool addFiles, bool addBSAs,
   Progress& p)
 {
+  // one stats object per mod
   std::vector<DirectoryStats> stats(mods.size());
-  log::debug("refresher: using {} threads", m_threadCount);
 
+  // creating threads
   m_modThreads.setMax(m_threadCount);
 
+  // for each mod
   for (std::size_t i=0; i<mods.size(); ++i) {
     const auto& m = mods[i];
     const int prio = static_cast<int>(i + 1);
@@ -231,17 +283,17 @@ void DirectoryStructure::addMods(
       stats[i].mod = m.mod->internalName().toStdString();
     }
 
-    try
-    {
-      auto& mt = m_modThreads.request();
+    // request an idle thread
+    auto& mt = m_modThreads.request();
 
-      mt.set(this, root, m, &p, &stats[i], addFiles, addBSAs);
-      mt.wakeup();
-    } catch (const std::exception& e) {
-      log::error("failed to read mod {}: {}", m.mod->internalName(), e.what());
-    }
+    // set it up
+    mt.set(this, root, m, &p, &stats[i], addFiles, addBSAs);
+
+    // make it run
+    mt.wakeup();
   }
 
+  // for wait the remaining threads to finish
   m_modThreads.waitForAll();
 
   if constexpr (DirectoryStats::EnableInstrumentation) {
@@ -249,35 +301,55 @@ void DirectoryStructure::addMods(
   }
 }
 
-void DirectoryStructure::stealFiles(DirectoryEntry* root, const Profile::ActiveMod& m)
+void DirectoryStructure::addAssociatedFiles(
+  DirectoryEntry* root, const Profile::ActiveMod& m)
 {
-  std::wstring directoryW = ToWString(QDir::toNativeSeparators(m.mod->absolutePath()));
+  // these files are already in the structure because they're actually in the
+  // Data directory, and it's been checked at the very beginning
+  //
+  // note that some files might be both in Data and in a mod
+  //
+  // so there's no point in walking the filesystem for them, just change their
+  // origin from Data to the given pseudo, foreign mod
 
-  // instead of adding all the files of the target directory, we just change
-  // the root of the specified files to this mod
-  FilesOrigin& origin = root->getOrCreateOrigin(
-    {m.mod->internalName().toStdWString(), directoryW, m.priority});
+  FilesOrigin& origin = root->getOrCreateOrigin({
+    m.mod->internalName().toStdWString(),
+    QDir::toNativeSeparators(m.mod->absolutePath()).toStdWString(),
+    m.priority
+  });
 
-  for (const QString &filename : m.mod->stealFiles()) {
+  for (const QString& filename : m.mod->associatedFiles()) {
     if (filename.isEmpty()) {
-      log::warn("Trying to find file with no name");
+      log::error(
+        "while adding associated files for mod '{}', "
+        "a file had an empty filename", m.mod->internalName());
+
       continue;
     }
-    QFileInfo fileInfo(filename);
-    FileEntryPtr file = root->findFile(ToWString(fileInfo.fileName()));
-    if (file.get() != nullptr) {
-      if (file->getOrigin() == 0) {
-        // replace data as the origin on this bsa
-        file->removeOrigin(0);
-      }
-      origin.addFile(file->getIndex());
-      file->addOrigin(origin.getID(), file->getFileTime(), L"", -1);
-    } else {
-      QString warnStr = fileInfo.absolutePath();
-      if (warnStr.isEmpty())
-        warnStr = filename;
-      log::warn("file not found: {}", warnStr);
+
+    const QFileInfo fileInfo(filename);
+    const auto file = root->findFile(fileInfo.fileName().toStdWString());
+
+    if (!file) {
+      log::error(
+        "while adding associated files for mod '{}', "
+        "file '{}' was not found in the structure",
+        m.mod->internalName(), fileInfo.fileName());
+
+      continue;
     }
+
+    // remove Data as an origin because it would put the same file in two
+    // origins
+    if (file->getOrigin() == DataOriginID) {
+      file->removeOrigin(DataOriginID);
+    }
+
+    // add file to origin
+    origin.addFile(file->getIndex());
+
+    // add origin to file
+    file->addOrigin(origin.getID(), file->getFileTime(), L"", -1);
   }
 }
 
@@ -285,12 +357,13 @@ void DirectoryStructure::addFiles(
   DirectoryEntry* root, env::DirectoryWalker& walker, MOShared::DirectoryStats& stats,
   const Profile::ActiveMod& m)
 {
-  std::wstring directoryW = ToWString(QDir::toNativeSeparators(m.mod->absolutePath()));
-  DirectoryStats dummy;
-
   root->addFromOrigin(
-    {m.mod->internalName().toStdWString(), directoryW, m.priority},
-    walker, dummy);
+    {
+      m.mod->internalName().toStdWString(),
+      QDir::toNativeSeparators(m.mod->absolutePath()).toStdWString(),
+      m.priority
+    },
+    walker, stats);
 }
 
 void DirectoryStructure::addBSAs(
@@ -298,37 +371,28 @@ void DirectoryStructure::addBSAs(
   MOShared::DirectoryStats& stats, const Profile::ActiveMod& m)
 {
   if (!Settings::instance().archiveParsing()) {
+    // archive parsing is disabled
     return;
   }
 
-  const IPluginGame *game =
-    qApp->property("managed_game").value<IPluginGame*>();
+  // getting load order
+  const auto loadOrderMap = getLoadOrderMap();
 
-  GamePlugins *gamePlugins = game->feature<GamePlugins>();
-  QStringList loadOrder = QStringList();
-  gamePlugins->getLoadOrder(loadOrder);
-
-  DirectoryStats dummy;
-
+  // for each archive in this mod
   for (const auto& archive : m.mod->archives()) {
-    const std::filesystem::path archivePath(archive.toStdWString());
-    const auto filename = QString::fromStdWString(archivePath.filename().native());
-    const auto filenameLc = filename.toLower();
+    const fs::path archivePath(archive.toStdWString());
 
-    int order = -1;
+    // lowercase name without extension
+    const auto archiveNameLc = ToLowerCopy(archivePath.stem().native());
 
-    for (auto plugin : loadOrder)
-    {
-      const auto pluginNameLc =
-        ToLowerCopy(std::filesystem::path(plugin.toStdWString()).stem().native());
+    // look for an associated plugin in the load order
+    const int order = findArchiveLoadOrder(archiveNameLc, loadOrderMap);
 
-      if (filenameLc.startsWith(pluginNameLc + L" - ") ||
-        filenameLc.startsWith(pluginNameLc + L".")) {
-        auto itor = std::find(loadOrder.begin(), loadOrder.end(), plugin);
-        if (itor != loadOrder.end()) {
-          order = std::distance(loadOrder.begin(), itor);
-        }
-      }
+    if (order == -1) {
+      log::warn(
+        "while adding BSAs for mod '{}', archive '{}' has no "
+        "corresponding plugin in the load order file",
+        m.mod->internalName(), archive);
     }
 
     root->addFromBSA(
@@ -337,8 +401,90 @@ void DirectoryStructure::addBSAs(
         QDir::toNativeSeparators(m.mod->absolutePath()).toStdWString(),
         m.priority
       },
-      archivePath, order, dummy);
+      archivePath, order, stats);
   }
+}
+
+DirectoryStructure::LoadOrderMap DirectoryStructure::getLoadOrderMap() const
+{
+  const auto* game = qApp->property("managed_game").value<IPluginGame*>();
+  auto* gamePlugins = game->feature<GamePlugins>();
+
+  // getting loadorder as a list of plugin file names
+  QStringList loadOrder;
+  gamePlugins->getLoadOrder(loadOrder);
+
+  LoadOrderMap loadOrderMap;
+
+  // for each plugin
+  for (int i=0; i<loadOrder.size(); ++i) {
+    const fs::path pluginPath(loadOrder[i].toStdWString());
+
+    // lowercase plugin name without extension
+    const std::wstring pluginNameLc = ToLowerCopy(pluginPath.stem().native());
+
+    // add to map
+    loadOrderMap.emplace(pluginNameLc, i);
+  }
+
+  return loadOrderMap;
+}
+
+int DirectoryStructure::findArchiveLoadOrder(
+  std::wstring_view archiveNameLc, const LoadOrderMap& loadOrderMap) const
+{
+  // BSAs typically have the same filename as their associated plugin, so for
+  // example "Bells of Skyrim.esp" and "Bells of Skyrim.bsa"
+  //
+  // but some mods have more than one BSA and those typically have " - X" at
+  // the end, like "Bells of Skyrim - Textures.bsa"
+  //
+  // this first look for the archive filename without extension in the name;
+  // if it's not found, it cuts the filename on the last " - " and looks for
+  // that
+
+  // looking for the archive name itself
+  auto itor = loadOrderMap.find(archiveNameLc);
+  if (itor != loadOrderMap.end()) {
+    return itor->second;
+  }
+
+  // cut on the last " - "
+  const auto pos = archiveNameLc.rfind(L" - ");
+  if (pos != std::wstring::npos) {
+    const auto archivePrefixLc = archiveNameLc.substr(0, pos);
+
+    // look for that
+    itor = loadOrderMap.find(archivePrefixLc);
+    if (itor != loadOrderMap.end()) {
+      return itor->second;
+    }
+  }
+
+  // not found
+  return -1;
+}
+
+void DirectoryStructure::setRoot(std::unique_ptr<DirectoryEntry> root)
+{
+  // swapping with current
+  {
+    std::scoped_lock lock(m_rootMutex);
+    std::swap(m_root, root);
+  }
+
+  // root now points to the old root
+
+  // finishing previous deletion, if any
+  if (m_deleterThread.joinable()) {
+    m_deleterThread.join();
+  }
+
+  // deleting the old structure in a thread
+  m_deleterThread = std::thread([p=root.release()]{
+    TimeThis tt("structure deleter");
+    delete p;
+  });
 }
 
 void DirectoryStructure::refreshThread(
@@ -348,47 +494,35 @@ void DirectoryStructure::refreshThread(
   SetThisThreadName("DirectoryStructure");
   TimeThis tt("DirectoryStructure::refreshThread()");
 
-  m_progress = Progress(callback);
-  m_progress.start(mods.size());
-
-  auto root = DirectoryEntry::createRoot();
-
-  IPluginGame *game = qApp->property("managed_game").value<IPluginGame*>();
-
-  std::wstring dataDirectory =
-    QDir::toNativeSeparators(game->dataDirectory().absolutePath()).toStdWString();
+  // restart progress
+  m_progress = Progress(callback, mods.size());
 
   {
-    DirectoryStats dummy;
-    root->addFromOrigin({L"data", dataDirectory, 0}, dummy);
+    // new root, will be swapped with m_root when everything's done
+    auto root = DirectoryEntry::createRoot();
+
+    // add from data directory
+    addFromData(root.get());
+
+    // add mods
+    addMods(root.get(), mods, true, true, m_progress);
+
+    // cleanup
+    root->getFileRegister()->sortOrigins();
+    root->cleanupIrrelevant();
+
+    // swapping roots
+    setRoot(std::move(root));
+
+    // root has been moved from this point
   }
 
-  addMods(root.get(), mods, true, true, m_progress);
-
-  root->getFileRegister()->sortOrigins();
-  root->cleanupIrrelevant();
+  // final notification
+  m_progress.finish();
 
   log::debug(
     "refresher saw {} files in {} mods",
-    root->getFileRegister()->highestCount(), mods.size());
-
-  {
-    std::scoped_lock lock(m_refreshLock);
-
-    // swapping with current
-    std::swap(m_root, root);
-  }
-
-  if (m_deleter.joinable()) {
-    m_deleter.join();
-  }
-
-  m_deleter = std::thread([p=root.release()]{
-    TimeThis tt("structure deleter");
-    delete p;
-  });
-
-  m_progress.finish();
+    m_root->getFileRegister()->highestCount(), mods.size());
 }
 
 
@@ -484,5 +618,3 @@ void dumpStats(std::vector<DirectoryStats>& stats)
 
   ++run;
 }
-
-

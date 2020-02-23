@@ -58,9 +58,34 @@ public:
   virtual QString getNexusDescription() const { return QString(); }
   virtual int getFixedPriority() const { return INT_MIN; }
   virtual QStringList archives(bool checkOnDisk = false)  { return m_Archives; }
-  virtual QStringList stealFiles() const { return m_Archives + QStringList(m_ReferenceFile); }
   virtual bool alwaysEnabled() const { return true; }
   virtual void addInstalledFile(int, int) {}
+
+  // unmanaged ("foreign") mods are basically any esp, esl or esm files living
+  // in the Data directory; each file found creates a pseudo-mod with the
+  // filename as a name
+  //
+  // (note that some files are considered "official" if they match a
+  // plugin-specific list of built in files, like "skyrim.esm" or
+  // "dragonborn.esm")
+  //
+  // since they live in the Data directory, these files wouldn't typically be
+  // associated with any mod (a mod is a directory in the `mods/` folder), they
+  // would merely be shown in the Data tab as "unmanaged" and wouldn't be
+  // present in the mod list at all
+  //
+  // so each esp, esl or esm file creates a "foreign" mod with the file as the
+  // "reference" file and any .bsa with the same name will also be associated
+  // with  it (plugins may add more files, but that's typically it)
+  //
+  // therefore, this function returns the list of files associated with this
+  // foreign mod and is used by DirectoryStructure to change the origin of
+  // unmanaged  files from "Data" to the appropriate foreign pseudo-mod
+  //
+  QStringList associatedFiles() const override
+  {
+    return m_Archives + QStringList(m_ReferenceFile);
+  }
 
 protected:
   ModInfoForeign(

@@ -269,8 +269,14 @@ void ModInfo::updateFromDisc(
   UnmanagedMods *unmanaged = game->feature<UnmanagedMods>();
   if (unmanaged != nullptr) {
     for (const QString &modName : unmanaged->mods(!displayForeign)) {
-      ModInfo::EModType modType = game->DLCPlugins().contains(unmanaged->referenceFile(modName).fileName(), Qt::CaseInsensitive) ? ModInfo::EModType::MOD_DLC :
-                         (game->CCPlugins().contains(unmanaged->referenceFile(modName).fileName(), Qt::CaseInsensitive) ? ModInfo::EModType::MOD_CC : ModInfo::EModType::MOD_DEFAULT);
+      const auto refFile = unmanaged->referenceFile(modName).fileName();
+      ModInfo::EModType modType = modType = ModInfo::EModType::MOD_DEFAULT;
+
+      if (game->DLCPlugins().contains(refFile, Qt::CaseInsensitive)) {
+        modType = ModInfo::EModType::MOD_DLC;
+      } else if (game->CCPlugins().contains(refFile, Qt::CaseInsensitive)) {
+        modType = ModInfo::EModType::MOD_CC;
+      }
 
       createFromPlugin(
         unmanaged->displayName(modName),

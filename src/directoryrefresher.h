@@ -36,14 +36,11 @@ class DirectoryRefreshProgress : QObject
 public:
   using Callback = std::function<void (DirectoryRefreshProgress)>;
 
-  DirectoryRefreshProgress(Callback cb={});
+  DirectoryRefreshProgress();
+  DirectoryRefreshProgress(Callback cb, std::size_t total);
 
   DirectoryRefreshProgress(const DirectoryRefreshProgress& p);
   DirectoryRefreshProgress& operator=(const DirectoryRefreshProgress& p);
-
-  // resets with the given total
-  //
-  void start(std::size_t total);
 
 
   // whether refreshing is finished
@@ -64,10 +61,11 @@ public:
   void addDone();
 
 private:
+  mutable std::mutex m_mutex;
   Callback m_callback;
   std::size_t m_total;
-  std::atomic<std::size_t> m_done;
-  std::atomic<bool> m_finished;
+  std::size_t m_done;
+  bool m_finished;
 
   void notify();
 };
@@ -95,15 +93,18 @@ public:
 
   MOShared::DirectoryEntry* root();
 
-  // add files for a mod to the directory structure, including bsas
+  // add files for a mod to the directory structure, including bsas; async,
+  // but runs threads in the background
   //
   void addMods(const std::vector<Profile::ActiveMod>& mods);
 
-  // add only the bsas of a mod to the directory structure
+  // add only the bsas of a mod to the directory structure; async, but runs
+  // threads in the background
   //
   void addBSAs(const std::vector<Profile::ActiveMod>& mods);
 
-  // add only regular files or a mod to the directory structure
+  // add only regular files or a mod to the directory structure; async, but
+  // runs threads in the background
   //
   void addFiles(const std::vector<Profile::ActiveMod>& mods);
 
@@ -112,24 +113,40 @@ public:
   //
   DirectoryRefreshProgress progress() const;
 
-  // generates a new directory structure, calls callback() regularly
+  // starts a thread which calls addMods() and returns immediately, invokes
+  // callback() regularly
   //
   void asyncRefresh(
     const std::vector<Profile::ActiveMod>& mods,
     ProgressCallback callback);
 
 private:
+  // map of lowercase plugin names without extensions and load order index
+  using LoadOrderMap = std::map<std::wstring, int, std::less<>>;
+
+  // one refresh thread, calls functions into DirectoryStructure
+  //
+  // the only reason for keeping them around in the ThreadPool below is to
+  // avoid destroying the DirectoryWalkers, which keep expensive buffers
+  // around
+  //
   class ModThread
   {
   public:
     ModThread();
 
+    // sets up this thread
+    //
     void set(
       DirectoryStructure* s, MOShared::DirectoryEntry* root,
       Profile::ActiveMod m, Progress* p, MOShared::DirectoryStats* stats,
       bool addFiles, bool addBSAs);
 
+    // runs it
+    //
     void wakeup();
+
+    // called from ThreadPool: waits until wakeup() is called
     void run();
 
   private:
@@ -144,33 +161,87 @@ private:
     env::Waiter m_waiter;
   };
 
+  // root directory
   std::unique_ptr<MOShared::DirectoryEntry> m_root;
-  std::mutex m_refreshLock;
+
+  // locked between the varioud add*() functions and when swapping roots after
+  // asyncRefresh() completes; this is probably mostly useless since the ui
+  // won't allow multiple refreshes, and it's not locked in root() anyway, but
+  // there it is
+  std::mutex m_rootMutex;
+
+  // thread count in async refresh
   std::size_t m_threadCount;
-  std::thread m_thread;
-  std::thread m_deleter;
+
+  // the main async refresh thread, starts all the other ones
+  std::thread m_refreshThread;
+
+  // the async refresh works on a temporary root item, which is swapped with
+  // m_root when done; the old m_root is then deleted in this thread because
+  // it can be pretty costly
+  std::thread m_deleterThread;
+
+  // refresh threads
   env::ThreadPool<ModThread> m_modThreads;
+
+  // async refresh progress
   Progress m_progress;
 
+
+  // thread function called by asyncRefresh(): creates a new root, adds files
+  // from Data and mods, sorts, then swaps m_root and spawns a deleter thread
+  // for the old root
+  //
   void refreshThread(
     const std::vector<Profile::ActiveMod>& mods,
     ProgressCallback callback);
 
+  // adds files from the data directory into the given root
+  //
+  void addFromData(MOShared::DirectoryEntry* root);
+
+  // starts a thread per mod in `mods`, up to `m_threadCount` active threads,
+  // then adds files and bsas from it depending on the two bools
+  //
   void addMods(
     MOShared::DirectoryEntry* root,
     const std::vector<Profile::ActiveMod>& mods, bool addFiles, bool addBSAs,
     Progress& p);
 
-  void stealFiles(MOShared::DirectoryEntry* root, const Profile::ActiveMod& m);
+  // adds "associated files", typically files that are from a foreign mod;
+  // see ModInfoForeign::associatedFiles() in modinfoforeign.h
+  //
+  void addAssociatedFiles(
+    MOShared::DirectoryEntry* root, const Profile::ActiveMod& m);
 
+  // adds files from the given mod's directory recursively
+  //
   void addFiles(
     MOShared::DirectoryEntry* root,
     env::DirectoryWalker& walker, MOShared::DirectoryStats& stats,
     const Profile::ActiveMod& m);
 
+  // adds files from all BSAs found in the given mod's directory
+  //
   void addBSAs(
     MOShared::DirectoryEntry* root,
     MOShared::DirectoryStats& stats, const Profile::ActiveMod& m);
+
+  // swaps the given root with the current root and schedules the old root for
+  // deletion in m_deleterThread
+  //
+  void setRoot(std::unique_ptr<MOShared::DirectoryEntry> newRoot);
+
+  // returns the plugin load order as a map of lowercase plugin names and
+  // load index
+  //
+  LoadOrderMap getLoadOrderMap() const;
+
+  // returns the index of the plugin associated with the given archive, or -1
+  // if no associated plugin is found
+  //
+  int findArchiveLoadOrder(
+    std::wstring_view archiveNameLc, const LoadOrderMap& loadOrderMap) const;
 };
 
 #endif // MO_REGISTER_DIRECTORYREFRESHER_INCLUDED

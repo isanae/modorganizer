@@ -643,10 +643,12 @@ public:
    */
   virtual void setNexusLastModified(QDateTime time) = 0;
 
-  /**
-   * @return a list of files that, if they exist in the data directory are treated as files in THIS mod
-   */
-  virtual QStringList stealFiles() const { return QStringList(); }
+  // a list of files associated with this mod, regardless of where there are
+  // on disk
+  //
+  // this is mostly used by unmanaged mods, see ModInfoForeign::associatedFiles
+  //
+  virtual QStringList associatedFiles() const { return QStringList(); }
 
   /**
    * @return a list of archives belonging to this mod (as absolute file paths)

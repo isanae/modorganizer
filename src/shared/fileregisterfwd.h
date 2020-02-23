@@ -82,6 +82,7 @@ using OriginID = int;
 
 constexpr FileIndex InvalidFileIndex = UINT_MAX;
 constexpr OriginID InvalidOriginID = -1;
+constexpr OriginID DataOriginID = 0;
 
 
 // a vector of {originId, {archiveName, order}}
