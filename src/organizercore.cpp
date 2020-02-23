@@ -861,7 +861,7 @@ QStringList OrganizerCore::getFileOrigins(const QString &fileName) const
         m_DirectoryStructure->root()->getOriginByID(file->getOrigin()).getName()));
     foreach (auto i, file->getAlternatives()) {
       result.append(
-          ToQString(m_DirectoryStructure->root()->getOriginByID(i.first).getName()));
+          ToQString(m_DirectoryStructure->root()->getOriginByID(i.originID).getName()));
     }
   }
   return result;
@@ -882,14 +882,14 @@ QList<MOBase::IOrganizer::FileInfo> OrganizerCore::findFileInfos(
     foreach (FileEntryPtr file, files) {
       IOrganizer::FileInfo info;
       info.filePath    = ToQString(file->getFullPath());
-      bool fromArchive = false;
+      const bool fromArchive = file->isFromArchive();
       info.origins.append(ToQString(
-          m_DirectoryStructure->root()->getOriginByID(file->getOrigin(fromArchive))
+          m_DirectoryStructure->root()->getOriginByID(file->getOrigin())
               .getName()));
-      info.archive = fromArchive ? ToQString(file->getArchive().first) : "";
+      info.archive = fromArchive ? ToQString(file->getArchive().name) : "";
       foreach (auto idx, file->getAlternatives()) {
         info.origins.append(
-            ToQString(m_DirectoryStructure->root()->getOriginByID(idx.first).getName()));
+            ToQString(m_DirectoryStructure->root()->getOriginByID(idx.originID).getName()));
       }
 
       if (filter(info)) {
@@ -991,7 +991,7 @@ bool OrganizerCore::previewFileWithAlternatives(
     // don't bother with the vector of origins, just add them as they come
     addFunc(file->getOrigin());
     for (auto alt : file->getAlternatives()) {
-      addFunc(alt.first);
+      addFunc(alt.originID);
     }
   } else {
     std::vector<int> origins;
@@ -1001,10 +1001,10 @@ bool OrganizerCore::previewFileWithAlternatives(
 
     // add other origins, push to front if it's the selected one
     for (auto alt : file->getAlternatives()) {
-      if (alt.first == selectedOrigin) {
-        origins.insert(origins.begin(), alt.first);
+      if (alt.originID == selectedOrigin) {
+        origins.insert(origins.begin(), alt.originID);
       } else {
-        origins.push_back(alt.first);
+        origins.push_back(alt.originID);
       }
     }
 
@@ -1874,9 +1874,8 @@ std::vector<Mapping> OrganizerCore::fileMapping(
   std::vector<Mapping> result;
 
   for (FileEntryPtr current : directoryEntry->getFiles()) {
-    bool isArchive = false;
-    int origin = current->getOrigin(isArchive);
-    if (isArchive || (origin == 0)) {
+    int origin = current->getOrigin();
+    if ((origin == DataOriginID) || current->isFromArchive()) {
       continue;
     }
 

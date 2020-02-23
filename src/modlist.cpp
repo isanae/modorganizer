@@ -58,7 +58,7 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 
 
 using namespace MOBase;
-
+using namespace MOShared;
 
 ModList::ModList(PluginContainer *pluginContainer, QObject *parent)
   : QAbstractItemModel(parent)
@@ -879,13 +879,13 @@ void ModList::highlightMods(const QItemSelectionModel *selection, const MOShared
     const MOShared::FileEntryPtr fileEntry = directoryEntry.findFile(modName.toStdWString());
     if (fileEntry.get() != nullptr) {
       bool archive = false;
-      std::vector<std::pair<int, std::pair<std::wstring, int>>> origins;
+      std::vector<OriginInfo> origins;
       {
-        std::vector<std::pair<int, std::pair<std::wstring, int>>> alternatives = fileEntry->getAlternatives();
-        origins.insert(origins.end(), std::pair<int, std::pair<std::wstring, int>>(fileEntry->getOrigin(archive), fileEntry->getArchive()));
+        const auto& alternatives = fileEntry->getAlternatives();
+        origins.insert(origins.end(), {fileEntry->getOrigin(), fileEntry->getArchive()});
       }
       for (auto originInfo : origins) {
-        MOShared::FilesOrigin& origin = directoryEntry.getOriginByID(originInfo.first);
+        MOShared::FilesOrigin& origin = directoryEntry.getOriginByID(originInfo.originID);
         for (unsigned int i = 0; i < ModInfo::getNumMods(); ++i) {
           if (ModInfo::getByIndex(i)->internalName() == QString::fromStdWString(origin.getName())) {
             ModInfo::getByIndex(i)->setPluginSelected(true);

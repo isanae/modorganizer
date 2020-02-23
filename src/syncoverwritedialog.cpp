@@ -99,12 +99,11 @@ void SyncOverwriteDialog::readTree(const QString &path, DirectoryEntry *director
       QComboBox* combo = new QComboBox(ui->syncTree);
       combo->addItem(tr("<don't sync>"), -1);
       if (entry.get() != nullptr) {
-        bool ignore;
-        int origin = entry->getOrigin(ignore);
+        int origin = entry->getOrigin();
         addToComboBox(combo, ToQString(m_DirectoryStructure->getOriginByID(origin).getName()), origin);
-        const std::vector<std::pair<int, std::pair<std::wstring, int>>> &alternatives = entry->getAlternatives();
-        for (std::vector<std::pair<int, std::pair<std::wstring, int>>>::const_iterator iter = alternatives.begin(); iter != alternatives.end(); ++iter) {
-          addToComboBox(combo, ToQString(m_DirectoryStructure->getOriginByID(iter->first).getName()), iter->first);
+        const auto& alternatives = entry->getAlternatives();
+        for (auto iter = alternatives.begin(); iter != alternatives.end(); ++iter) {
+          addToComboBox(combo, ToQString(m_DirectoryStructure->getOriginByID(iter->originID).getName()), iter->originID);
         }
         combo->setCurrentIndex(combo->count() - 1);
       } else {

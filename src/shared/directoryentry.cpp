@@ -302,7 +302,7 @@ void DirectoryEntry::addFromBSA(
     ft = ToFILETIME(lwt);
   }
 
-  addFiles(origin, bsa.getRoot(), ft, archiveName, order, stats);
+  addFiles(origin, bsa.getRoot(), ft, {archiveName, order}, stats);
 }
 
 void DirectoryEntry::cleanupIrrelevant()
@@ -366,7 +366,7 @@ void DirectoryEntry::removeFile(std::wstring_view name)
 
 FileEntryPtr DirectoryEntry::insert(
   std::wstring_view fileName, FilesOrigin &origin, FILETIME fileTime,
-  std::wstring_view archive, int order, DirectoryStats& stats)
+  const ArchiveInfo& archive, DirectoryStats& stats)
 {
   FileEntryPtr fe;
 
@@ -399,7 +399,7 @@ FileEntryPtr DirectoryEntry::insert(
 
   // add the origin to the file
   elapsed(stats.addOriginToFileTimes, [&]{
-    fe->addOrigin(origin.getID(), fileTime, archive, order);
+    fe->addOrigin(origin.getID(), fileTime, archive);
   });
 
   // add the file to the origin
@@ -480,7 +480,7 @@ void DirectoryEntry::onFile(Context* cx, std::wstring_view path, FILETIME ft)
   // adds the file to the current directory
 
   elapsed(cx->stats.fileTimes, [&]{
-    cx->current.top()->insert(path, cx->origin, ft, L"", -1, cx->stats);
+    cx->current.top()->insert(path, cx->origin, ft, {}, cx->stats);
   });
 }
 
@@ -495,8 +495,7 @@ void DirectoryEntry::sortSubDirectories()
 
 void DirectoryEntry::addFiles(
   FilesOrigin& origin, const BSA::Folder::Ptr& archiveFolder,
-  FILETIME archiveFileTime, const std::wstring& archiveName,
-  int order, DirectoryStats& stats)
+  FILETIME archiveFileTime, const ArchiveInfo& archive, DirectoryStats& stats)
 {
   // add files
   const auto fileCount = archiveFolder->getNumFiles();
@@ -505,14 +504,15 @@ void DirectoryEntry::addFiles(
     const BSA::File::Ptr file = archiveFolder->getFile(i);
 
     auto f = insert(
-      ToWString(file->getName(), true), origin, archiveFileTime,
-      archiveName, order, stats);
+      ToWString(file->getName(), true),
+      origin, archiveFileTime, archive, stats);
 
     if (f) {
       if (file->getUncompressedFileSize() > 0) {
-        f->setFileSize(file->getFileSize(), file->getUncompressedFileSize());
+        f->setFileSize(file->getUncompressedFileSize());
+        f->setCompressedFileSize(file->getFileSize());
       } else {
-        f->setFileSize(file->getFileSize(), FileEntry::NoFileSize);
+        f->setFileSize(file->getFileSize());
       }
     }
   }
@@ -525,8 +525,7 @@ void DirectoryEntry::addFiles(
     DirectoryEntry* folderEntry = getOrCreateSubDirectories(
       ToWString(folder->getName(), true), origin.getID(), stats);
 
-    folderEntry->addFiles(
-      origin, folder, archiveFileTime, archiveName, order, stats);
+    folderEntry->addFiles(origin, folder, archiveFileTime, archive, stats);
   }
 }
 

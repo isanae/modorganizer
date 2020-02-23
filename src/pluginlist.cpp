@@ -153,8 +153,8 @@ void PluginList::highlightPlugins(const QItemSelectionModel *selection, const MO
         for (auto plugin : plugins) {
           MOShared::FileEntryPtr file = directoryEntry.findFile(plugin.toStdWString());
           if (file && file->getOrigin() != origin.getID()) {
-            const std::vector<std::pair<int, std::pair<std::wstring, int>>> alternatives = file->getAlternatives();
-            if (std::find_if(alternatives.begin(), alternatives.end(), [&](const std::pair<int, std::pair<std::wstring, int>>& element) { return element.first == origin.getID(); }) == alternatives.end())
+            const auto& alternatives = file->getAlternatives();
+            if (std::find_if(alternatives.begin(), alternatives.end(), [&](auto&& element) { return element.originID == origin.getID(); }) == alternatives.end())
               continue;
           }
           std::map<QString, int>::iterator iter = m_ESPsByName.find(plugin.toLower());
@@ -212,9 +212,8 @@ void PluginList::refresh(const QString &profileName
         primaryPlugins.contains(filename, Qt::CaseInsensitive);
         //(std::find(primaryPlugins.begin(), primaryPlugins.end(), filename.toLower()) != primaryPlugins.end());
 
-      bool archive = false;
       try {
-        FilesOrigin &origin = baseDirectory.getOriginByID(current->getOrigin(archive));
+        FilesOrigin &origin = baseDirectory.getOriginByID(current->getOrigin());
 
         //name without extension
         QString baseName = QFileInfo(filename).baseName();
@@ -242,7 +241,7 @@ void PluginList::refresh(const QString &profileName
         m_ESPs.push_back(ESPInfo(filename, forceEnabled, originName, ToQString(current->getFullPath()), hasIni, loadedArchives, lightPluginsAreSupported));
         m_ESPs.rbegin()->priority = -1;
       } catch (const std::exception &e) {
-        reportError(tr("failed to update esp info for file %1 (source id: %2), error: %3").arg(filename).arg(current->getOrigin(archive)).arg(e.what()));
+        reportError(tr("failed to update esp info for file %1 (source id: %2), error: %3").arg(filename).arg(current->getOrigin()).arg(e.what()));
       }
     }
   }
@@ -557,8 +556,7 @@ bool PluginList::saveLoadOrder(DirectoryEntry &directoryStructure)
     const FileEntryPtr fileEntry = directoryStructure.findFile(espName);
     if (fileEntry.get() != nullptr) {
       QString fileName;
-      bool archive = false;
-      int originid = fileEntry->getOrigin(archive);
+      int originid = fileEntry->getOrigin();
 
       fileName = QString("%1\\%2")
         .arg(QDir::toNativeSeparators(ToQString(directoryStructure.getOriginByID(originid).getPath())))

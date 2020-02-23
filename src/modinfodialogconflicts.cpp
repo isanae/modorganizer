@@ -852,7 +852,7 @@ std::vector<QAction*> ConflictsTab::createGotoActions(const ConflictItem* item)
 
   // add all alternatives
   for (const auto& alt : file->getAlternatives()) {
-    const auto& o = ds.getOriginByID(alt.first);
+    const auto& o = ds.getOriginByID(alt.originID);
     if (o.getID() != origin()->getID()) {
       mods.push_back(ToQString(o.getName()));
     }
@@ -970,8 +970,8 @@ bool GeneralConflictsTab::update()
       QString relativeName = QDir::fromNativeSeparators(ToQString(file->getRelativePath()));
       QString fileName = rootPath + relativeName;
 
-      bool archive = false;
-      const int fileOrigin = file->getOrigin(archive);
+      const int fileOrigin = file->getOrigin();
+      const bool archive = file->isFromArchive();
       const auto& alternatives = file->getAlternatives();
 
       if (fileOrigin == m_tab->origin()->getID()) {
@@ -1012,7 +1012,7 @@ bool GeneralConflictsTab::update()
 
 ConflictItem GeneralConflictsTab::createOverwriteItem(
   FileIndex index, bool archive, QString fileName, QString relativeName,
-  const MOShared::AlternativesVector& alternatives)
+  const std::vector<MOShared::OriginInfo>& alternatives)
 {
   const auto& ds = *m_core.directoryStructure()->root();
   std::wstring altString;
@@ -1022,10 +1022,10 @@ ConflictItem GeneralConflictsTab::createOverwriteItem(
       altString += L", ";
     }
 
-    altString += ds.getOriginByID(alt.first).getName();
+    altString += ds.getOriginByID(alt.originID).getName();
   }
 
-  auto origin = ToQString(ds.getOriginByID(alternatives.back().first).getName());
+  auto origin = ToQString(ds.getOriginByID(alternatives.back().originID).getName());
 
   return ConflictItem(
     ToQString(altString), std::move(relativeName), QString(), index,
@@ -1192,8 +1192,8 @@ void AdvancedConflictsTab::update()
       QString relativeName = QDir::fromNativeSeparators(ToQString(file->getRelativePath()));
       QString fileName = rootPath + relativeName;
 
-      bool archive = false;
-      const int fileOrigin = file->getOrigin(archive);
+      const int fileOrigin = file->getOrigin();
+      const bool archive = file->isFromArchive();
       const auto& alternatives = file->getAlternatives();
 
       auto item = createItem(
@@ -1212,7 +1212,7 @@ void AdvancedConflictsTab::update()
 std::optional<ConflictItem> AdvancedConflictsTab::createItem(
   FileIndex index, int fileOrigin, bool archive,
   QString fileName, QString relativeName,
-  const MOShared::AlternativesVector& alternatives)
+  const std::vector<MOShared::OriginInfo>& alternatives)
 {
   const auto& ds = *m_core.directoryStructure()->root();
 
@@ -1226,7 +1226,7 @@ std::optional<ConflictItem> AdvancedConflictsTab::createItem(
 
     for (const auto& alt : alternatives)
     {
-      const auto& altOrigin = ds.getOriginByID(alt.first);
+      const auto& altOrigin = ds.getOriginByID(alt.originID);
 
       if (showAllAlts) {
         // fills 'before' and 'after' with all the alternatives that come

@@ -54,7 +54,7 @@ private:
   ConflictItem createOverwriteItem(
     MOShared::FileIndex index, bool archive,
     QString fileName, QString relativeName,
-    const MOShared::AlternativesVector& alternatives);
+    const std::vector<MOShared::OriginInfo>& alternatives);
 
   ConflictItem createNoConflictItem(
     MOShared::FileIndex index, bool archive,
@@ -96,7 +96,7 @@ private:
   std::optional<ConflictItem> createItem(
     MOShared::FileIndex index, int fileOrigin, bool archive,
     QString fileName, QString relativeName,
-    const MOShared::AlternativesVector& alternatives);
+    const std::vector<MOShared::OriginInfo>& alternatives);
 };
 
 

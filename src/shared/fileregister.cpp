@@ -36,7 +36,7 @@ FileEntryPtr FileRegister::createFile(
   std::wstring name, DirectoryEntry *parent, DirectoryStats& stats)
 {
   const auto index = generateIndex();
-  auto p = FileEntryPtr(new FileEntry(index, std::move(name), parent));
+  auto p = FileEntry::create(index, std::move(name), parent);
 
   {
     std::scoped_lock lock(m_Mutex);

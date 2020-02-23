@@ -111,7 +111,7 @@ bool FilesOrigin::containsArchive(std::wstring archiveName)
 
   for (FileIndex fileIdx : m_Files) {
     if (FileEntryPtr p = m_FileRegister.lock()->getFile(fileIdx)) {
-      if (p->isFromArchive(archiveName)) {
+      if (p->existsInArchive(archiveName)) {
         return true;
       }
     }

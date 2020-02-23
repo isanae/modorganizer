@@ -358,7 +358,7 @@ private:
   //
   FileEntryPtr insert(
     std::wstring_view fileName, FilesOrigin& origin, FILETIME fileTime,
-    std::wstring_view archive, int order, DirectoryStats& stats);
+    const ArchiveInfo& archive, DirectoryStats& stats);
 
   // walks each file and directory in the given path recursively, calls
   // onDirectoryStart() when a directory is entered, onDirectoryEnd() when
@@ -381,8 +381,8 @@ private:
   //
   void addFiles(
     FilesOrigin& origin, const BSA::Folder::Ptr& archiveFolder,
-    FILETIME archiveFileTime, const std::wstring& archiveName,
-    int order, DirectoryStats& stats);
+    FILETIME archiveFileTime, const ArchiveInfo& archive,
+    DirectoryStats& stats);
 
   // creates the given subdirectory or returns an existing one
   //

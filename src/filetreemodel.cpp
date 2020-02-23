@@ -801,12 +801,11 @@ FileTreeItem::Ptr FileTreeModel::createFileItem(
 void FileTreeModel::updateFileItem(
   FileTreeItem& item, const MOShared::FileEntry& file)
 {
-  bool isArchive = false;
-  int originID = file.getOrigin(isArchive);
+  const int originID = file.getOrigin();
 
   FileTreeItem::Flags flags = FileTreeItem::NoFlags;
 
-  if (isArchive) {
+  if (file.isFromArchive()) {
     flags |= FileTreeItem::FromArchive;
   }
 
@@ -817,12 +816,12 @@ void FileTreeModel::updateFileItem(
   item.setOrigin(
     originID, file.getFullPath(), flags, makeModName(file, originID));
 
-  if (file.getFileSize() != FileEntry::NoFileSize) {
-    item.setFileSize(file.getFileSize());
+  if (auto s=file.getFileSize()) {
+    item.setFileSize(*s);
   }
 
-  if (file.getCompressedFileSize() != FileEntry::NoFileSize) {
-    item.setCompressedFileSize(file.getCompressedFileSize());
+  if (auto s=file.getCompressedFileSize()) {
+    item.setCompressedFileSize(*s);
   }
 }
 
@@ -973,8 +972,8 @@ std::wstring FileTreeModel::makeModName(
   std::wstring name = origin.getName();
 
   const auto& archive = file.getArchive();
-  if (!archive.first.empty()) {
-    name += L" (" + archive.first + L")";
+  if (!archive.name.empty()) {
+    name += L" (" + archive.name + L")";
   }
 
   return name;
@@ -1024,11 +1023,11 @@ QString FileTreeModel::makeTooltip(const FileTreeItem& item) const
     item.dataRelativeFilePath().toStdWString());
 
   if (file) {
-    const auto alternatives = file->getAlternatives();
+    const auto& alternatives = file->getAlternatives();
     QStringList list;
 
     for (auto&& alt : file->getAlternatives()) {
-      const auto& origin = m_core.directoryStructure()->root()->getOriginByID(alt.first);
+      const auto& origin = m_core.directoryStructure()->root()->getOriginByID(alt.originID);
       list.push_back(QString::fromStdWString(origin.getName()));
     }
 

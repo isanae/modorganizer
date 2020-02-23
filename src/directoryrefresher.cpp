@@ -349,7 +349,7 @@ void DirectoryStructure::addAssociatedFiles(
     origin.addFile(file->getIndex());
 
     // add origin to file
-    file->addOrigin(origin.getID(), file->getFileTime(), L"", -1);
+    file->addOrigin(origin.getID(), file->getFileTime(), {});
   }
 }
 
@@ -494,35 +494,46 @@ void DirectoryStructure::refreshThread(
   SetThisThreadName("DirectoryStructure");
   TimeThis tt("DirectoryStructure::refreshThread()");
 
-  // restart progress
-  m_progress = Progress(callback, mods.size());
-
+  try
   {
-    // new root, will be swapped with m_root when everything's done
-    auto root = DirectoryEntry::createRoot();
+    // restart progress
+    m_progress = Progress(callback, mods.size());
 
-    // add from data directory
-    addFromData(root.get());
+    {
+      // new root, will be swapped with m_root when everything's done
+      auto root = DirectoryEntry::createRoot();
 
-    // add mods
-    addMods(root.get(), mods, true, true, m_progress);
+      // add from data directory
+      addFromData(root.get());
 
-    // cleanup
-    root->getFileRegister()->sortOrigins();
-    root->cleanupIrrelevant();
+      // add mods
+      addMods(root.get(), mods, true, true, m_progress);
 
-    // swapping roots
-    setRoot(std::move(root));
+      // cleanup
+      root->getFileRegister()->sortOrigins();
+      root->cleanupIrrelevant();
 
-    // root has been moved from this point
+      // swapping roots
+      setRoot(std::move(root));
+
+      // root has been moved from this point
+    }
+
+    // final notification
+    m_progress.finish();
+
+    log::debug(
+      "refresher saw {} files in {} mods",
+      m_root->getFileRegister()->highestCount(), mods.size());
   }
-
-  // final notification
-  m_progress.finish();
-
-  log::debug(
-    "refresher saw {} files in {} mods",
-    m_root->getFileRegister()->highestCount(), mods.size());
+  catch(std::exception& e)
+  {
+    log::error("unhandled exception in refreshThread: {}", e.what());
+  }
+  catch(...)
+  {
+    log::error("unhandled unknown exception in refreshThread");
+  }
 }
 
 

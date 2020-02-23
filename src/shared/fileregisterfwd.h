@@ -84,15 +84,32 @@ constexpr FileIndex InvalidFileIndex = UINT_MAX;
 constexpr OriginID InvalidOriginID = -1;
 constexpr OriginID DataOriginID = 0;
 
+// the filename of an archive and the load order of its associated plugin
+//
+struct ArchiveInfo
+{
+  std::wstring name;
+  int order;
 
-// a vector of {originId, {archiveName, order}}
+  ArchiveInfo()
+    : order(-1)
+  {
+  }
+
+  ArchiveInfo(std::wstring name, int order)
+    : name(std::move(name)), order(order)
+  {
+  }
+};
+
+// a mod id and an archive, used by FileEntry to remember alternative origins
 //
-// if a file is in an archive, archiveName is the name of the bsa and order
-// is the order of the associated plugin in the plugins list
-//
-// is a file is not in an archive, archiveName is empty and order is usually
-// -1
-using AlternativesVector = std::vector<std::pair<OriginID, std::pair<std::wstring, int>>>;
+struct OriginInfo
+{
+  OriginID originID;
+  ArchiveInfo archive;
+};
+
 
 struct DirectoryStats
 {
