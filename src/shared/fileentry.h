@@ -36,7 +36,7 @@ public:
 
   // adds the given origin to this file
   //
-  void addOrigin(OriginID o, FILETIME time, const ArchiveInfo& archive);
+  void addOrigin(const OriginInfo& newOrigin, FILETIME time);
 
   // removes the specified origin from the list of origins that contain this
   // file; returns true if that was the last origin, which is used elsewhere
@@ -46,6 +46,13 @@ public:
 
   // sorts this file's origins by priority and makes the origin with the
   // highest priority the primary one
+  //
+  // this file's origins are normally kept sorted at all times when adding or
+  // removing  them, but the origins themselves might change priorities when
+  // the user modifies the mod list
+  //
+  // this re-checks the priorities of all origins and re-picks the highest one
+  // if necessary
   //
   void sortOrigins();
 
@@ -59,7 +66,7 @@ public:
 
   // filename
   //
-  const std::wstring &getName() const
+  const std::wstring& getName() const
   {
     return m_Name;
   }
@@ -68,14 +75,14 @@ public:
   //
   OriginID getOrigin() const
   {
-    return m_Origin;
+    return m_Origin.originID;
   }
 
   // the archive from the primary origin that contains this file, if any
   //
   const ArchiveInfo& getArchive() const
   {
-    return m_Archive;
+    return m_Origin.archive;
   }
 
   // whether this file is found in the given archive
@@ -102,7 +109,7 @@ public:
 
   // returns the directory that contains this file
   //
-  DirectoryEntry *getParent()
+  DirectoryEntry* getParent()
   {
     return m_Parent;
   }
@@ -154,6 +161,11 @@ public:
     return m_CompressedFileSize;
   }
 
+  // returns a string that represents this file, such as "filename:index";
+  // useful for logging
+  //
+  std::wstring debugName() const;
+
 private:
   // unique index
   FileIndex m_Index;
@@ -162,16 +174,13 @@ private:
   std::wstring m_Name;
 
   // primary origin
-  OriginID m_Origin;
+  OriginInfo m_Origin;
 
-  // archive from the primary origin, if any
-  ArchiveInfo m_Archive;
-
-  // alternative origins and their archive, if any
+  // alternative origins and their archive, if any; always sorted by priority
   std::vector<OriginInfo> m_Alternatives;
 
   // parent directory
-  DirectoryEntry *m_Parent;
+  DirectoryEntry* m_Parent;
 
   // last modified time
   FILETIME m_FileTime;
@@ -179,13 +188,41 @@ private:
   // sizes
   std::optional<uint64_t> m_FileSize, m_CompressedFileSize;
 
-  // protects m_Origin, m_Archive and m_Alternatives
+  // protects m_Origin and m_Alternatives
   mutable std::mutex m_OriginsMutex;
 
 
   // creates a file with no origin
   //
-  FileEntry(FileIndex index, std::wstring name, DirectoryEntry *parent);
+  FileEntry(FileIndex index, std::wstring name, DirectoryEntry* parent);
+
+  // returns whether the given origin should replace the current primary origin
+  // of this file
+  //
+  bool shouldReplacePrimaryOrigin(const OriginInfo& newOrigin) const;
+
+  // sets the primary origin of this file to the given one; if this file
+  // already has a primary origin, it is moved to the alternatives
+  //
+  void setPrimaryOrigin(const OriginInfo& newOrigin, FILETIME fileTime);
+
+  // adds the given origin to the alternatives list
+  //
+  void addAlternativeOrigin(const OriginInfo& newOrigin);
+
+  // three-way comparison of the given origins based on priorities and
+  // whether they're from archives
+  //
+  int comparePriorities(const OriginInfo& a, const OriginInfo& b) const;
+
+  // returns the alternative when the given id, or m_Alternatives.end()
+  //
+  std::vector<OriginInfo>::const_iterator findAlternativeByID(OriginID id) const;
+
+  // temporary, for debugging; breaks into the debugger if the alternatives are
+  // not sorted property
+  //
+  void assertAlternativesSorted() const;
 };
 
 } // namespace

@@ -259,7 +259,7 @@ void DirectoryEntry::addFromOrigin(
   const OriginInfo& originInfo,
   env::DirectoryWalker& walker, DirectoryStats& stats)
 {
-  FilesOrigin &origin = getOrCreateOrigin(originInfo);
+  FilesOrigin& origin = getOrCreateOrigin(originInfo);
 
   if (!originInfo.path.empty()) {
     addFiles(walker, origin, originInfo.path, stats);
@@ -365,7 +365,7 @@ void DirectoryEntry::removeFile(std::wstring_view name)
 }
 
 FileEntryPtr DirectoryEntry::insert(
-  std::wstring_view fileName, FilesOrigin &origin, FILETIME fileTime,
+  std::wstring_view fileName, FilesOrigin& origin, FILETIME fileTime,
   const ArchiveInfo& archive, DirectoryStats& stats)
 {
   FileEntryPtr fe;
@@ -399,7 +399,7 @@ FileEntryPtr DirectoryEntry::insert(
 
   // add the origin to the file
   elapsed(stats.addOriginToFileTimes, [&]{
-    fe->addOrigin(origin.getID(), fileTime, archive);
+    fe->addOrigin({origin.getID(), archive}, fileTime);
   });
 
   // add the file to the origin
@@ -426,7 +426,7 @@ struct DirectoryEntry::Context
 };
 
 void DirectoryEntry::addFiles(
-  env::DirectoryWalker& walker, FilesOrigin &origin,
+  env::DirectoryWalker& walker, FilesOrigin& origin,
   const std::wstring& path, DirectoryStats& stats)
 {
   Context cx = {stats, origin};

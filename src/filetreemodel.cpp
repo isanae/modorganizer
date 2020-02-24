@@ -681,10 +681,16 @@ void FileTreeModel::removeDisappearingFiles(
         // file is still there
         seen.emplace(f->getIndex());
 
-        if (f->getOrigin() != item->originID()) {
-          // origin has changed
-          updateFileItem(*item, *f);
-        }
+        // there's no good way of checking if the origin of a file has changed
+        // to avoid updating items because origin IDs are reused after a
+        // refresh, so a file can have the same origin ID after a refresh even
+        // if it's actually a different origin
+        //
+        // the origin's name can't even be checked because it could be changed
+        // to something that existed before but was a different origin
+        //
+        // so this needs to be an unconditional update for all items
+        updateFileItem(*item, *f);
 
         // if there were files before this row that need to be removed,
         // do it now

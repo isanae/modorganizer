@@ -156,4 +156,13 @@ void FileRegister::sortOrigins()
   }
 }
 
+
+std::wstring OriginInfo::debugName() const
+{
+  return fmt::format(
+    L"{}:{}",
+    originID,
+    archive.name.empty() ? L"loose" : archive.name);
+}
+
 } // namespace

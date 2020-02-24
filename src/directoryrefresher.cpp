@@ -264,7 +264,7 @@ void DirectoryStructure::addFromData(DirectoryEntry* root)
 }
 
 void DirectoryStructure::addMods(
-  DirectoryEntry *root,
+  DirectoryEntry* root,
   const std::vector<Profile::ActiveMod>& mods, bool addFiles, bool addBSAs,
   Progress& p)
 {
@@ -349,7 +349,7 @@ void DirectoryStructure::addAssociatedFiles(
     origin.addFile(file->getIndex());
 
     // add origin to file
-    file->addOrigin(origin.getID(), file->getFileTime(), {});
+    file->addOrigin({origin.getID(), {}}, file->getFileTime());
   }
 }
 

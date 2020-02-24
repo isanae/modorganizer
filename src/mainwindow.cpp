@@ -2530,7 +2530,7 @@ void MainWindow::fileMoved(const QString &filePath, const QString &oldOriginName
         WIN32_FIND_DATAW findData;
         HANDLE hFind;
         hFind = ::FindFirstFileW(ToWString(fullNewPath).c_str(), &findData);
-        filePtr->addOrigin(newOrigin.getID(), findData.ftCreationTime, {});
+        filePtr->addOrigin({newOrigin.getID(), {}}, findData.ftCreationTime);
         FindClose(hFind);
       }
       if (m_OrganizerCore.directoryStructure()->root()->originExists(ToWString(oldOriginName))) {

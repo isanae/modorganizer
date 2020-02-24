@@ -108,6 +108,21 @@ struct OriginInfo
 {
   OriginID originID;
   ArchiveInfo archive;
+
+  OriginInfo()
+    : originID(InvalidOriginID)
+  {
+  }
+
+  OriginInfo(OriginID id, ArchiveInfo a)
+    : originID(id), archive(std::move(a))
+  {
+  }
+
+  // returns a string that represents this file, such as "originid:archive";
+  // useful for logging
+  //
+  std::wstring debugName() const;
 };
 
 
