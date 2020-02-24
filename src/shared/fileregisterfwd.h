@@ -1,7 +1,6 @@
 #ifndef MO_REGISTER_FILEREGISTERFWD_INCLUDED
 #define MO_REGISTER_FILEREGISTERFWD_INCLUDED
 
-
 //                         +--------------------+
 //                 +------ | DirectoryStructure | -------------+
 //                 |       +--------------------+              |
@@ -21,13 +20,29 @@
 // +-------------+  >-(index)-+  |
 // | FilesOrigin |               |
 // +-------------+  <-(index)----+
+//
+//
+// there is only one DirectoryStructure, owned by OrganizerCore; it has the
+// FileRegister and root DirectoryEntry
+//
+// when refreshing the DirectoryStructure, it creates a new register and root
+// directory and swaps them with the internal objects when finished
+//
+// the register owns all the FileEntry objects; the FilesOrigin and
+// DirectoryEntry objects use FileIndex to refer to them
 
 
-class DirectoryRefreshProgress;
 class DirectoryStructure;
+class DirectoryRefreshProgress;
 
 namespace MOShared
 {
+
+// the two WStringViewKey and WStringKey classes are used by DirectoryEntry,
+// they're keys in the hash maps
+//
+// FileTreeModel also uses them to do faster lookup instead of storing file
+// names and having to do a bunch of string comparisons
 
 struct WStringKey;
 
