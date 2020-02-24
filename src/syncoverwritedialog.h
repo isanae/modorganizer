@@ -33,24 +33,28 @@ class SyncOverwriteDialog : public MOBase::TutorableDialog
   Q_OBJECT
 
 public:
-  explicit SyncOverwriteDialog(
-    const QString &path, MOShared::DirectoryEntry *directoryStructure,
+  SyncOverwriteDialog(
+    const QString &path, DirectoryStructure* directoryStructure,
     QWidget *parent = 0);
 
   ~SyncOverwriteDialog();
 
   void apply(const QString &modDirectory);
+
 private:
   void refresh(const QString &path);
-  void readTree(const QString &path, MOShared::DirectoryEntry *directoryStructure, QTreeWidgetItem *subTree);
-  void applyTo(QTreeWidgetItem *item, const QString &path, const QString &modDirectory);
+
+  void readTree(
+    const QString &path, MOShared::DirectoryEntry* dir,
+    QTreeWidgetItem *subTree);
+
+  void applyTo(
+    QTreeWidgetItem *item, const QString &path, const QString &modDirectory);
 
 private:
-
   Ui::SyncOverwriteDialog *ui;
   QString m_SourcePath;
-  MOShared::DirectoryEntry *m_DirectoryStructure;
-
+  DirectoryStructure *m_DirectoryStructure;
 };
 
 #endif // SYNCOVERWRITEDIALOG_H

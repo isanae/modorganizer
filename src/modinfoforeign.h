@@ -76,11 +76,11 @@ public:
   //
   // so each esp, esl or esm file creates a "foreign" mod with the file as the
   // "reference" file and any .bsa with the same name will also be associated
-  // with  it (plugins may add more files, but that's typically it)
+  // with it (plugins may add more files, but that's typically it)
   //
   // therefore, this function returns the list of files associated with this
   // foreign mod and is used by DirectoryStructure to change the origin of
-  // unmanaged  files from "Data" to the appropriate foreign pseudo-mod
+  // unmanaged files from "Data" to the appropriate foreign pseudo-mod
   //
   QStringList associatedFiles() const override
   {

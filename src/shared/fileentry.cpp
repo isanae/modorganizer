@@ -1,6 +1,7 @@
 #include "fileentry.h"
 #include "directoryentry.h"
 #include "filesorigin.h"
+#include "originconnection.h"
 #include <log.h>
 
 namespace MOShared
@@ -19,7 +20,7 @@ FileEntryPtr FileEntry::create(
   return FileEntryPtr(new FileEntry(index, std::move(name), parent));
 }
 
-std::wstring FileEntry::getFullPath(OriginID originID) const
+fs::path FileEntry::getFullPath(OriginID originID) const
 {
   if (originID == InvalidOriginID) {
     // use primary when no specific origin is given
@@ -27,7 +28,7 @@ std::wstring FileEntry::getFullPath(OriginID originID) const
     originID = m_origin.originID;
   }
 
-  const auto* o = m_parent->findOriginByID(originID);
+  const auto* o = m_parent->getOriginConnection()->findByID(originID);
   if (!o) {
     log::error(
       "for file {}, can't get full path for origin {}, origin not found",
@@ -36,12 +37,12 @@ std::wstring FileEntry::getFullPath(OriginID originID) const
     return {};
   }
 
-  return o->getPath() + L"\\" + getRelativePath();
+  return o->getPath() / getRelativePath();
 }
 
-std::wstring FileEntry::getRelativePath() const
+fs::path FileEntry::getRelativePath() const
 {
-  std::wstring path;
+  fs::path path;
   const DirectoryEntry* e = m_parent;
 
   while (e) {
@@ -50,11 +51,11 @@ std::wstring FileEntry::getRelativePath() const
       break;
     }
 
-    path = e->getName() + L"\\" + path;
+    path = e->getName() / path;
     e = e->getParent();
   }
 
-  path += m_name;
+  path /= m_name;
 
   return path;
 }
@@ -258,8 +259,14 @@ int FileEntry::comparePriorities(const OriginInfo& a, const OriginInfo& b) const
     return 0;
   }
 
-  auto* aOrigin = m_parent->findOriginByID(a.originID);
-  auto* bOrigin = m_parent->findOriginByID(b.originID);
+  auto oc = m_parent->getOriginConnection();
+  if (!oc) {
+    // shouldn't happen
+    return 0;
+  }
+
+  auto* aOrigin = oc->findByID(a.originID);
+  auto* bOrigin = oc->findByID(b.originID);
 
   if (aOrigin == bOrigin) {
     // same origin

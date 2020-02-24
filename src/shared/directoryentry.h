@@ -57,7 +57,8 @@ public:
 
   // creates a root directory
   //
-  static std::unique_ptr<DirectoryEntry> createRoot();
+  static std::unique_ptr<DirectoryEntry> createRoot(
+    std::shared_ptr<FileRegister> fr);
 
   // non-copyable
   DirectoryEntry(const DirectoryEntry&) = delete;
@@ -119,24 +120,20 @@ public:
   //
   std::shared_ptr<FileRegister> getFileRegister() const
   {
-    return m_register;
+    return m_register.lock();
   }
 
-  // forwards to OriginConnection::exists()
+  // returns the associated file register; all directories and files share the
+  // same register
   //
-  bool originExists(std::wstring_view name) const;
+  std::shared_ptr<OriginConnection> getOriginConnection() const
+  {
+    if (auto r=getFileRegister()) {
+      return r->getOriginConnection();
+    }
 
-  // forwards to OriginConnection::getByID()
-  //
-  FilesOrigin& getOriginByID(OriginID id) const;
-
-  // forwards to OriginConnection::getByName()
-  //
-  FilesOrigin& getOriginByName(std::wstring_view name) const;
-
-  // forwards to OriginConnection::findByID()
-  //
-  const FilesOrigin* findOriginByID(OriginID id) const;
+    return {};
+  }
 
 
   // returns an arbitrary origin that contains this directory or either a file
@@ -168,10 +165,12 @@ public:
   template <class F>
   void forEachFile(F&& f) const
   {
-    for (auto&& p : m_files) {
-      if (auto file=m_register->getFile(p.second)) {
-        if (!f(*file)) {
-          break;
+    if (auto r=getFileRegister()) {
+      for (auto&& p : m_files) {
+        if (auto file=r->getFile(p.second)) {
+          if (!f(*file)) {
+            break;
+          }
         }
       }
     }
@@ -306,9 +305,8 @@ private:
   using SubDirectoriesLookup = std::unordered_map<
     FileKey, DirectoryEntry*, std::hash<FileKey>, std::equal_to<>>;
 
-  // these are shared across all directories
-  std::shared_ptr<FileRegister> m_register;
-  std::shared_ptr<OriginConnection> m_connection;
+  // global register
+  std::weak_ptr<FileRegister> m_register;
 
   // directory name
   std::wstring m_name;
@@ -345,8 +343,7 @@ private:
 
   DirectoryEntry(
     std::wstring name, DirectoryEntry* parent, OriginID originID,
-    std::shared_ptr<FileRegister> fileRegister,
-    std::shared_ptr<OriginConnection> originConnection);
+    std::shared_ptr<FileRegister> fr);
 
 
   // helpers for findSubDirectoryRecursive() and findFileRecursive()

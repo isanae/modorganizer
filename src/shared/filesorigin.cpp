@@ -2,9 +2,12 @@
 #include "originconnection.h"
 #include "fileregister.h"
 #include "fileentry.h"
+#include <log.h>
 
 namespace MOShared
 {
+
+using namespace MOBase;
 
 std::wstring tail(const std::wstring &source, const size_t count)
 {
@@ -16,108 +19,136 @@ std::wstring tail(const std::wstring &source, const size_t count)
 }
 
 
-FilesOrigin::FilesOrigin()
-  : m_ID(0), m_Disabled(false), m_Name(), m_Path(), m_Priority(0)
-{
-}
-
 FilesOrigin::FilesOrigin(
   OriginID ID, std::wstring_view name, const fs::path& path, int prio,
-  std::shared_ptr<MOShared::FileRegister> fileRegister,
-  std::shared_ptr<MOShared::OriginConnection> originConnection) :
-    m_ID(ID), m_Disabled(false), m_Name(name), m_Path(path), m_Priority(prio),
-    m_FileRegister(fileRegister), m_OriginConnection(originConnection)
+  std::shared_ptr<OriginConnection> oc) :
+    m_ID(ID), m_Enabled(true), m_Name(name), m_Path(path), m_Priority(prio),
+    m_OriginConnection(oc)
 {
 }
 
 void FilesOrigin::setPriority(int priority)
 {
-  m_OriginConnection.lock()->changePriorityLookup(m_Priority, priority);
+  if (auto oc=m_OriginConnection.lock()) {
+    oc->changePriorityLookup(m_Priority, priority);
+  }
 
   m_Priority = priority;
 }
 
-void FilesOrigin::setName(const std::wstring &name)
+void FilesOrigin::setName(std::wstring_view name)
 {
-  m_OriginConnection.lock()->changeNameLookup(m_Name, name);
-
-  // change path too
-  if (tail(m_Path, m_Name.length()) == m_Name) {
-    m_Path = m_Path.substr(0, m_Path.length() - m_Name.length()).append(name);
+  if (auto oc=m_OriginConnection.lock()) {
+    oc->changeNameLookup(m_Name, name);
   }
 
+  if (m_Path.filename().native() != m_Name) {
+    log::warn(
+      "files origin '{}': path '{}' doesn't end with name",
+      m_Name, m_Path.native());
+  }
+
+  m_Path = m_Path.parent_path() / name;
   m_Name = name;
 }
 
 std::vector<FileEntryPtr> FilesOrigin::getFiles() const
 {
-  std::vector<FileEntryPtr> result;
+  std::vector<FileEntryPtr> v;
+
+  auto oc = m_OriginConnection.lock();
+  if (!oc) {
+    return v;
+  }
+
+  auto fr = oc->getFileRegister();
+  if (!fr) {
+    return v;
+  }
 
   {
-    std::scoped_lock lock(m_Mutex);
+    std::scoped_lock lock(m_FilesMutex);
 
-    for (FileIndex fileIdx : m_Files) {
-      if (FileEntryPtr p = m_FileRegister.lock()->getFile(fileIdx)) {
-        result.push_back(p);
+    for (const FileIndex& index : m_Files) {
+      if (auto f=fr->getFile(index)) {
+        v.push_back(f);
       }
     }
   }
 
-  return result;
-}
-
-FileEntryPtr FilesOrigin::findFile(FileIndex index) const
-{
-  return m_FileRegister.lock()->getFile(index);
+  return v;
 }
 
 void FilesOrigin::enable(bool enabled)
-{
-  DirectoryStats dummy;
-  enable(enabled, dummy);
-}
-
-void FilesOrigin::enable(bool enabled, DirectoryStats& stats)
 {
   if (!enabled) {
     std::set<FileIndex> copy;
 
     {
-      std::scoped_lock lock(m_Mutex);
+      std::scoped_lock lock(m_FilesMutex);
       copy = m_Files;
       m_Files.clear();
     }
 
-    m_FileRegister.lock()->removeOriginMulti(copy, m_ID);
+    if (auto fr=getFileRegister()) {
+      fr->removeOriginMulti(copy, m_ID);
+    }
   }
 
-  m_Disabled = !enabled;
+  m_Enabled = enabled;
+}
+
+void FilesOrigin::addFile(FileIndex index)
+{
+  std::scoped_lock lock(m_FilesMutex);
+  m_Files.insert(index);
 }
 
 void FilesOrigin::removeFile(FileIndex index)
 {
-  std::scoped_lock lock(m_Mutex);
 
-  auto iter = m_Files.find(index);
+  std::scoped_lock lock(m_FilesMutex);
 
-  if (iter != m_Files.end()) {
-    m_Files.erase(iter);
-  }
-}
+  auto itor = m_Files.find(index);
 
-bool FilesOrigin::containsArchive(std::wstring archiveName)
-{
-  std::scoped_lock lock(m_Mutex);
+  if (itor == m_Files.end()) {
+    FileEntryPtr f;
 
-  for (FileIndex fileIdx : m_Files) {
-    if (FileEntryPtr p = m_FileRegister.lock()->getFile(fileIdx)) {
-      if (p->existsInArchive(archiveName)) {
-        return true;
+    if (auto oc=m_OriginConnection.lock()) {
+      if (auto fr=oc->getFileRegister()) {
+        f = fr->getFile(index);
       }
     }
+
+    if (f) {
+      log::error(
+        "cannot remove file {} from origin {}, not in list",
+        f->debugName(), m_Name);
+    } else {
+      log::error(
+        "cannot remove file {} from origin {}, "
+        "not in list and not found in register",
+        index, m_Name);
+    }
+
+    return;
   }
 
-  return false;
+  m_Files.erase(itor);
+}
+
+std::shared_ptr<OriginConnection> FilesOrigin::getOriginConnection() const
+{
+  return m_OriginConnection.lock();
+}
+
+std::shared_ptr<FileRegister> FilesOrigin::getFileRegister() const
+{
+  if (auto oc=getOriginConnection()) {
+    return oc->getFileRegister();
+  }
+
+  return {};
 }
 
 } //  namespace

@@ -7,11 +7,13 @@
 namespace MOShared
 {
 
+// central register for all files; there is only one FileRegister, shared with
+// all DirectoryEntry objects
+//
 class FileRegister
 {
 public:
-  static std::shared_ptr<FileRegister> create(
-    std::shared_ptr<OriginConnection> oc);
+  static std::shared_ptr<FileRegister> create();
 
   // non-copyable
   FileRegister(const FileRegister&) = delete;
@@ -30,6 +32,8 @@ public:
     return m_Files.size();
   }
 
+  std::shared_ptr<OriginConnection> getOriginConnection() const;
+
   bool removeFile(FileIndex index);
   void removeOriginMulti(std::set<FileIndex> indices, OriginID originID);
 
@@ -43,7 +47,7 @@ private:
   std::shared_ptr<OriginConnection> m_OriginConnection;
   std::atomic<FileIndex> m_NextIndex;
 
-  FileRegister(std::shared_ptr<OriginConnection> oc);
+  FileRegister();
 
   FileIndex generateIndex();
 };

@@ -841,32 +841,52 @@ std::vector<QAction*> ConflictsTab::createGotoActions(const ConflictItem* item)
     return {};
   }
 
-  auto file = origin()->findFile(item->fileIndex());
+  auto fr = origin()->getFileRegister();
+  if (!fr) {
+    return {};
+  }
+
+  auto file = fr->getFile(item->fileIndex());
   if (!file) {
     return {};
   }
 
 
   std::vector<QString> mods;
-  const auto& ds = *core().directoryStructure()->root();
+  const auto& ds = *core().directoryStructure();
 
   // add all alternatives
   for (const auto& alt : file->getAlternatives()) {
-    const auto& o = ds.getOriginByID(alt.originID);
-    if (o.getID() != origin()->getID()) {
-      mods.push_back(ToQString(o.getName()));
+    const auto* o = ds.findOriginByID(alt.originID);
+
+    if (!o) {
+      log::error(
+        "ConflictsTab::createGotoActions(): origin {} not found",
+        alt.originID);
+
+      continue;
+    }
+
+    if (o->getID() != origin()->getID()) {
+      mods.push_back(ToQString(o->getName()));
     }
   }
 
   // add the real origin if different from this mod
-  const FilesOrigin& realOrigin = ds.getOriginByID(file->getOrigin());
-  if (realOrigin.getID() != origin()->getID()) {
-    mods.push_back(ToQString(realOrigin.getName()));
+  const auto* realOrigin = ds.findOriginByID(file->getOrigin());
+  if (realOrigin) {
+    if (realOrigin->getID() != origin()->getID()) {
+      mods.push_back(ToQString(realOrigin->getName()));
+    }
+  } else {
+    log::error(
+      "ConflictsTab::createGotoActions(): real origin {} not found",
+      file->getOrigin());
   }
 
   std::sort(mods.begin(), mods.end(), [](const auto& a, const auto& b) {
     return (QString::localeAwareCompare(a, b) < 0);
-    });
+  });
 
   std::vector<QAction*> actions;
 
@@ -1014,7 +1034,7 @@ ConflictItem GeneralConflictsTab::createOverwriteItem(
   FileIndex index, bool archive, QString fileName, QString relativeName,
   const std::vector<MOShared::OriginInfo>& alternatives)
 {
-  const auto& ds = *m_core.directoryStructure()->root();
+  const auto& ds = *m_core.directoryStructure();
   std::wstring altString;
 
   for (const auto& alt : alternatives) {
@@ -1022,14 +1042,26 @@ ConflictItem GeneralConflictsTab::createOverwriteItem(
       altString += L", ";
     }
 
-    altString += ds.getOriginByID(alt.originID).getName();
+    if (auto* o=ds.findOriginByID(alt.originID)) {
+      altString += o->getName();
+    }
   }
 
-  auto origin = ToQString(ds.getOriginByID(alternatives.back().originID).getName());
+  QString originName;
+
+  if (auto* o=ds.findOriginByID(alternatives.back().originID)) {
+    originName = QString::fromStdWString(o->getName());
+  } else {
+    log::error(
+      "GeneralConflictsTab::createOverwriteItem(): origin {} not found",
+      alternatives.back().originID);
+
+    originName = "?";
+  }
 
   return ConflictItem(
     ToQString(altString), std::move(relativeName), QString(), index,
-    std::move(fileName), true, std::move(origin), archive);
+    std::move(fileName), true, std::move(originName), archive);
 }
 
 ConflictItem GeneralConflictsTab::createNoConflictItem(
@@ -1044,10 +1076,21 @@ ConflictItem GeneralConflictsTab::createOverwrittenItem(
   FileIndex index, int fileOrigin, bool archive,
   QString fileName, QString relativeName)
 {
-  const auto& ds = *m_core.directoryStructure()->root();
-  const FilesOrigin& realOrigin = ds.getOriginByID(fileOrigin);
+  const auto& ds = *m_core.directoryStructure();
+  const FilesOrigin* realOrigin = ds.findOriginByID(fileOrigin);
 
-  QString after = ToQString(realOrigin.getName());
+  QString after;
+
+  if (realOrigin) {
+    after = QString::fromStdWString(realOrigin->getName());
+  } else {
+    log::error(
+      "GeneralConflictsTab::createOverwrittenItem(): origin {} not found",
+      fileOrigin);
+
+    after = "?";
+  }
+
   QString altOrigin = after;
 
   return ConflictItem(
@@ -1214,7 +1257,7 @@ std::optional<ConflictItem> AdvancedConflictsTab::createItem(
   QString fileName, QString relativeName,
   const std::vector<MOShared::OriginInfo>& alternatives)
 {
-  const auto& ds = *m_core.directoryStructure()->root();
+  const auto& ds = *m_core.directoryStructure();
 
   std::wstring before, after;
 
@@ -1226,50 +1269,57 @@ std::optional<ConflictItem> AdvancedConflictsTab::createItem(
 
     for (const auto& alt : alternatives)
     {
-      const auto& altOrigin = ds.getOriginByID(alt.originID);
+      const auto* altOrigin = ds.findOriginByID(alt.originID);
+      if (!altOrigin) {
+        log::error(
+          "AdvancedConflictsTab::createItem(): alt origin {} not found",
+          alt.originID);
+
+        continue;
+      }
 
       if (showAllAlts) {
         // fills 'before' and 'after' with all the alternatives that come
         // before and after this mod in terms of priority
 
-        if (altOrigin.getPriority() < m_tab->origin()->getPriority()) {
+        if (altOrigin->getPriority() < m_tab->origin()->getPriority()) {
           // add all the mods having a lower priority than this one
           if (!before.empty()) {
             before += L", ";
           }
 
-          before += altOrigin.getName();
-        } else if (altOrigin.getPriority() > m_tab->origin()->getPriority()) {
+          before += altOrigin->getName();
+        } else if (altOrigin->getPriority() > m_tab->origin()->getPriority()) {
           // add all the mods having a higher priority than this one
           if (!after.empty()) {
             after += L", ";
           }
 
-          after += altOrigin.getName();
+          after += altOrigin->getName();
         }
       } else {
         // keep track of the nearest mods that come before and after this one
         // in terms of priority
 
-        if (altOrigin.getPriority() < m_tab->origin()->getPriority()) {
+        if (altOrigin->getPriority() < m_tab->origin()->getPriority()) {
           // the alternative has a lower priority than this mod
 
-          if (altOrigin.getPriority() > beforePrio) {
+          if (altOrigin->getPriority() > beforePrio) {
             // the alternative has a higher priority and therefore is closer
             // to this mod, use it
-            before = altOrigin.getName();
-            beforePrio = altOrigin.getPriority();
+            before = altOrigin->getName();
+            beforePrio = altOrigin->getPriority();
           }
         }
 
-        if (altOrigin.getPriority() > m_tab->origin()->getPriority()) {
+        if (altOrigin->getPriority() > m_tab->origin()->getPriority()) {
           // the alternative has a higher priority than this mod
 
-          if (altOrigin.getPriority() < afterPrio) {
+          if (altOrigin->getPriority() < afterPrio) {
             // the alternative has a lower priority and there is closer
             // to this mod, use it
-            after = altOrigin.getName();
-            afterPrio = altOrigin.getPriority();
+            after = altOrigin->getName();
+            afterPrio = altOrigin->getPriority();
           }
         }
       }
@@ -1284,16 +1334,22 @@ std::optional<ConflictItem> AdvancedConflictsTab::createItem(
     // will always have a higher priority than the alternatives (or it wouldn't
     // be the primary)
     if (after.empty() || showAllAlts) {
-      const FilesOrigin& realOrigin = ds.getOriginByID(fileOrigin);
+      const FilesOrigin* realOrigin = ds.findOriginByID(fileOrigin);
 
-      // if no mods overwrite this file, the primary origin is the same as this
-      // mod, so ignore that
-      if (realOrigin.getID() != m_tab->origin()->getID()) {
-        if (!after.empty()) {
-          after += L", ";
+      if (realOrigin) {
+        // if no mods overwrite this file, the primary origin is the same as this
+        // mod, so ignore that
+        if (realOrigin->getID() != m_tab->origin()->getID()) {
+          if (!after.empty()) {
+            after += L", ";
+          }
+
+          after += realOrigin->getName();
         }
-
-        after += realOrigin.getName();
+      } else {
+        log::error(
+          "AdvancedConflictsTab::createItem(): real origin {} not found",
+          fileOrigin);
       }
     }
   }

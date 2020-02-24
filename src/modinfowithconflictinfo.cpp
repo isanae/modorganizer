@@ -91,11 +91,13 @@ void ModInfoWithConflictInfo::doConflictCheck() const
   bool providesAnything = false;
   bool hasHiddenFiles = false;
 
-  auto* ds = m_Core.directoryStructure()->root();
+  auto* ds = m_Core.directoryStructure();
 
   int dataID = 0;
   if (ds->originExists(L"data")) {
-    dataID = ds->getOriginByName(L"data").getID();
+    if (auto* o=ds->findOriginByName(L"data")) {
+      dataID = o->getID();
+    }
   }
 
   std::wstring name = ToWString(this->name());
@@ -106,14 +108,15 @@ void ModInfoWithConflictInfo::doConflictCheck() const
   m_ArchiveConflictLooseState = CONFLICT_NONE;
 
   if (ds->originExists(name)) {
-    FilesOrigin &origin = ds->getOriginByName(name);
-    std::vector<FileEntryPtr> files = origin.getFiles();
+    FilesOrigin* origin = ds->findOriginByName(name);
+
+    std::vector<FileEntryPtr> files = origin->getFiles();
     std::set<const DirectoryEntry*> checkedDirs;
 
     // for all files in this origin
     for (FileEntryPtr file : files) {
 
-      // skip hiidden file check if already found one
+      // skip hidden file check if already found one
       if (!hasHiddenFiles) {
         const fs::path nameAsPath(file->getName());
 
@@ -149,13 +152,13 @@ void ModInfoWithConflictInfo::doConflictCheck() const
         providesAnything = true;
       } else {
         // Get the archive data for the current mod
-        bool found = file->getOrigin() == origin.getID();
+        bool found = file->getOrigin() == origin->getID();
         ArchiveInfo archiveData;
         if (found)
           archiveData = file->getArchive();
         else {
           for (auto alts : alternatives) {
-            if (alts.originID == origin.getID()) {
+            if (alts.originID == origin->getID()) {
               archiveData = alts.archive;
               break;
             }
@@ -163,29 +166,42 @@ void ModInfoWithConflictInfo::doConflictCheck() const
         }
 
         // If this is not the origin then determine the correct overwrite
-        if (file->getOrigin() != origin.getID()) {
-          FilesOrigin &altOrigin = ds->getOriginByID(file->getOrigin());
-          unsigned int altIndex = ModInfo::getIndex(ToQString(altOrigin.getName()));
-          if (file->getArchive().name.size() == 0)
-            if (archiveData.name.size() == 0)
-              m_OverwrittenList.insert(altIndex);
+        if (file->getOrigin() != origin->getID()) {
+          const FilesOrigin* altOrigin = ds->findOriginByID(file->getOrigin());
+          if (altOrigin) {
+            unsigned int altIndex = ModInfo::getIndex(ToQString(altOrigin->getName()));
+            if (file->getArchive().name.size() == 0)
+              if (archiveData.name.size() == 0)
+                m_OverwrittenList.insert(altIndex);
+              else
+                m_ArchiveLooseOverwrittenList.insert(altIndex);
             else
-              m_ArchiveLooseOverwrittenList.insert(altIndex);
-          else
-              m_ArchiveOverwrittenList.insert(altIndex);
+                m_ArchiveOverwrittenList.insert(altIndex);
+          } else {
+            log::error(
+              "ModInfoWithConflictInfo::doConflictCheck(): "
+              "alt origin {} not found", file->getOrigin());
+          }
         } else {
           providesAnything = true;
         }
 
         // Sort out the alternatives
         for (auto altInfo : alternatives) {
-          if ((altInfo.originID != dataID) && (altInfo.originID != origin.getID())) {
-            FilesOrigin &altOrigin = ds->getOriginByID(altInfo.originID);
-            QString altOriginName = ToQString(altOrigin.getName());
+          if ((altInfo.originID != dataID) && (altInfo.originID != origin->getID())) {
+            const FilesOrigin* altOrigin = ds->findOriginByID(altInfo.originID);
+
+            if (!altOrigin) {
+              log::error(
+                "ModInfoWithConflictInfo::doConflictCheck(): "
+                "alt origin {} not found for sort", file->getOrigin());
+            }
+
+            QString altOriginName = ToQString(altOrigin->getName());
             unsigned int altIndex = ModInfo::getIndex(altOriginName);
             if (altInfo.archive.name.size() == 0) {
               if (archiveData.name.size() == 0) {
-                if (origin.getPriority() > altOrigin.getPriority()) {
+                if (origin->getPriority() > altOrigin->getPriority()) {
                   m_OverwriteList.insert(altIndex);
                 } else {
                   m_OverwrittenList.insert(altIndex);
@@ -273,14 +289,22 @@ ModInfoWithConflictInfo::EConflictType ModInfoWithConflictInfo::isLooseArchiveCo
 
 bool ModInfoWithConflictInfo::isRedundant() const
 {
-  auto* ds = m_Core.directoryStructure()->root();
+  auto* ds = m_Core.directoryStructure();
 
   std::wstring name = ToWString(this->name());
   if (ds->originExists(name)) {
-    FilesOrigin &origin = ds->getOriginByName(name);
-    std::vector<FileEntryPtr> files = origin.getFiles();
+    const FilesOrigin* origin = ds->findOriginByName(name);
+    if (!origin) {
+      log::error(
+        "ModInfoWithConflictInfo::isRedundant(): origin '{}' not found",
+        name);
+
+      return false;
+    }
+
+    std::vector<FileEntryPtr> files = origin->getFiles();
     for (auto iter = files.begin(); iter != files.end(); ++iter) {
-      if ((*iter)->getOrigin() == origin.getID()) {
+      if ((*iter)->getOrigin() == origin->getID()) {
         return false;
       }
     }

@@ -21,6 +21,8 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "shared/directoryentry.h"
 #include "shared/fileentry.h"
 #include "shared/filesorigin.h"
+#include "shared/originconnection.h"
+#include "directoryrefresher.h"
 #include "ui_syncoverwritedialog.h"
 
 #include <utility.h>
@@ -37,29 +39,26 @@ using namespace MOBase;
 using namespace MOShared;
 
 
-SyncOverwriteDialog::SyncOverwriteDialog(const QString &path, DirectoryEntry *directoryStructure, QWidget *parent)
-  : TutorableDialog("SyncOverwrite", parent),
-    ui(new Ui::SyncOverwriteDialog), m_SourcePath(path), m_DirectoryStructure(directoryStructure)
+SyncOverwriteDialog::SyncOverwriteDialog(
+  const QString &path, DirectoryStructure* directoryStructure,
+  QWidget *parent) :
+    TutorableDialog("SyncOverwrite", parent),
+    ui(new Ui::SyncOverwriteDialog),
+    m_SourcePath(path),
+    m_DirectoryStructure(directoryStructure)
 {
   ui->setupUi(this);
   refresh(path);
 
   QHeaderView *headerView = ui->syncTree->header();
-#if QT_VERSION >= QT_VERSION_CHECK(5,0,0)
   headerView->setSectionResizeMode(0, QHeaderView::Stretch);
   headerView->setSectionResizeMode(1, QHeaderView::Interactive);
-#else
-  headerView->setResizeMode(0, QHeaderView::Stretch);
-  headerView->setResizeMode(1, QHeaderView::Interactive);
-#endif
 }
-
 
 SyncOverwriteDialog::~SyncOverwriteDialog()
 {
   delete ui;
 }
-
 
 static void addToComboBox(QComboBox *box, const QString &name, const QVariant &userData)
 {
@@ -68,8 +67,8 @@ static void addToComboBox(QComboBox *box, const QString &name, const QVariant &u
   }
 }
 
-
-void SyncOverwriteDialog::readTree(const QString &path, DirectoryEntry *directoryStructure, QTreeWidgetItem *subTree)
+void SyncOverwriteDialog::readTree(
+  const QString &path, DirectoryEntry* dir, QTreeWidgetItem *subTree)
 {
   QDir overwrite(path);
   overwrite.setFilter(QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot);
@@ -86,7 +85,7 @@ void SyncOverwriteDialog::readTree(const QString &path, DirectoryEntry *director
     QTreeWidgetItem *newItem = new QTreeWidgetItem(subTree, QStringList(file));
 
     if (fileInfo.isDir()) {
-      DirectoryEntry *subDir = directoryStructure->findSubDirectory(ToWString(file));
+      DirectoryEntry *subDir = dir->findSubDirectory(ToWString(file));
       if (subDir != nullptr) {
         readTree(fileInfo.absoluteFilePath(), subDir, newItem);
       } else {
@@ -95,15 +94,24 @@ void SyncOverwriteDialog::readTree(const QString &path, DirectoryEntry *director
         newItem = nullptr;
       }
     } else {
-      const FileEntryPtr entry = directoryStructure->findFile(ToWString(file));
+      const FileEntryPtr entry = dir->findFile(ToWString(file));
+      auto oc = dir->getOriginConnection();
+
       QComboBox* combo = new QComboBox(ui->syncTree);
       combo->addItem(tr("<don't sync>"), -1);
+
       if (entry.get() != nullptr) {
-        int origin = entry->getOrigin();
-        addToComboBox(combo, ToQString(m_DirectoryStructure->getOriginByID(origin).getName()), origin);
+        int originID = entry->getOrigin();
+        const auto* origin = oc->findByID(originID);
+        if (origin) {
+          addToComboBox(combo, ToQString(origin->getName()), origin);
+        }
         const auto& alternatives = entry->getAlternatives();
         for (auto iter = alternatives.begin(); iter != alternatives.end(); ++iter) {
-          addToComboBox(combo, ToQString(m_DirectoryStructure->getOriginByID(iter->originID).getName()), iter->originID);
+          const auto* altOrigin = oc->findByID(iter->originID);
+          if (altOrigin) {
+            addToComboBox(combo, ToQString(altOrigin->getName()), iter->originID);
+          }
         }
         combo->setCurrentIndex(combo->count() - 1);
       } else {
@@ -121,7 +129,7 @@ void SyncOverwriteDialog::readTree(const QString &path, DirectoryEntry *director
 void SyncOverwriteDialog::refresh(const QString &path)
 {
   QTreeWidgetItem *rootItem = new QTreeWidgetItem(ui->syncTree, QStringList("<data>"));
-  readTree(path, m_DirectoryStructure, rootItem);
+  readTree(path, m_DirectoryStructure->root(), rootItem);
   ui->syncTree->addTopLevelItem(rootItem);
   ui->syncTree->expandAll();
 }
@@ -144,13 +152,15 @@ void SyncOverwriteDialog::applyTo(QTreeWidgetItem *item, const QString &path, co
       if (comboBox != nullptr) {
         int originID = comboBox->itemData(comboBox->currentIndex(), Qt::UserRole).toInt();
         if (originID != -1) {
-          FilesOrigin &origin = m_DirectoryStructure->getOriginByID(originID);
-          QString source = m_SourcePath + "/" + filePath;
-          QString destination = modDirectory + "/" + ToQString(origin.getName()) + "/" + filePath;
-          if (!QFile::remove(destination)) {
-            reportError(tr("failed to remove %1").arg(destination));
-          } else if (!QFile::rename(source, destination)) {
-            reportError(tr("failed to move %1 to %2").arg(source).arg(destination));
+          const FilesOrigin* origin = m_DirectoryStructure->findOriginByID(originID);
+          if (origin) {
+            QString source = m_SourcePath + "/" + filePath;
+            QString destination = modDirectory + "/" + ToQString(origin->getName()) + "/" + filePath;
+            if (!QFile::remove(destination)) {
+              reportError(tr("failed to remove %1").arg(destination));
+            } else if (!QFile::rename(source, destination)) {
+              reportError(tr("failed to move %1 to %2").arg(source).arg(destination));
+            }
           }
         }
       }

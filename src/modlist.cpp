@@ -30,6 +30,7 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "shared/directoryentry.h"
 #include "shared/fileentry.h"
 #include "shared/filesorigin.h"
+#include "shared/originconnection.h"
 
 #include <appconfig.h>
 #include <utility.h>
@@ -885,9 +886,15 @@ void ModList::highlightMods(const QItemSelectionModel *selection, const MOShared
         origins.insert(origins.end(), {fileEntry->getOrigin(), fileEntry->getArchive()});
       }
       for (auto originInfo : origins) {
-        MOShared::FilesOrigin& origin = directoryEntry.getOriginByID(originInfo.originID);
+        MOShared::FilesOrigin* origin = directoryEntry.getOriginConnection()->findByID(originInfo.originID);
+
+        if (!origin) {
+          log::error("ModList::highlightMods(): origin {} not found", originInfo.originID);
+          continue;
+        }
+
         for (unsigned int i = 0; i < ModInfo::getNumMods(); ++i) {
-          if (ModInfo::getByIndex(i)->internalName() == QString::fromStdWString(origin.getName())) {
+          if (ModInfo::getByIndex(i)->internalName() == QString::fromStdWString(origin->getName())) {
             ModInfo::getByIndex(i)->setPluginSelected(true);
             break;
           }

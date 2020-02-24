@@ -21,6 +21,7 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "shared/fileentry.h"
 #include "shared/filesorigin.h"
 #include "shared/directoryentry.h"
+#include "shared/originconnection.h"
 
 #include "iplugingame.h"
 #include "modinfo.h"
@@ -189,9 +190,12 @@ void DirectoryStructure::ModThread::run()
 
 
 DirectoryStructure::DirectoryStructure(std::size_t threadCount)
-  : m_root(DirectoryEntry::createRoot()), m_threadCount(threadCount)
+  : m_threadCount(threadCount)
 {
   log::debug("refresher is using {} threads", m_threadCount);
+
+  m_register = FileRegister::create();
+  m_root = DirectoryEntry::createRoot(m_register);
 }
 
 DirectoryStructure::~DirectoryStructure()
@@ -208,6 +212,32 @@ DirectoryStructure::~DirectoryStructure()
 DirectoryEntry* DirectoryStructure::root()
 {
   return m_root.get();
+}
+
+bool DirectoryStructure::originExists(std::wstring_view name) const
+{
+  return m_root->getFileRegister()->getOriginConnection()->exists(name);
+}
+
+FilesOrigin* DirectoryStructure::findOriginByID(OriginID id)
+{
+  return m_root->getFileRegister()->getOriginConnection()->findByID(id);
+}
+
+const FilesOrigin* DirectoryStructure::findOriginByID(OriginID id) const
+{
+  return m_root->getFileRegister()->getOriginConnection()->findByID(id);
+}
+
+FilesOrigin* DirectoryStructure::findOriginByName(std::wstring_view name)
+{
+  return m_root->getFileRegister()->getOriginConnection()->findByName(name);
+}
+
+const FilesOrigin* DirectoryStructure::findOriginByName(
+  std::wstring_view name) const
+{
+  return m_root->getFileRegister()->getOriginConnection()->findByName(name);
 }
 
 void DirectoryStructure::addMods(const std::vector<Profile::ActiveMod>& mods)
@@ -465,22 +495,25 @@ int DirectoryStructure::findArchiveLoadOrder(
   return -1;
 }
 
-void DirectoryStructure::setRoot(std::unique_ptr<DirectoryEntry> root)
+void DirectoryStructure::setRoot(
+  std::shared_ptr<FileRegister> fr,
+  std::unique_ptr<DirectoryEntry> root)
 {
   // swapping with current
   {
     std::scoped_lock lock(m_rootMutex);
+    std::swap(m_register, fr);
     std::swap(m_root, root);
   }
 
-  // root now points to the old root
+  // fr and root now point to the old data
 
   // finishing previous deletion, if any
   if (m_deleterThread.joinable()) {
     m_deleterThread.join();
   }
 
-  // deleting the old structure in a thread
+  // deleting the old root structure in a thread
   m_deleterThread = std::thread([p=root.release()]{
     TimeThis tt("structure deleter");
     delete p;
@@ -500,8 +533,9 @@ void DirectoryStructure::refreshThread(
     m_progress = Progress(callback, mods.size());
 
     {
-      // new root, will be swapped with m_root when everything's done
-      auto root = DirectoryEntry::createRoot();
+      // new register and root, will be swapped when everything's done
+      auto fr = FileRegister::create();
+      auto root = DirectoryEntry::createRoot(fr);
 
       // add from data directory
       addFromData(root.get());
@@ -513,10 +547,10 @@ void DirectoryStructure::refreshThread(
       root->getFileRegister()->sortOrigins();
       root->cleanupIrrelevant();
 
-      // swapping roots
-      setRoot(std::move(root));
+      // swapping
+      setRoot(std::move(fr), std::move(root));
 
-      // root has been moved from this point
+      // fr and root have been moved from this point
     }
 
     // final notification

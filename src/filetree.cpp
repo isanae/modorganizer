@@ -358,8 +358,13 @@ void FileTree::openModInfo(FileTreeItem* item)
     return;
   }
 
-  const auto& origin = m_core.directoryStructure()->root()->getOriginByID(originID);
-  const auto& name = QString::fromStdWString(origin.getName());
+  const auto* origin = m_core.directoryStructure()->findOriginByID(originID);
+  if (!origin) {
+    log::error("FileTree::openModInfo(): origin {} not found", originID);
+    return;
+  }
+
+  const auto& name = QString::fromStdWString(origin->getName());
 
   unsigned int index = ModInfo::getIndex(name);
   if (index == UINT_MAX) {
@@ -635,7 +640,7 @@ bool FileTree::showShellMenu(QPoint pos)
     bool hasDiscrepancies = false;
 
     for (auto&& m : menus) {
-      const auto* origin = m_core.directoryStructure()->root()->findOriginByID(m.first);
+      const auto* origin = m_core.directoryStructure()->findOriginByID(m.first);
       if (!origin) {
         log::error("origin {} not found for merged menus", m.first);
         continue;

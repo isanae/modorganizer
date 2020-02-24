@@ -77,12 +77,12 @@ public:
   // the given origin, returns an empty string if the file doesn't exist in
   // that origin
   //
-  std::wstring getFullPath(OriginID originID=InvalidOriginID) const;
+  fs::path getFullPath(OriginID originID=InvalidOriginID) const;
 
   // returns the path of this file relative to the Data directory (excludes
   // the Data directory itself)
   //
-  std::wstring getRelativePath() const;
+  fs::path getRelativePath() const;
 
 
   // whether this file is found in the given archive

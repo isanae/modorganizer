@@ -93,6 +93,25 @@ public:
 
   MOShared::DirectoryEntry* root();
 
+
+  // forwards to OriginConnection::exists()
+  //
+  bool originExists(std::wstring_view name) const;
+
+  // forwards to OriginConnection::findByID()
+  //
+  MOShared::FilesOrigin* findOriginByID(MOShared::OriginID id);
+  const MOShared::FilesOrigin* findOriginByID(MOShared::OriginID id) const;
+
+  // forwards to OriginConnection::findByName()
+  //
+  MOShared::FilesOrigin* findOriginByName(std::wstring_view name);
+  const MOShared::FilesOrigin* findOriginByName(std::wstring_view name) const;
+
+
+  std::shared_ptr<MOShared::FileRegister> getFileRegister() const;
+
+
   // add files for a mod to the directory structure, including bsas; async,
   // but runs threads in the background
   //
@@ -164,6 +183,10 @@ private:
   // root directory
   std::unique_ptr<MOShared::DirectoryEntry> m_root;
 
+  // file register
+  std::shared_ptr<MOShared::FileRegister> m_register;
+
+
   // locked between the varioud add*() functions and when swapping roots after
   // asyncRefresh() completes; this is probably mostly useless since the ui
   // won't allow multiple refreshes, and it's not locked in root() anyway, but
@@ -227,10 +250,12 @@ private:
     MOShared::DirectoryEntry* root,
     MOShared::DirectoryStats& stats, const Profile::ActiveMod& m);
 
-  // swaps the given root with the current root and schedules the old root for
-  // deletion in m_deleterThread
+  // swaps the given register and root with the current ones and schedules root
+  // for deletion in m_deleterThread
   //
-  void setRoot(std::unique_ptr<MOShared::DirectoryEntry> newRoot);
+  void setRoot(
+    std::shared_ptr<MOShared::FileRegister> fr,
+    std::unique_ptr<MOShared::DirectoryEntry> newRoot);
 
   // returns the plugin load order as a map of lowercase plugin names and
   // load index

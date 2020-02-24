@@ -6,78 +6,113 @@
 namespace MOShared
 {
 
-// represents a mod or the data directory, providing files to the tree
+// represents a mod or a pseudo-mod like the data directory; an origin
+// maintains a list of files
 //
 class FilesOrigin
 {
 public:
-  FilesOrigin();
-
+  // creates an empty origin
+  //
   FilesOrigin(
     OriginID ID, std::wstring_view name, const fs::path& path, int priority,
-    std::shared_ptr<FileRegister> fileRegister,
-    std::shared_ptr<OriginConnection> originConnection);
+    std::shared_ptr<OriginConnection> oc);
 
   // non-copyable
   FilesOrigin(const FilesOrigin&) = delete;
   FilesOrigin& operator=(const FilesOrigin&) = delete;
 
-  // sets priority for this origin, but it will overwrite the existing mapping
-  // for this priority, the previous origin will no longer be referenced
+  // sets the priority of this origin, this also calls
+  // OriginConnection::changePriorityLookup(); note that if there is currently
+  // an origin at the given priority, OriginConnection will lose track of it
+  //
   void setPriority(int priority);
 
+  // this origin's priority
+  //
   int getPriority() const
   {
     return m_Priority;
   }
 
-  void setName(const std::wstring &name);
-  const std::wstring &getName() const
+  // sets the name of this origin, this also calls
+  // OriginConnection::changeNameLookup(); note that if there is currently
+  // an origin with the given name, OriginConnection will lose track of it
+  //
+  void setName(std::wstring_view name);
+
+  // this origin's name
+  //
+  const std::wstring& getName() const
   {
     return m_Name;
   }
 
+  // this origin's unique id
+  //
   OriginID getID() const
   {
     return m_ID;
   }
 
-  const std::wstring &getPath() const
+  // the path of the origin on the filesystem
+  //
+  const fs::path& getPath() const
   {
     return m_Path;
   }
 
+  // list of files in this origin; this function is expensive because it has
+  // to lookup every file in the register
+  //
   std::vector<FileEntryPtr> getFiles() const;
-  FileEntryPtr findFile(FileIndex index) const;
 
-  void enable(bool enabled, DirectoryStats& stats);
+  // sets whether this origin is enabled
+  //
   void enable(bool enabled);
 
-  bool isDisabled() const
+  // whether this origin is enabled
+  //
+  bool isEnabled() const
   {
-    return m_Disabled;
+    return m_Enabled;
   }
 
-  void addFile(FileIndex index)
-  {
-    std::scoped_lock lock(m_Mutex);
-    m_Files.insert(index);
-  }
+  // adds the given file to this origin
+  //
+  void addFile(FileIndex index);
 
+  // removes the given file from this origin
+  //
   void removeFile(FileIndex index);
 
-  bool containsArchive(std::wstring archiveName);
+  std::shared_ptr<OriginConnection> getOriginConnection() const;
+  std::shared_ptr<FileRegister> getFileRegister() const;
 
 private:
+  // unique id
   OriginID m_ID;
-  bool m_Disabled;
+
+  // whether the origin is enabled
+  bool m_Enabled;
+
+  // files in this origin
   std::set<FileIndex> m_Files;
+
+  // origin name
   std::wstring m_Name;
-  std::wstring m_Path;
+
+  // path on the filesystem
+  fs::path m_Path;
+
+  // priority
   int m_Priority;
-  std::weak_ptr<FileRegister> m_FileRegister;
+
+  // global register
   std::weak_ptr<OriginConnection> m_OriginConnection;
-  mutable std::mutex m_Mutex;
+
+  // protects m_Files
+  mutable std::mutex m_FilesMutex;
 };
 
 } // namespace

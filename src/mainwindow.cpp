@@ -1915,12 +1915,20 @@ void MainWindow::updateBSAList(const QStringList &defaultArchives, const QString
         index = 1;
       }
 
-      int originId = current->getOrigin();
-      FilesOrigin & origin = m_OrganizerCore.directoryStructure()->root()->getOriginByID(originId);
+      const OriginID originId = current->getOrigin();
+      const FilesOrigin* origin = m_OrganizerCore.directoryStructure()->findOriginByID(originId);
+
+      if (!origin) {
+        log::error(
+          "MainWindow::updateBSAList(): origin {} not found for sort values",
+          originId);
+
+        continue;
+      }
 
       QTreeWidgetItem * newItem = new QTreeWidgetItem(QStringList()
         << fileInfo.fileName()
-        << ToQString(origin.getName()));
+        << ToQString(origin->getName()));
       newItem->setData(0, Qt::UserRole, index);
       newItem->setData(1, Qt::UserRole, originId);
       newItem->setFlags(newItem->flags() & ~(Qt::ItemIsDropEnabled | Qt::ItemIsUserCheckable));
@@ -1943,7 +1951,7 @@ void MainWindow::updateBSAList(const QStringList &defaultArchives, const QString
       }
       if (index < 0) index = 0;
 
-      UINT32 sortValue = ((origin.getPriority() & 0xFFFF) << 16) | (index & 0xFFFF);
+      UINT32 sortValue = ((origin->getPriority() & 0xFFFF) << 16) | (index & 0xFFFF);
       items.push_back(std::make_pair(sortValue, newItem));
     }
   }
@@ -1952,10 +1960,18 @@ void MainWindow::updateBSAList(const QStringList &defaultArchives, const QString
   for (auto iter = items.begin(); iter != items.end(); ++iter) {
     int originID = iter->second->data(1, Qt::UserRole).toInt();
 
-    const FilesOrigin& origin = m_OrganizerCore.directoryStructure()->root()->getOriginByID(originID);
+    const FilesOrigin* origin = m_OrganizerCore.directoryStructure()->findOriginByID(originID);
+
+    if (!origin) {
+      log::error(
+        "MainWindow::updateBSAList(): origin {} not found for tree update",
+        originID);
+
+      continue;
+    }
 
     QString modName;
-    const unsigned int modIndex = ModInfo::getIndex(ToQString(origin.getName()));
+    const unsigned int modIndex = ModInfo::getIndex(ToQString(origin->getName()));
 
     if (modIndex == UINT_MAX) {
       modName = UnmanagedModName();
@@ -2422,18 +2438,33 @@ void MainWindow::modorder_changed()
 {
   for (unsigned int i = 0; i < m_OrganizerCore.currentProfile()->numMods(); ++i) {
     int priority = m_OrganizerCore.currentProfile()->getModPriority(i);
+
     if (m_OrganizerCore.currentProfile()->modEnabled(i)) {
       ModInfo::Ptr modInfo = ModInfo::getByIndex(i);
+
+      auto* origin = m_OrganizerCore.directoryStructure()
+        ->findOriginByName(ToWString(modInfo->internalName()));
+
+      if (!origin) {
+        log::error(
+          "MainWindow::modorder_changed(): origin {} not found",
+          modInfo->internalName());
+
+        continue;
+      }
+
       // priorities in the directory structure are one higher because data is 0
-      m_OrganizerCore.directoryStructure()->root()->getOriginByName(ToWString(modInfo->internalName())).setPriority(priority + 1);
+      origin->setPriority(priority + 1);
     }
   }
+
   m_OrganizerCore.refreshBSAList();
   m_OrganizerCore.currentProfile()->writeModlist();
   m_ArchiveListWriter.write();
   m_OrganizerCore.directoryStructure()->root()->getFileRegister()->sortOrigins();
 
-  { // refresh selection
+  {
+    // refresh selection
     QModelIndex current = ui->modList->currentIndex();
     if (current.isValid()) {
       ModInfo::Ptr modInfo = ModInfo::getByIndex(current.data(Qt::UserRole + 1).toInt());
@@ -2507,11 +2538,9 @@ void MainWindow::modRenamed(const QString &oldName, const QString &newName)
 
   // also fix the directory structure
   try {
-    if (m_OrganizerCore.directoryStructure()->root()->originExists(ToWString(oldName))) {
-      FilesOrigin &origin = m_OrganizerCore.directoryStructure()->root()->getOriginByName(ToWString(oldName));
-      origin.setName(ToWString(newName));
-    } else {
-
+    auto* origin = m_OrganizerCore.directoryStructure()->findOriginByName(ToWString(oldName));
+    if (origin) {
+      origin->setName(ToWString(newName));
     }
   } catch (const std::exception &e) {
     reportError(tr("failed to change origin name: %1").arg(e.what()));
@@ -2523,19 +2552,19 @@ void MainWindow::fileMoved(const QString &filePath, const QString &oldOriginName
   const FileEntryPtr filePtr = m_OrganizerCore.directoryStructure()->root()->findFile(ToWString(filePath));
   if (filePtr.get() != nullptr) {
     try {
-      if (m_OrganizerCore.directoryStructure()->root()->originExists(ToWString(newOriginName))) {
-        FilesOrigin &newOrigin = m_OrganizerCore.directoryStructure()->root()->getOriginByName(ToWString(newOriginName));
-
-        QString fullNewPath = ToQString(newOrigin.getPath()) + "\\" + filePath;
+      auto* newOrigin = m_OrganizerCore.directoryStructure()->findOriginByName(ToWString(newOriginName));
+      if (newOrigin) {
+        QString fullNewPath = ToQString(newOrigin->getPath()) + "\\" + filePath;
         WIN32_FIND_DATAW findData;
         HANDLE hFind;
         hFind = ::FindFirstFileW(ToWString(fullNewPath).c_str(), &findData);
-        filePtr->addOrigin({newOrigin.getID(), {}}, findData.ftCreationTime);
+        filePtr->addOrigin({newOrigin->getID(), {}}, findData.ftCreationTime);
         FindClose(hFind);
       }
-      if (m_OrganizerCore.directoryStructure()->root()->originExists(ToWString(oldOriginName))) {
-        FilesOrigin &oldOrigin = m_OrganizerCore.directoryStructure()->root()->getOriginByName(ToWString(oldOriginName));
-        filePtr->removeOrigin(oldOrigin.getID());
+
+      auto* oldOrigin = m_OrganizerCore.directoryStructure()->findOriginByName(ToWString(oldOriginName));
+      if (oldOrigin) {
+        filePtr->removeOrigin(oldOrigin->getID());
       }
     } catch (const std::exception &e) {
       reportError(tr("failed to move \"%1\" from mod \"%2\" to \"%3\": %4").arg(filePath).arg(oldOriginName).arg(newOriginName).arg(e.what()));
@@ -2883,26 +2912,25 @@ void MainWindow::displayModInformation(
     m_OrganizerCore.modList()->modInfoChanged(modInfo);
   }
 
-  if (m_OrganizerCore.currentProfile()->modEnabled(modIndex)
-      && !modInfo->hasFlag(ModInfo::FLAG_FOREIGN)) {
-    FilesOrigin& origin = m_OrganizerCore.directoryStructure()
-      ->root()->getOriginByName(ToWString(modInfo->name()));
+  if (m_OrganizerCore.currentProfile()->modEnabled(modIndex) && !modInfo->hasFlag(ModInfo::FLAG_FOREIGN)) {
+    FilesOrigin* origin = m_OrganizerCore.directoryStructure()->findOriginByName(ToWString(modInfo->name()));
 
-    origin.enable(false);
+    if (!origin) {
+      log::error(
+        "MainWindow::displayModInformation(): origin '{}' not found",
+        modInfo->name());
 
-    if (m_OrganizerCore.directoryStructure()->root()->originExists(ToWString(modInfo->name()))) {
-      FilesOrigin& origin = m_OrganizerCore.directoryStructure()
-        ->root()->getOriginByName(ToWString(modInfo->name()));
-
-      origin.enable(false);
-
-      m_OrganizerCore.directoryStructure()->addMods(
-        {{modInfo, m_OrganizerCore.currentProfile()->getModPriority(modIndex)}});
-
-      m_OrganizerCore.directoryStructure()->root()->cleanupIrrelevant();
-      m_OrganizerCore.directoryStructure()->root()->getFileRegister()->sortOrigins();
-      m_OrganizerCore.refreshLists();
+      return;
     }
+
+    origin->enable(false);
+
+    m_OrganizerCore.directoryStructure()->addMods(
+      {{modInfo, m_OrganizerCore.currentProfile()->getModPriority(modIndex)}});
+
+    m_OrganizerCore.directoryStructure()->root()->cleanupIrrelevant();
+    m_OrganizerCore.directoryStructure()->root()->getFileRegister()->sortOrigins();
+    m_OrganizerCore.refreshLists();
   }
 }
 
@@ -3111,8 +3139,17 @@ void MainWindow::restoreHiddenFiles_clicked()
             result = FileRenamer::RESULT_CANCEL;
             break;
           }
-          originModified((m_OrganizerCore.directoryStructure()->root()->getOriginByName(
-            ToWString(modInfo->internalName()))).getID());
+
+          const auto* origin = m_OrganizerCore.directoryStructure()
+            ->findOriginByName(ToWString(modInfo->internalName()));
+
+          if (origin) {
+            originModified(origin->getID());
+          } else {
+            log::error(
+              "MainWindow::restoreHiddenFiles_clicked(): "
+              "origin {} not found for multi sel", modInfo->internalName());
+          }
         }
       }
     }
@@ -3128,8 +3165,16 @@ void MainWindow::restoreHiddenFiles_clicked()
 
       result = restoreHiddenFilesRecursive(renamer, modDir);
 
-      originModified((m_OrganizerCore.directoryStructure()->root()->getOriginByName(
-        ToWString(modInfo->internalName()))).getID());
+      const auto* origin = m_OrganizerCore.directoryStructure()
+        ->findOriginByName(ToWString(modInfo->internalName()));
+
+      if (origin) {
+        originModified(origin->getID());
+      } else {
+        log::error(
+          "MainWindow::restoreHiddenFiles_clicked(): "
+          "origin {} not found for single sel", modInfo->internalName());
+      }
     }
   }
 
@@ -5161,12 +5206,19 @@ void MainWindow::languageChange(const QString &newLanguage)
 
 void MainWindow::originModified(int originID)
 {
-  FilesOrigin &origin = m_OrganizerCore.directoryStructure()->root()->getOriginByID(originID);
-  origin.enable(false);
+  FilesOrigin* origin = m_OrganizerCore.directoryStructure()
+    ->findOriginByID(originID);
+
+  if (!origin) {
+    log::error("MainWindow::originModified(): origin {} not found", originID);
+    return;
+  }
+
+  origin->enable(false);
 
   DirectoryStats dummy;
   m_OrganizerCore.directoryStructure()->root()->addFromOrigin(
-    {origin.getName(), origin.getPath(), origin.getPriority()}, dummy);
+    {origin->getName(), origin->getPath(), origin->getPriority()}, dummy);
 
   m_OrganizerCore.directoryStructure()->root()->cleanupIrrelevant();
 }
@@ -5799,24 +5851,48 @@ bool MainWindow::extractProgress(QProgressDialog &progress, int percentage, std:
 void MainWindow::extractBSATriggered()
 {
   QTreeWidgetItem *item = m_ContextItem;
-  QString origin;
+  QString originPath;
 
   QString targetFolder = FileDialogMemory::getExistingDirectory("extractBSA", this, tr("Extract BSA"));
   QStringList archives = {};
+
   if (!targetFolder.isEmpty()) {
     if (!item->parent()) {
       for (int i = 0; i < item->childCount(); ++i) {
         archives.append(item->child(i)->text(0));
       }
-      origin = QDir::fromNativeSeparators(ToQString(m_OrganizerCore.directoryStructure()->root()->getOriginByName(ToWString(item->text(0))).getPath()));
+
+      const auto* origin = m_OrganizerCore.directoryStructure()
+        ->findOriginByName(ToWString(item->text(0)));
+
+      if (!origin) {
+        log::error(
+          "MainWindow::extractBSATriggered(): "
+          "origin {} not found for no parent", item->text(0));
+
+        return;
+      }
+
+      originPath = QDir::fromNativeSeparators(ToQString(origin->getPath()));
     } else {
-      origin = QDir::fromNativeSeparators(ToQString(m_OrganizerCore.directoryStructure()->root()->getOriginByName(ToWString(item->text(1))).getPath()));
+      const auto* origin = m_OrganizerCore.directoryStructure()
+        ->findOriginByName(ToWString(item->text(1)));
+
+      if (!origin) {
+        log::error(
+          "MainWindow::extractBSATriggered(): "
+          "origin {} not found for has parent", item->text(1));
+
+        return;
+      }
+
+      originPath = QDir::fromNativeSeparators(ToQString(origin->getPath()));
       archives = QStringList({ item->text(0) });
     }
 
     for (auto archiveName : archives) {
       BSA::Archive archive;
-      QString archivePath = QString("%1\\%2").arg(origin).arg(archiveName);
+      QString archivePath = QString("%1\\%2").arg(originPath).arg(archiveName);
       BSA::EErrorCode result = archive.read(archivePath.toLocal8Bit().constData(), true);
       if ((result != BSA::ERROR_NONE) && (result != BSA::ERROR_INVALIDHASHES)) {
         reportError(tr("failed to read %1: %2").arg(archivePath).arg(result));

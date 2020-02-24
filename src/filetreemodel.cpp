@@ -969,13 +969,18 @@ std::wstring FileTreeModel::makeModName(
 {
   static const std::wstring Unmanaged = UnmanagedModName().toStdWString();
 
-  const auto& origin = m_core.directoryStructure()->root()->getOriginByID(originID);
+  const auto* origin = m_core.directoryStructure()->findOriginByID(originID);
 
-  if (origin.getID() == 0) {
+  if (!origin) {
+    log::error("FileTreeModel::makeModName(): origin {} not found", originID);
     return Unmanaged;
   }
 
-  std::wstring name = origin.getName();
+  if (origin->getID() == 0) {
+    return Unmanaged;
+  }
+
+  std::wstring name = origin->getName();
 
   const auto& archive = file.getArchive();
   if (!archive.name.empty()) {
@@ -1033,8 +1038,14 @@ QString FileTreeModel::makeTooltip(const FileTreeItem& item) const
     QStringList list;
 
     for (auto&& alt : file->getAlternatives()) {
-      const auto& origin = m_core.directoryStructure()->root()->getOriginByID(alt.originID);
-      list.push_back(QString::fromStdWString(origin.getName()));
+      const auto* origin = m_core.directoryStructure()->findOriginByID(alt.originID);
+
+      if (!origin) {
+        log::error("FileTreeModel::makeTooltip(): origin {} not found", alt.originID);
+        continue;
+      }
+
+      list.push_back(QString::fromStdWString(origin->getName()));
     }
 
     if (list.size() == 1) {

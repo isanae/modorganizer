@@ -619,14 +619,14 @@ void ModInfoDialog::switchToTab(ModInfoTabIDs id)
 
 MOShared::FilesOrigin* ModInfoDialog::getOrigin()
 {
-  auto* ds = m_core->directoryStructure()->root();
+  auto* ds = m_core->directoryStructure();
 
   if (!ds->originExists(m_mod->name().toStdWString())) {
     return nullptr;
   }
 
-  auto* origin = &ds->getOriginByName(m_mod->name().toStdWString());
-  if (origin->isDisabled()) {
+  auto* origin = ds->findOriginByName(m_mod->name().toStdWString());
+  if (!origin->isEnabled()) {
     return nullptr;
   }
 

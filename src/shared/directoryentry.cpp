@@ -18,6 +18,7 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "directoryentry.h"
+#include "directoryrefresher.h"
 #include "originconnection.h"
 #include "filesorigin.h"
 #include "fileentry.h"
@@ -83,59 +84,42 @@ void forEachPathComponent(std::wstring_view path, F&& f)
 
 DirectoryEntry::DirectoryEntry(
   std::wstring name, DirectoryEntry* parent, OriginID originID,
-  std::shared_ptr<FileRegister> fileRegister,
-  std::shared_ptr<OriginConnection> originConnection) :
-    m_register(fileRegister), m_connection(originConnection),
-    m_name(std::move(name)), m_parent(parent)
+  std::shared_ptr<FileRegister> fr)
+    : m_register(fr), m_name(std::move(name)), m_parent(parent)
 {
   m_origins.insert(originID);
 }
 
-std::unique_ptr<DirectoryEntry> DirectoryEntry::createRoot()
+std::unique_ptr<DirectoryEntry> DirectoryEntry::createRoot(
+  std::shared_ptr<FileRegister> fr)
 {
-  auto oc = OriginConnection::create();
-  auto fr = FileRegister::create(oc);
-
   return std::unique_ptr<DirectoryEntry>(
-    new DirectoryEntry(L"data", nullptr, 0, fr, oc));
+    new DirectoryEntry(L"data", nullptr, 0, std::move(fr)));
 }
 
 std::vector<FileEntryPtr> DirectoryEntry::getFiles() const
 {
   std::vector<FileEntryPtr> result;
 
-  for (const auto& [name, index] : m_files) {
-    result.push_back(m_register->getFile(index));
+  if (auto fr=getFileRegister()) {
+    for (const auto& [name, index] : m_files) {
+      result.push_back(fr->getFile(index));
+    }
   }
 
   return result;
 }
 
-bool DirectoryEntry::originExists(std::wstring_view name) const
-{
-  return m_connection->exists(name);
-}
-
-FilesOrigin& DirectoryEntry::getOriginByID(OriginID id) const
-{
-  return m_connection->getByID(id);
-}
-
-FilesOrigin& DirectoryEntry::getOriginByName(std::wstring_view name) const
-{
-  return m_connection->getByName(name);
-}
-
-const FilesOrigin* DirectoryEntry::findOriginByID(OriginID id) const
-{
-  return m_connection->findByID(id);
-}
-
 OriginID DirectoryEntry::anyOrigin() const
 {
+  auto fr = getFileRegister();
+  if (!fr) {
+    return InvalidOriginID;
+  }
+
   // look for any file that's not from an archive
   for (const auto& [name, index] : m_files) {
-    if (auto file=m_register->getFile(index)) {
+    if (auto file=fr->getFile(index)) {
       if (!file->isFromArchive()) {
         return file->getOrigin();
       }
@@ -210,7 +194,12 @@ FileEntryPtr DirectoryEntry::findFile(FileKeyView key) const
     return {};
   }
 
-  return m_register->getFile(itor->second);
+  auto fr = getFileRegister();
+  if (!fr) {
+    return {};
+  }
+
+  return fr->getFile(itor->second);
 }
 
 FileEntryPtr DirectoryEntry::findFileRecursive(
@@ -249,9 +238,8 @@ FileEntryPtr DirectoryEntry::findFileRecursiveImpl(std::wstring_view path) const
 
 FilesOrigin& DirectoryEntry::getOrCreateOrigin(const OriginInfo& originInfo)
 {
-  return m_connection->getOrCreateOrigin(
-    originInfo.name, originInfo.path, originInfo.priority, m_register)
-      .first;
+  return getOriginConnection()->getOrCreateOrigin(
+    originInfo.name, originInfo.path, originInfo.priority).first;
 }
 
 
@@ -311,11 +299,16 @@ void DirectoryEntry::cleanupIrrelevant()
   static const std::wstring files[] = {L"meta.ini", L"readme.txt"};
   static const std::wstring dirs[] = {L"fomod"};
 
+  auto fr = getFileRegister();
+  if (!fr) {
+    return;
+  }
+
   for (auto&& f : files) {
     auto itor = m_filesLookup.find(FileKeyView(f));
     if (itor != m_filesLookup.end()) {
       // this will eventually call removeFile() on this directory
-      m_register->removeFile(itor->second);
+      fr->removeFile(itor->second);
     }
   }
 
@@ -380,13 +373,18 @@ FileEntryPtr DirectoryEntry::insert(
       itor = m_filesLookup.find(key);
     });
 
+    auto fr = getFileRegister();
+    if (!fr) {
+      return {};
+    }
+
     if (itor != m_filesLookup.end()) {
       // file exists
       lock.unlock();
-      fe = m_register->getFile(itor->second);
+      fe = fr->getFile(itor->second);
     } else {
       // file not found, create it
-      fe = m_register->createFile(
+      fe = fr->createFile(
         std::wstring(fileName.begin(), fileName.end()), this, stats);
 
       elapsed(stats.addFileTimes, [&] {
@@ -547,8 +545,7 @@ DirectoryEntry* DirectoryEntry::getOrCreateSubDirectory(
   }
 
   std::unique_ptr<DirectoryEntry> entry(new DirectoryEntry(
-    std::wstring(name.begin(), name.end()), this, originID,
-    m_register, m_connection));
+    std::wstring(name.begin(), name.end()), this, originID, m_register.lock()));
 
   auto* p = entry.get();
 
@@ -596,10 +593,15 @@ void DirectoryEntry::removeDirectory(SubDirectoriesLookup::iterator itor)
 
 void DirectoryEntry::removeSelfRecursive()
 {
+  auto fr = getFileRegister();
+  if (!fr) {
+    return;
+  }
+
   // careful: FileRegister::removeFile() eventually calls removeFile() on this
   // directory
   while (!m_files.empty()) {
-    m_register->removeFile(m_files.begin()->second);
+    fr->removeFile(m_files.begin()->second);
   }
 
   m_filesLookup.clear();
@@ -644,11 +646,21 @@ void DirectoryEntry::dump(const std::wstring& file) const
 
 void DirectoryEntry::dump(std::FILE* f, const std::wstring& parentPath) const
 {
+  auto fr = getFileRegister();
+  if (!fr) {
+    return;
+  }
+
+  auto oc = getOriginConnection();
+  if (!oc) {
+    return;
+  }
+
   {
     std::scoped_lock lock(m_filesMutex);
 
     for (const auto& [name, index]: m_files) {
-      const auto file = m_register->getFile(index);
+      const auto file = fr->getFile(index);
 
       if (!file) {
         log::debug(
@@ -662,9 +674,19 @@ void DirectoryEntry::dump(std::FILE* f, const std::wstring& parentPath) const
         continue;
       }
 
-      const auto& o = m_connection->getByID(file->getOrigin());
+      const auto* o = oc->findByID(file->getOrigin());
+
+      if (!o) {
+        log::error(
+          "while dumping directory entry '{}', "
+          "cannot found origin '{}' for file '{}'",
+          m_name, file->getOrigin(), file->getName());
+
+        continue;
+      }
+
       const auto path = parentPath + L"\\" + file->getName();
-      const auto line = path + L"\t(" + o.getName() + L")\r\n";
+      const auto line = path + L"\t(" + o->getName() + L")\r\n";
 
       const auto lineu8 = MOShared::ToString(line, true);
 

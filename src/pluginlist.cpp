@@ -26,6 +26,7 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "shared/directoryentry.h"
 #include "shared/filesorigin.h"
 #include "shared/fileentry.h"
+#include "shared/originconnection.h"
 
 #include <utility.h>
 #include <iplugingame.h>
@@ -148,13 +149,18 @@ void PluginList::highlightPlugins(const QItemSelectionModel *selection, const MO
     if (!selectedMod.isNull() && profile.modEnabled(modIndex)) {
       QDir dir(selectedMod->absolutePath());
       QStringList plugins = dir.entryList(QStringList() << "*.esp" << "*.esm" << "*.esl");
-      const MOShared::FilesOrigin& origin = directoryEntry.getOriginByName(selectedMod->internalName().toStdWString());
+      const MOShared::FilesOrigin* origin = directoryEntry.getOriginConnection()->findByName(selectedMod->internalName().toStdWString());
+      if (!origin) {
+        log::error("PluginList::highlightPlugins(): origin '{}' not found", selectedMod->internalName());
+        continue;
+      }
+
       if (plugins.size() > 0) {
         for (auto plugin : plugins) {
           MOShared::FileEntryPtr file = directoryEntry.findFile(plugin.toStdWString());
-          if (file && file->getOrigin() != origin.getID()) {
+          if (file && file->getOrigin() != origin->getID()) {
             const auto& alternatives = file->getAlternatives();
-            if (std::find_if(alternatives.begin(), alternatives.end(), [&](auto&& element) { return element.originID == origin.getID(); }) == alternatives.end())
+            if (std::find_if(alternatives.begin(), alternatives.end(), [&](auto&& element) { return element.originID == origin->getID(); }) == alternatives.end())
               continue;
           }
           std::map<QString, int>::iterator iter = m_ESPsByName.find(plugin.toLower());
@@ -213,7 +219,11 @@ void PluginList::refresh(const QString &profileName
         //(std::find(primaryPlugins.begin(), primaryPlugins.end(), filename.toLower()) != primaryPlugins.end());
 
       try {
-        FilesOrigin &origin = baseDirectory.getOriginByID(current->getOrigin());
+        FilesOrigin *origin = baseDirectory.getOriginConnection()->findByID(current->getOrigin());
+        if (!origin) {
+          log::error("PluginList::refresh(): origin '{}' not found", current->getOrigin());
+          continue;
+        }
 
         //name without extension
         QString baseName = QFileInfo(filename).baseName();
@@ -231,7 +241,7 @@ void PluginList::refresh(const QString &profileName
           }
         }
 
-        QString originName = ToQString(origin.getName());
+        QString originName = ToQString(origin->getName());
         unsigned int modIndex = ModInfo::getIndex(originName);
         if (modIndex != UINT_MAX) {
           ModInfo::Ptr modInfo = ModInfo::getByIndex(modIndex);
@@ -557,9 +567,15 @@ bool PluginList::saveLoadOrder(DirectoryEntry &directoryStructure)
     if (fileEntry.get() != nullptr) {
       QString fileName;
       int originid = fileEntry->getOrigin();
+      const auto* o = directoryStructure.getOriginConnection()->findByID(originid);
+
+      if (!o) {
+        log::error("PluginList::saveLoadOrder(): origin {} not found", originid);
+        continue;
+      }
 
       fileName = QString("%1\\%2")
-        .arg(QDir::toNativeSeparators(ToQString(directoryStructure.getOriginByID(originid).getPath())))
+        .arg(QDir::toNativeSeparators(ToQString(o->getPath())))
         .arg(esp.name);
 
       HANDLE file = ::CreateFile(ToWString(fileName).c_str(), GENERIC_READ | GENERIC_WRITE,

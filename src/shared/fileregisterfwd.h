@@ -1,6 +1,28 @@
 #ifndef MO_REGISTER_FILEREGISTERFWD_INCLUDED
 #define MO_REGISTER_FILEREGISTERFWD_INCLUDED
 
+
+//                         +--------------------+
+//                 +------ | DirectoryStructure | --------------+
+//                 |       +--------------------+               |
+//                 v                                            |
+//          +--------------+                                    |
+//          | FileRegister | <-------------(ref)-------------+  |
+//          +--------------+                                 |  |
+//            ^          \                                   |  |
+//           /            \                                  |  |
+//          v              v                                 ^  v
+// +------------------+  +-----------+               +-----------------------+
+// | OriginConnection |  | FileEntry | ---(ref)----> | DirectoryEntry (root) |
+// +------------------+  +-----------+ <-(index)---- +-----------------------+
+//       ^                    ^                                ^  v
+//       |                    |                                |  | (children)
+//       v                    |                                +--+
+// +-------------+            |
+// | FilesOrigin |---(index)--+
+// +-------------+
+
+
 class DirectoryRefreshProgress;
 class DirectoryStructure;
 
