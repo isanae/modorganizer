@@ -379,7 +379,7 @@ void OrganizerCore::removeOrigin(const QString &name)
     return;
   }
 
-  origin->enable(false);
+  origin->disable();
   refreshLists();
 }
 
@@ -1500,7 +1500,7 @@ void OrganizerCore::modStatusChanged(unsigned int index)
         ->findOriginByName(modInfo->name().toStdWString());
 
       if (origin) {
-        origin->enable(false);
+        origin->disable();
       }
 
       if (m_UserInterface != nullptr) {
@@ -1556,7 +1556,7 @@ void OrganizerCore::modStatusChanged(QList<unsigned int> index) {
           ->findOriginByName(ToWString(modsToDisable[idx]->name()));
 
         if (origin) {
-          origin->enable(false);
+          origin->disable();
         }
       }
       if (m_UserInterface != nullptr) {

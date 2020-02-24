@@ -2923,7 +2923,7 @@ void MainWindow::displayModInformation(
       return;
     }
 
-    origin->enable(false);
+    origin->disable();
 
     m_OrganizerCore.directoryStructure()->addMods(
       {{modInfo, m_OrganizerCore.currentProfile()->getModPriority(modIndex)}});
@@ -5214,7 +5214,7 @@ void MainWindow::originModified(int originID)
     return;
   }
 
-  origin->enable(false);
+  origin->disable();
 
   DirectoryStats dummy;
   m_OrganizerCore.directoryStructure()->root()->addFromOrigin(

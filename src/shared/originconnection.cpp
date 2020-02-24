@@ -33,7 +33,7 @@ std::pair<FilesOrigin&, bool> OriginConnection::getOrCreateOrigin(
     if (itor2 != m_Origins.end()) {
       FilesOrigin& origin = itor2->second;
       lock.unlock();
-      origin.enable(true);
+      origin.setEnabledFlag();
       return {origin, false};
     }
   }

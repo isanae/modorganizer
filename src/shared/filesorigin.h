@@ -67,9 +67,16 @@ public:
   //
   std::vector<FileEntryPtr> getFiles() const;
 
-  // sets whether this origin is enabled
+  // removes all of this origin's files from the register and marks the origin
+  // as being disabled
   //
-  void enable(bool enabled);
+  void disable();
+
+  // marks the origin as being enabled, doesn't do anything else; this is only
+  // used while refreshing this origin and so the files will be added back
+  // later
+  //
+  void setEnabledFlag();
 
   // whether this origin is enabled
   //
@@ -86,7 +93,13 @@ public:
   //
   void removeFile(FileIndex index);
 
+
+  // global origin connection
+  //
   std::shared_ptr<OriginConnection> getOriginConnection() const;
+
+  // global file register
+  //
   std::shared_ptr<FileRegister> getFileRegister() const;
 
 private:

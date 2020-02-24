@@ -9,16 +9,6 @@ namespace MOShared
 
 using namespace MOBase;
 
-std::wstring tail(const std::wstring &source, const size_t count)
-{
-  if (count >= source.length()) {
-    return source;
-  }
-
-  return source.substr(source.length() - count);
-}
-
-
 FilesOrigin::FilesOrigin(
   OriginID ID, std::wstring_view name, const fs::path& path, int prio,
   std::shared_ptr<OriginConnection> oc) :
@@ -42,6 +32,7 @@ void FilesOrigin::setName(std::wstring_view name)
     oc->changeNameLookup(m_Name, name);
   }
 
+  // the path should always match the name
   if (m_Path.filename().native() != m_Name) {
     log::warn(
       "files origin '{}': path '{}' doesn't end with name",
@@ -79,23 +70,28 @@ std::vector<FileEntryPtr> FilesOrigin::getFiles() const
   return v;
 }
 
-void FilesOrigin::enable(bool enabled)
+void FilesOrigin::disable()
 {
-  if (!enabled) {
-    std::set<FileIndex> copy;
+  std::set<FileIndex> files;
 
-    {
-      std::scoped_lock lock(m_FilesMutex);
-      copy = m_Files;
-      m_Files.clear();
-    }
-
-    if (auto fr=getFileRegister()) {
-      fr->removeOrigin(copy, m_ID);
-    }
+  // stealing the files
+  {
+    std::scoped_lock lock(m_FilesMutex);
+    files = std::move(m_Files);
+    m_Files.clear();
   }
 
-  m_Enabled = enabled;
+  // removing files
+  if (auto fr=getFileRegister()) {
+    fr->removeOrigin(files, m_ID);
+  }
+
+  m_Enabled = false;
+}
+
+void FilesOrigin::setEnabledFlag()
+{
+  m_Enabled = true;
 }
 
 void FilesOrigin::addFile(FileIndex index)
@@ -106,12 +102,13 @@ void FilesOrigin::addFile(FileIndex index)
 
 void FilesOrigin::removeFile(FileIndex index)
 {
-
   std::scoped_lock lock(m_FilesMutex);
 
   auto itor = m_Files.find(index);
 
   if (itor == m_Files.end()) {
+    // just logging
+
     FileEntryPtr f;
 
     if (auto oc=m_OriginConnection.lock()) {
