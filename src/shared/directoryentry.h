@@ -123,8 +123,7 @@ public:
     return m_register.lock();
   }
 
-  // returns the associated file register; all directories and files share the
-  // same register
+  // convenience: forwards to getFileRegister()->getOriginConnection()
   //
   std::shared_ptr<OriginConnection> getOriginConnection() const
   {

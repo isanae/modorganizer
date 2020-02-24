@@ -11,7 +11,7 @@ namespace MOShared
 using namespace MOBase;
 
 FileRegister::FileRegister()
-  : m_OriginConnection(OriginConnection::create()), m_NextIndex(0)
+  : m_OriginConnection(OriginConnection::create()), m_fileCount(0)
 {
 }
 
@@ -20,50 +20,48 @@ std::shared_ptr<FileRegister> FileRegister::create()
   return std::shared_ptr<FileRegister>(new FileRegister);
 }
 
-bool FileRegister::indexValid(FileIndex index) const
+bool FileRegister::fileExists(FileIndex index) const
 {
-  std::scoped_lock lock(m_Mutex);
+  std::scoped_lock lock(m_mutex);
 
-  if (index < m_Files.size()) {
-    return (m_Files[index].get() != nullptr);
+  if (index >= m_files.size()) {
+    return false;
   }
 
-  return false;
+  return (m_files[index].get() != nullptr);
 }
 
 FileEntryPtr FileRegister::createFile(
-  std::wstring name, DirectoryEntry *parent, DirectoryStats& stats)
+  std::wstring name, DirectoryEntry* parent)
 {
-  const auto index = generateIndex();
-  auto p = FileEntry::create(index, std::move(name), parent);
+  FileMap::iterator itor;
+  FileIndex index;
 
   {
-    std::scoped_lock lock(m_Mutex);
+    std::scoped_lock lock(m_mutex);
 
-    if (index >= m_Files.size()) {
-      m_Files.resize(index + 1);
-    }
+    m_files.push_back({});
 
-    m_Files[index] = p;
+    itor = std::prev(m_files.end());
+    index = static_cast<FileIndex>(m_files.size() - 1);
+    ++m_fileCount;
   }
+
+  auto p = FileEntry::create(index, std::move(name), parent);
+  *itor = p;
 
   return p;
 }
 
-FileIndex FileRegister::generateIndex()
-{
-  return m_NextIndex++;
-}
-
 FileEntryPtr FileRegister::getFile(FileIndex index) const
 {
-  std::scoped_lock lock(m_Mutex);
+  std::scoped_lock lock(m_mutex);
 
-  if (index < m_Files.size()) {
-    return m_Files[index];
-  } else {
+  if (index >= m_files.size()) {
     return {};
   }
+
+  return m_files[index];
 }
 
 std::shared_ptr<OriginConnection> FileRegister::getOriginConnection() const
@@ -73,12 +71,12 @@ std::shared_ptr<OriginConnection> FileRegister::getOriginConnection() const
 
 bool FileRegister::removeFile(FileIndex index)
 {
-  std::scoped_lock lock(m_Mutex);
+  std::scoped_lock lock(m_mutex);
 
-  if (index >= m_Files.size()) {
+  if (index >= m_files.size()) {
     log::error(
       "FileRegister::removeFile(): index {} out of range, size is {}",
-      index, m_Files.size());
+      index, m_files.size());
 
     return false;
   }
@@ -86,16 +84,17 @@ bool FileRegister::removeFile(FileIndex index)
   FileEntryPtr file;
 
   // remove from list
-  m_Files[index].swap(file);
+  m_files[index].swap(file);
 
   if (!file) {
     log::error("FileRegister::removeFile(): index {} is empty", index);
     return false;
   }
 
-  // unregister from origin
-  const OriginID originID = file->getOrigin();
-  if (auto* o=m_OriginConnection->findByID(originID)) {
+  --m_fileCount;
+
+  // unregister from primary origin
+  if (auto* o=m_OriginConnection->findByID(file->getOrigin())) {
     o->removeFile(file->getIndex());
   }
 
@@ -114,21 +113,21 @@ bool FileRegister::removeFile(FileIndex index)
   return true;
 }
 
-void FileRegister::removeOriginMulti(
+void FileRegister::removeOrigin(
   std::set<FileIndex> indices, OriginID originID)
 {
-  std::scoped_lock lock(m_Mutex);
+  std::scoped_lock lock(m_mutex);
 
   for (auto&& index : indices) {
-    if (index >= m_Files.size()) {
+    if (index >= m_files.size()) {
       log::error(
         "FileRegister::removeOriginMulti(): index {} out of range, size is {}",
-        index, m_Files.size());
+        index, m_files.size());
 
       continue;
     }
 
-    FileEntryPtr file = m_Files[index];
+    FileEntryPtr file = m_files[index];
 
     if (!file) {
       log::error("FileRegister::removeOriginMulti(): index {} is empty", index);
@@ -144,22 +143,22 @@ void FileRegister::removeOriginMulti(
       }
 
       // remove from list
-      m_Files[index] = {};
+      m_files[index] = {};
+      --m_fileCount;
     }
   }
 }
 
 void FileRegister::sortOrigins()
 {
-  std::scoped_lock lock(m_Mutex);
+  std::scoped_lock lock(m_mutex);
 
-  for (auto&& p : m_Files) {
+  for (auto&& p : m_files) {
     if (p) {
       p->sortOrigins();
     }
   }
 }
-
 
 std::wstring OriginInfo::debugName() const
 {

@@ -216,28 +216,34 @@ DirectoryEntry* DirectoryStructure::root()
 
 bool DirectoryStructure::originExists(std::wstring_view name) const
 {
-  return m_root->getFileRegister()->getOriginConnection()->exists(name);
+  return m_register->getOriginConnection()->exists(name);
 }
 
 FilesOrigin* DirectoryStructure::findOriginByID(OriginID id)
 {
-  return m_root->getFileRegister()->getOriginConnection()->findByID(id);
+  return m_register->getOriginConnection()->findByID(id);
 }
 
 const FilesOrigin* DirectoryStructure::findOriginByID(OriginID id) const
 {
-  return m_root->getFileRegister()->getOriginConnection()->findByID(id);
+  return m_register->getOriginConnection()->findByID(id);
 }
 
 FilesOrigin* DirectoryStructure::findOriginByName(std::wstring_view name)
 {
-  return m_root->getFileRegister()->getOriginConnection()->findByName(name);
+  return m_register->getOriginConnection()->findByName(name);
 }
 
 const FilesOrigin* DirectoryStructure::findOriginByName(
   std::wstring_view name) const
 {
-  return m_root->getFileRegister()->getOriginConnection()->findByName(name);
+  return m_register->getOriginConnection()->findByName(name);
+}
+
+std::shared_ptr<MOShared::FileRegister>
+DirectoryStructure::getFileRegister() const
+{
+  return m_register;
 }
 
 void DirectoryStructure::addMods(const std::vector<Profile::ActiveMod>& mods)
@@ -558,7 +564,7 @@ void DirectoryStructure::refreshThread(
 
     log::debug(
       "refresher saw {} files in {} mods",
-      m_root->getFileRegister()->highestCount(), mods.size());
+      m_root->getFileRegister()->fileCount(), mods.size());
   }
   catch(std::exception& e)
   {

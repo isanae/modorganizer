@@ -384,8 +384,7 @@ FileEntryPtr DirectoryEntry::insert(
       fe = fr->getFile(itor->second);
     } else {
       // file not found, create it
-      fe = fr->createFile(
-        std::wstring(fileName.begin(), fileName.end()), this, stats);
+      fe = fr->createFile(std::wstring(fileName.begin(), fileName.end()), this);
 
       elapsed(stats.addFileTimes, [&] {
         m_filesLookup.emplace(key.value, fe->getIndex());

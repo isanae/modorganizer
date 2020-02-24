@@ -94,21 +94,22 @@ public:
   MOShared::DirectoryEntry* root();
 
 
-  // forwards to OriginConnection::exists()
+  // convenience: forwards to OriginConnection::exists()
   //
   bool originExists(std::wstring_view name) const;
 
-  // forwards to OriginConnection::findByID()
+  // convenience: forwards to OriginConnection::findByID()
   //
   MOShared::FilesOrigin* findOriginByID(MOShared::OriginID id);
   const MOShared::FilesOrigin* findOriginByID(MOShared::OriginID id) const;
 
-  // forwards to OriginConnection::findByName()
+  // convenience: forwards to OriginConnection::findByName()
   //
   MOShared::FilesOrigin* findOriginByName(std::wstring_view name);
   const MOShared::FilesOrigin* findOriginByName(std::wstring_view name) const;
 
-
+  // global register
+  //
   std::shared_ptr<MOShared::FileRegister> getFileRegister() const;
 
 

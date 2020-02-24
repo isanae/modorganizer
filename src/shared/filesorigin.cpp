@@ -91,7 +91,7 @@ void FilesOrigin::enable(bool enabled)
     }
 
     if (auto fr=getFileRegister()) {
-      fr->removeOriginMulti(copy, m_ID);
+      fr->removeOrigin(copy, m_ID);
     }
   }
 
