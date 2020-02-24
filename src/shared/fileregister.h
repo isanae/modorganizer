@@ -34,10 +34,6 @@ public:
   //
   bool fileExists(FileIndex index) const;
 
-  // creates a new FileEntry, adds it to the register and returns it
-  //
-  FileEntryPtr createFile(std::wstring name, DirectoryEntry* parent);
-
   // returns the file having the given index, if any
   //
   FileEntryPtr getFile(FileIndex index) const;
@@ -50,9 +46,10 @@ public:
     return m_fileCount;
   }
 
-  // origin connection, manages the list of origins
+
+  // creates a new FileEntry, adds it to the register and returns it
   //
-  std::shared_ptr<OriginConnection> getOriginConnection() const;
+  FileEntryPtr createFile(std::wstring name, DirectoryEntry* parent);
 
   // 1) removes the file from the register,
   // 2) removes the file from all of its origins,
@@ -70,6 +67,11 @@ public:
   // sorts the origins of every file and re-checks which one is the primary
   //
   void sortOrigins();
+
+
+  // origin connection, manages the list of origins
+  //
+  std::shared_ptr<OriginConnection> getOriginConnection() const;
 
 private:
   using FileMap = std::deque<FileEntryPtr>;

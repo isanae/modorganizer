@@ -31,6 +31,17 @@ bool FileRegister::fileExists(FileIndex index) const
   return (m_files[index].get() != nullptr);
 }
 
+FileEntryPtr FileRegister::getFile(FileIndex index) const
+{
+  std::scoped_lock lock(m_mutex);
+
+  if (index >= m_files.size()) {
+    return {};
+  }
+
+  return m_files[index];
+}
+
 FileEntryPtr FileRegister::createFile(
   std::wstring name, DirectoryEntry* parent)
 {
@@ -51,22 +62,6 @@ FileEntryPtr FileRegister::createFile(
   *itor = p;
 
   return p;
-}
-
-FileEntryPtr FileRegister::getFile(FileIndex index) const
-{
-  std::scoped_lock lock(m_mutex);
-
-  if (index >= m_files.size()) {
-    return {};
-  }
-
-  return m_files[index];
-}
-
-std::shared_ptr<OriginConnection> FileRegister::getOriginConnection() const
-{
-  return m_OriginConnection;
 }
 
 bool FileRegister::removeFile(FileIndex index)
@@ -158,6 +153,11 @@ void FileRegister::sortOrigins()
       p->sortOrigins();
     }
   }
+}
+
+std::shared_ptr<OriginConnection> FileRegister::getOriginConnection() const
+{
+  return m_OriginConnection;
 }
 
 std::wstring OriginInfo::debugName() const
