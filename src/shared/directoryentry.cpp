@@ -239,7 +239,7 @@ FileEntryPtr DirectoryEntry::findFileRecursiveImpl(std::wstring_view path) const
 FilesOrigin& DirectoryEntry::getOrCreateOrigin(const OriginInfo& originInfo)
 {
   return getOriginConnection()->getOrCreateOrigin(
-    originInfo.name, originInfo.path, originInfo.priority).first;
+    originInfo.name, originInfo.path, originInfo.priority);
 }
 
 

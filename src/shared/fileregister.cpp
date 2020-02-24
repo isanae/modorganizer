@@ -11,13 +11,17 @@ namespace MOShared
 using namespace MOBase;
 
 FileRegister::FileRegister()
-  : m_OriginConnection(OriginConnection::create()), m_fileCount(0)
+  : m_fileCount(0)
 {
+  // note that m_OriginConnection is set in create() because it needs the
+  // shared_ptr
 }
 
 std::shared_ptr<FileRegister> FileRegister::create()
 {
-  return std::shared_ptr<FileRegister>(new FileRegister);
+  std::shared_ptr<FileRegister> p(new FileRegister);
+  p->m_OriginConnection = OriginConnection::create(p);
+  return p;
 }
 
 bool FileRegister::fileExists(FileIndex index) const

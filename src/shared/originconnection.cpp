@@ -8,109 +8,129 @@ namespace MOShared
 
 using namespace MOBase;
 
-OriginConnection::OriginConnection()
-  : m_NextID(0)
+OriginConnection::OriginConnection(std::shared_ptr<FileRegister> r)
+  : m_nextID(0), m_register(r)
 {
 }
 
-std::shared_ptr<OriginConnection> OriginConnection::create()
+std::shared_ptr<OriginConnection> OriginConnection::create(
+  std::shared_ptr<FileRegister> r)
 {
-  return std::shared_ptr<OriginConnection>(new OriginConnection);
+  return std::shared_ptr<OriginConnection>(new OriginConnection(std::move(r)));
 }
 
-std::pair<FilesOrigin&, bool> OriginConnection::getOrCreateOrigin(
+FilesOrigin& OriginConnection::getOrCreateOrigin(
   std::wstring_view name, const fs::path& path, int priority)
 {
-  std::unique_lock lock(m_Mutex);
+  std::unique_lock lock(m_mutex);
 
-  auto itor = m_OriginsNameMap.find(name);
+  // lookup by name
+  auto itor = m_names.find(name);
 
-  if (itor != m_OriginsNameMap.end()) {
-    auto itor2 = m_Origins.find(itor->second);
+  if (itor != m_names.end()) {
+    // lookup by id
+    auto itor2 = m_origins.find(itor->second);
 
-    // todo: log not found
-
-    if (itor2 != m_Origins.end()) {
+    if (itor2 != m_origins.end()) {
+      // already exists
       FilesOrigin& origin = itor2->second;
-      lock.unlock();
       origin.setEnabledFlag();
-      return {origin, false};
+      return origin;
     }
+
+    // found by name but not by id, this shouldn't happen
+    log::error(
+      "OriginConnection::getOrCreateOrigin(): "
+      "origin '{}' found in names map but index {} not found; recreating",
+      name, itor->second);
   }
 
-  FilesOrigin& origin = createOriginNoLock(name, path, priority);
-  return {origin, true};
+  return createOriginNoLock(name, path, priority);
 }
 
 FilesOrigin& OriginConnection::createOrigin(
   std::wstring_view name, const fs::path& directory, int priority)
 {
-  std::scoped_lock lock(m_Mutex);
+  std::scoped_lock lock(m_mutex);
   return createOriginNoLock(name, directory, priority);
 }
 
 bool OriginConnection::exists(std::wstring_view name)
 {
-  std::scoped_lock lock(m_Mutex);
-  return m_OriginsNameMap.find(name) != m_OriginsNameMap.end();
+  std::scoped_lock lock(m_mutex);
+  return m_names.contains(name);
 }
-
-//FilesOrigin& OriginConnection::getByID(OriginID id)
-//{
-//  std::scoped_lock lock(m_Mutex);
-//  return m_Origins[id];
-//}
 
 const FilesOrigin* OriginConnection::findByID(OriginID id) const
 {
-  std::scoped_lock lock(m_Mutex);
+  std::scoped_lock lock(m_mutex);
 
-  auto itor = m_Origins.find(id);
-
-  if (itor == m_Origins.end()) {
+  auto itor = m_origins.find(id);
+  if (itor == m_origins.end()) {
     return nullptr;
-  } else {
-    return &itor->second;
   }
+
+  return &itor->second;
 }
 
 const FilesOrigin* OriginConnection::findByName(std::wstring_view name) const
 {
-  std::scoped_lock lock(m_Mutex);
+  std::scoped_lock lock(m_mutex);
 
-  auto iter = m_OriginsNameMap.find(name);
-  if (iter == m_OriginsNameMap.end()) {
+  // find by name
+  auto itor = m_names.find(name);
+  if (itor == m_names.end()) {
     return nullptr;
   }
 
-  auto iter2 = m_Origins.find(iter->second);
-  if (iter2 == m_Origins.end()) {
+  // find by id
+  auto itor2 = m_origins.find(itor->second);
+
+  if (itor2 == m_origins.end()) {
+    // found by name but not by id, this shouldn't happen
+    log::error(
+      "OriginConnection::findByName(): "
+      "origin '{}' found in names map but index {} not found",
+      name, itor->second);
+
     return nullptr;
   }
 
-  return &iter2->second;
+  return &itor2->second;
 }
 
 void OriginConnection::changePriorityLookup(int oldPriority, int newPriority)
 {
-  std::scoped_lock lock(m_Mutex);
+  std::scoped_lock lock(m_mutex);
 
-  auto iter = m_OriginsPriorityMap.find(oldPriority);
+  // looking up old priority
+  auto itor = m_priorities.find(oldPriority);
 
-  if (iter != m_OriginsPriorityMap.end()) {
-    OriginID idx = iter->second;
-    m_OriginsPriorityMap.erase(iter);
-    m_OriginsPriorityMap[newPriority] = idx;
+  if (itor == m_priorities.end()) {
+    log::error(
+      "cannot change origin priority lookup from {} to {}, "
+      "not found in priority map",
+      oldPriority, newPriority);
+
+    return;
   }
+
+  const OriginID index = itor->second;
+
+  // removing old
+  m_priorities.erase(itor);
+
+  // setting new
+  m_priorities.emplace(newPriority, index);
 }
 
 void OriginConnection::changeNameLookup(std::wstring_view oldName, std::wstring_view newName)
 {
-  std::scoped_lock lock(m_Mutex);
+  std::scoped_lock lock(m_mutex);
 
-  auto iter = m_OriginsNameMap.find(oldName);
+  auto itor = m_names.find(oldName);
 
-  if (iter == m_OriginsNameMap.end()) {
+  if (itor == m_names.end()) {
     log::error(
       "cannot change origin name lookup from '{}' to '{}', "
       "not found in name map",
@@ -119,36 +139,43 @@ void OriginConnection::changeNameLookup(std::wstring_view oldName, std::wstring_
     return;
   }
 
-  OriginID index = iter->second;
+  const OriginID index = itor->second;
 
-  m_OriginsNameMap.erase(iter);
-  m_OriginsNameMap.emplace(newName, index);
+  // removing old
+  m_names.erase(itor);
+
+  // setting new
+  m_names.emplace(newName, index);
 }
 
 std::shared_ptr<FileRegister> OriginConnection::getFileRegister() const
 {
-  return m_FileRegister.lock();
+  return m_register.lock();
 }
 
 OriginID OriginConnection::createID()
 {
-  return m_NextID++;
+  return m_nextID++;
 }
 
 FilesOrigin& OriginConnection::createOriginNoLock(
   std::wstring_view name, const fs::path& directory, int priority)
 {
-  OriginID newID = createID();
+  const OriginID newID = createID();
   auto self = shared_from_this();
 
-  auto itor = m_Origins.emplace(
+  // origins
+  auto itor = m_origins.emplace(
     std::piecewise_construct,
     std::forward_as_tuple(newID),
     std::forward_as_tuple(newID, name, directory, priority, self))
       .first;
 
-  m_OriginsNameMap.insert({std::wstring(name.begin(), name.end()), newID});
-  m_OriginsPriorityMap.insert({priority, newID});
+  // names
+  m_names.insert({std::wstring(name.begin(), name.end()), newID});
+
+  // priorities
+  m_priorities.insert({priority, newID});
 
   return itor->second;
 }
