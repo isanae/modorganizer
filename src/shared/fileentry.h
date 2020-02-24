@@ -31,8 +31,68 @@ public:
   //
   FileIndex getIndex() const
   {
-    return m_Index;
+    return m_index;
   }
+
+  // filename
+  //
+  const std::wstring& getName() const
+  {
+    return m_name;
+  }
+
+  // the list of origins, sorted by priority, that also provide this file but
+  // with a lower priority
+  //
+  const std::vector<OriginInfo>& getAlternatives() const
+  {
+    return m_alternatives;
+  }
+
+  // primary origin
+  //
+  OriginID getOrigin() const
+  {
+    return m_origin.originID;
+  }
+
+  // the archive from the primary origin that contains this file, if any
+  //
+  const ArchiveInfo& getArchive() const
+  {
+    return m_origin.archive;
+  }
+
+  // returns the directory that contains this file
+  //
+  DirectoryEntry* getParent()
+  {
+    return m_parent;
+  }
+
+  // returns the absolute path of this file; note that the file might not
+  // actually exist on the filesystem if it's from an archive
+  //
+  // if `originID` is `InvalidOriginID`, uses the primary origin; if not, uses
+  // the given origin, returns an empty string if the file doesn't exist in
+  // that origin
+  //
+  std::wstring getFullPath(OriginID originID=InvalidOriginID) const;
+
+  // returns the path of this file relative to the Data directory (excludes
+  // the Data directory itself)
+  //
+  std::wstring getRelativePath() const;
+
+
+  // whether this file is found in the given archive
+  //
+  bool existsInArchive(std::wstring_view archiveName) const;
+
+  // whether the primary origin has this file in an archive
+  //
+  bool isFromArchive() const;
+
 
   // adds the given origin to this file
   //
@@ -56,70 +116,12 @@ public:
   //
   void sortOrigins();
 
-  // the list of origins, sorted by priority, that also provide this file but
-  // with a lower priority
-  //
-  const std::vector<OriginInfo>& getAlternatives() const
-  {
-    return m_Alternatives;
-  }
-
-  // filename
-  //
-  const std::wstring& getName() const
-  {
-    return m_Name;
-  }
-
-  // primary origin
-  //
-  OriginID getOrigin() const
-  {
-    return m_Origin.originID;
-  }
-
-  // the archive from the primary origin that contains this file, if any
-  //
-  const ArchiveInfo& getArchive() const
-  {
-    return m_Origin.archive;
-  }
-
-  // whether this file is found in the given archive
-  //
-  bool existsInArchive(std::wstring_view archiveName) const;
-
-  // whether the primary origin has this file in an archive
-  //
-  bool isFromArchive() const;
-
-  // returns the absolute path of this file; note that the file might not
-  // actually exist on the filesystem if it's from an archive
-  //
-  // if `originID` is `InvalidOriginID`, uses the primary origin; if not, uses
-  // the given origin, returns an empty string if the file doesn't exist in
-  // that origin
-  //
-  std::wstring getFullPath(OriginID originID=InvalidOriginID) const;
-
-  // returns the path of this file relative to the Data directory (excludes
-  // the Data directory itself)
-  //
-  std::wstring getRelativePath() const;
-
-  // returns the directory that contains this file
-  //
-  DirectoryEntry* getParent()
-  {
-    return m_Parent;
-  }
-
 
   // sets the last modified time of this file
   //
   void setFileTime(FILETIME fileTime)
   {
-    m_FileTime = fileTime;
+    m_fileTime = fileTime;
   }
 
   // last modified time of the file; if the file is from an archive, this is
@@ -127,14 +129,14 @@ public:
   //
   FILETIME getFileTime() const
   {
-    return m_FileTime;
+    return m_fileTime;
   }
 
   // sets the size of this file
   //
   void setFileSize(uint64_t size)
   {
-    m_FileSize = size;
+    m_fileSize = size;
   }
 
   // the size of this file, can be unavailable; if the file is from an archive,
@@ -142,7 +144,7 @@ public:
   //
   std::optional<uint64_t> getFileSize() const
   {
-    return m_FileSize;
+    return m_fileSize;
   }
 
   // sets the compressed size of this file, used only when the file is from an
@@ -150,7 +152,7 @@ public:
   //
   void setCompressedFileSize(uint64_t compressedSize)
   {
-    m_CompressedFileSize = compressedSize;
+    m_compressedFileSize = compressedSize;
   }
 
   // the compressed size of this file, can be empty if the file is not from an
@@ -158,7 +160,7 @@ public:
   //
   std::optional<uint64_t> getCompressedFileSize() const
   {
-    return m_CompressedFileSize;
+    return m_compressedFileSize;
   }
 
   // returns a string that represents this file, such as "filename:index";
@@ -168,28 +170,28 @@ public:
 
 private:
   // unique index
-  FileIndex m_Index;
+  FileIndex m_index;
 
   // filename
-  std::wstring m_Name;
+  std::wstring m_name;
 
   // primary origin
-  OriginInfo m_Origin;
+  OriginInfo m_origin;
 
   // alternative origins and their archive, if any; always sorted by priority
-  std::vector<OriginInfo> m_Alternatives;
+  std::vector<OriginInfo> m_alternatives;
 
   // parent directory
-  DirectoryEntry* m_Parent;
+  DirectoryEntry* m_parent;
 
   // last modified time
-  FILETIME m_FileTime;
+  FILETIME m_fileTime;
 
   // sizes
-  std::optional<uint64_t> m_FileSize, m_CompressedFileSize;
+  std::optional<uint64_t> m_fileSize, m_compressedFileSize;
 
-  // protects m_Origin and m_Alternatives
-  mutable std::mutex m_OriginsMutex;
+  // protects m_origin and m_alternatives
+  mutable std::mutex m_originsMutex;
 
 
   // creates a file with no origin
@@ -215,7 +217,7 @@ private:
   //
   int comparePriorities(const OriginInfo& a, const OriginInfo& b) const;
 
-  // returns the alternative when the given id, or m_Alternatives.end()
+  // returns the alternative when the given id, or m_alternatives.end()
   //
   std::vector<OriginInfo>::const_iterator findAlternativeByID(OriginID id) const;
 

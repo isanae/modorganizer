@@ -9,7 +9,7 @@ namespace MOShared
 using namespace MOBase;
 
 FileEntry::FileEntry(FileIndex index, std::wstring name, DirectoryEntry* p)
-  : m_Index(index), m_Name(std::move(name)), m_Parent(p)
+  : m_index(index), m_name(std::move(name)), m_parent(p)
 {
 }
 
@@ -19,11 +19,74 @@ FileEntryPtr FileEntry::create(
   return FileEntryPtr(new FileEntry(index, std::move(name), parent));
 }
 
+std::wstring FileEntry::getFullPath(OriginID originID) const
+{
+  if (originID == InvalidOriginID) {
+    // use primary when no specific origin is given
+    std::scoped_lock lock(m_originsMutex);
+    originID = m_origin.originID;
+  }
+
+  const auto* o = m_parent->findOriginByID(originID);
+  if (!o) {
+    log::error(
+      "for file {}, can't get full path for origin {}, origin not found",
+      debugName(), originID);
+
+    return {};
+  }
+
+  return o->getPath() + L"\\" + getRelativePath();
+}
+
+std::wstring FileEntry::getRelativePath() const
+{
+  std::wstring path;
+  const DirectoryEntry* e = m_parent;
+
+  while (e) {
+    if (e->isTopLevel()) {
+      // don't add the top-level name to the path (such as Data/)
+      break;
+    }
+
+    path = e->getName() + L"\\" + path;
+    e = e->getParent();
+  }
+
+  path += m_name;
+
+  return path;
+}
+
+bool FileEntry::existsInArchive(std::wstring_view archiveName) const
+{
+  // check primary origin
+  if (m_origin.archive.name == archiveName) {
+    return true;
+  }
+
+  // check alternatives
+  for (const auto& o : m_alternatives) {
+    if (o.archive.name == archiveName) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool FileEntry::isFromArchive() const
+{
+  std::scoped_lock lock(m_originsMutex);
+  return !m_origin.archive.name.empty();
+}
+
 void FileEntry::addOrigin(const OriginInfo& newOrigin, FILETIME fileTime)
 {
-  std::scoped_lock lock(m_OriginsMutex);
+  std::scoped_lock lock(m_originsMutex);
 
-  if (m_Origin.originID == newOrigin.originID) {
+  if (m_origin.originID == newOrigin.originID) {
     // already an origin
     log::warn(
       "cannot add origin {} to file {}, already the primary origin",
@@ -32,9 +95,9 @@ void FileEntry::addOrigin(const OriginInfo& newOrigin, FILETIME fileTime)
     return;
   }
 
-  if (m_Parent) {
+  if (m_parent) {
     // also add the origin to the parent directories
-    m_Parent->propagateOrigin(newOrigin.originID);
+    m_parent->propagateOrigin(newOrigin.originID);
   }
 
   if (shouldReplacePrimaryOrigin(newOrigin)) {
@@ -44,15 +107,159 @@ void FileEntry::addOrigin(const OriginInfo& newOrigin, FILETIME fileTime)
   }
 }
 
+bool FileEntry::removeOrigin(OriginID removeOriginID)
+{
+  std::scoped_lock lock(m_originsMutex);
+
+  if (m_origin.originID == removeOriginID) {
+    // the origin that was removed is currently the primary one...
+
+    if (m_alternatives.empty()) {
+      // ...and there are no other origins for this file
+      //
+      // this can happen when:
+      //   1) a file is about to be removed from the registry because all its
+      //      origins are gone, or
+      //
+      //   2) when switching the origin of this file from Data to a pseudo-mod
+      //      in DirectoryStructure::addAssociatedFiles()
+      m_origin = {};
+      return true;
+    } else {
+      // ...but there are still other available origins, grab the one with the
+      // highest priority and remove it from the list of alternatives
+      auto itor = std::prev(m_alternatives.end());
+      m_origin = std::move(*itor);
+      m_alternatives.erase(itor);
+      assertAlternativesSorted();
+    }
+  } else {
+    // the origin is an alternative, remove it from the list
+
+    auto itor = findAlternativeByID(removeOriginID);
+
+    if (itor == m_alternatives.end()) {
+      log::warn(
+        "for file {}, cannot remove origin {}, not in alternative list",
+        debugName(), removeOriginID);
+    } else {
+      m_alternatives.erase(itor);
+      assertAlternativesSorted();
+    }
+  }
+
+  return false;
+}
+
+void FileEntry::sortOrigins()
+{
+  std::vector<OriginInfo> v;
+
+  {
+    std::scoped_lock lock(m_originsMutex);
+    v = m_alternatives;
+    v.push_back(m_origin);
+  }
+
+  std::sort(
+    v.begin(), v.end(),
+    [&](auto&& a, auto&& b) { return (comparePriorities(a, b) < 0); });
+
+  {
+    std::scoped_lock lock(m_originsMutex);
+    m_origin = std::move(*std::prev(v.end()));
+    m_alternatives.assign(v.begin(), v.end() - 1);
+  }
+
+  assertAlternativesSorted();
+}
+
+std::wstring FileEntry::debugName() const
+{
+  return fmt::format(L"{}:{}", m_name, m_index);
+}
+
+bool FileEntry::shouldReplacePrimaryOrigin(const OriginInfo& newOrigin) const
+{
+  if (m_origin.originID == InvalidOriginID) {
+    // this file doesn't have a valid origin right now
+    return true;
+  }
+
+  if (m_parent == nullptr) {
+    // shouldn't happen
+    return true;
+  }
+
+  // if the new origin has a higher priority, take it
+  if (comparePriorities(m_origin, newOrigin) < 0) {
+    return true;
+  }
+
+  // the origin is an alternative
+  return false;
+}
+
+void FileEntry::setPrimaryOrigin(const OriginInfo& newOrigin, FILETIME ft)
+{
+  // the given origin must replace the current one, if any; if there _is_ a
+  // current origin, move it to the alternatives
+  if (m_origin.originID != InvalidOriginID) {
+    // make sure the origin isn't already in the alternatives, which shouldn't
+    // happen
+    auto itor = findAlternativeByID(m_origin.originID);
+
+    if (itor == m_alternatives.end()) {
+      m_alternatives.push_back(m_origin);
+      assertAlternativesSorted();
+    } else {
+      log::warn(
+        "for file {}, while moving the current origin {} to alternatives so "
+        "{} can become primary, the id already exists as {}",
+        debugName(), m_origin.debugName(),
+        newOrigin.debugName(), itor->debugName());
+    }
+  }
+
+  m_origin = newOrigin;
+  m_fileTime = ft;
+}
+
+void FileEntry::addAlternativeOrigin(const OriginInfo& newOrigin)
+{
+  bool found = false;
+
+  for (auto itor=m_alternatives.begin(); itor!=m_alternatives.end(); ++itor) {
+    if (itor->originID == newOrigin.originID) {
+      // already an origin
+      log::warn(
+        "for file {}, cannot add {} as an alternative because it's already "
+        "in the list as {}",
+        debugName(), newOrigin.debugName(), itor->debugName());
+
+      return;
+    }
+
+    if (comparePriorities(*itor, newOrigin) < 0) {
+      m_alternatives.insert(itor, newOrigin);
+      assertAlternativesSorted();
+      return;
+    }
+  }
+
+  m_alternatives.push_back(newOrigin);
+  assertAlternativesSorted();
+}
+
 int FileEntry::comparePriorities(const OriginInfo& a, const OriginInfo& b) const
 {
-  if (!m_Parent) {
+  if (!m_parent) {
     // shouldn't happen
     return 0;
   }
 
-  auto* aOrigin = m_Parent->findOriginByID(a.originID);
-  auto* bOrigin = m_Parent->findOriginByID(b.originID);
+  auto* aOrigin = m_parent->findOriginByID(a.originID);
+  auto* bOrigin = m_parent->findOriginByID(b.originID);
 
   if (aOrigin == bOrigin) {
     // same origin
@@ -96,154 +303,15 @@ int FileEntry::comparePriorities(const OriginInfo& a, const OriginInfo& b) const
 std::vector<OriginInfo>::const_iterator FileEntry::findAlternativeByID(OriginID id) const
 {
   return std::find_if(
-    m_Alternatives.begin(), m_Alternatives.end(), [&](auto&& i) {
+    m_alternatives.begin(), m_alternatives.end(), [&](auto&& i) {
       return (i.originID == id);
     });
 }
 
-bool FileEntry::shouldReplacePrimaryOrigin(const OriginInfo& newOrigin) const
-{
-  if (m_Origin.originID == InvalidOriginID) {
-    // this file doesn't have a valid origin right now
-    return true;
-  }
-
-  if (m_Parent == nullptr) {
-    // shouldn't happen
-    return true;
-  }
-
-  // if the new origin has a higher priority, take it
-  if (comparePriorities(m_Origin, newOrigin) < 0) {
-    return true;
-  }
-
-  // the origin is an alternative
-  return false;
-}
-
-void FileEntry::setPrimaryOrigin(const OriginInfo& newOrigin, FILETIME ft)
-{
-  // the given origin must replace the current one, if any; if there _is_ a
-  // current origin, move it to the alternatives
-  if (m_Origin.originID != InvalidOriginID) {
-    // make sure the origin isn't already in the alternatives, which shouldn't
-    // happen
-    auto itor = findAlternativeByID(m_Origin.originID);
-
-    if (itor == m_Alternatives.end()) {
-      m_Alternatives.push_back(m_Origin);
-      assertAlternativesSorted();
-    } else {
-      log::warn(
-        "for file {}, while moving the current origin {} to alternatives so "
-        "{} can become primary, the id already exists as {}",
-        debugName(), m_Origin.debugName(),
-        newOrigin.debugName(), itor->debugName());
-    }
-  }
-
-  m_Origin = newOrigin;
-  m_FileTime = ft;
-}
-
-void FileEntry::addAlternativeOrigin(const OriginInfo& newOrigin)
-{
-  bool found = false;
-
-  for (auto itor=m_Alternatives.begin(); itor!=m_Alternatives.end(); ++itor) {
-    if (itor->originID == newOrigin.originID) {
-      // already an origin
-      log::warn(
-        "for file {}, cannot add {} as an alternative because it's already "
-        "in the list as {}",
-        debugName(), newOrigin.debugName(), itor->debugName());
-
-      return;
-    }
-
-    if (comparePriorities(*itor, newOrigin) < 0) {
-      m_Alternatives.insert(itor, newOrigin);
-      assertAlternativesSorted();
-      return;
-    }
-  }
-
-  m_Alternatives.push_back(newOrigin);
-  assertAlternativesSorted();
-}
-
-bool FileEntry::removeOrigin(OriginID removeOriginID)
-{
-  std::scoped_lock lock(m_OriginsMutex);
-
-  if (m_Origin.originID == removeOriginID) {
-    // the origin that was removed is currently the primary one...
-
-    if (m_Alternatives.empty()) {
-      // ...and there are no other origins for this file
-      //
-      // this can happen when:
-      //   1) a file is about to be removed from the registry because all its
-      //      origins are gone, or
-      //
-      //   2) when switching the origin of this file from Data to a pseudo-mod
-      //      in DirectoryStructure::addAssociatedFiles()
-      m_Origin = {};
-      return true;
-    } else {
-      // ...but there are still other available origins, grab the one with the
-      // highest priority and remove it from the list of alternatives
-      auto itor = std::prev(m_Alternatives.end());
-      m_Origin = std::move(*itor);
-      m_Alternatives.erase(itor);
-      assertAlternativesSorted();
-    }
-  } else {
-    // the origin is an alternative, remove it from the list
-
-    auto itor = findAlternativeByID(removeOriginID);
-
-    if (itor == m_Alternatives.end()) {
-      log::warn(
-        "for file {}, cannot remove origin {}, not in alternative list",
-        debugName(), removeOriginID);
-    } else {
-      m_Alternatives.erase(itor);
-      assertAlternativesSorted();
-    }
-  }
-
-  return false;
-}
-
-void FileEntry::sortOrigins()
-{
-  std::vector<OriginInfo> v;
-
-  {
-    std::scoped_lock lock(m_OriginsMutex);
-    v = m_Alternatives;
-    v.push_back(m_Origin);
-  }
-
-  std::sort(
-    v.begin(), v.end(),
-    [&](auto&& a, auto&& b) { return (comparePriorities(a, b) < 0); });
-
-  {
-    std::scoped_lock lock(m_OriginsMutex);
-    m_Origin = std::move(*std::prev(v.end()));
-    m_Alternatives.assign(v.begin(), v.end() - 1);
-  }
-
-  assertAlternativesSorted();
-}
-
 void FileEntry::assertAlternativesSorted() const
 {
-  auto v = m_Alternatives;
-  v.push_back(m_Origin);
+  auto v = m_alternatives;
+  v.push_back(m_origin);
 
   const bool sorted = std::is_sorted(
     v.begin(), v.end(),
@@ -252,74 +320,6 @@ void FileEntry::assertAlternativesSorted() const
   if (!sorted) {
     DebugBreak();
   }
-}
-
-bool FileEntry::existsInArchive(std::wstring_view archiveName) const
-{
-  // check primary origin
-  if (m_Origin.archive.name == archiveName) {
-    return true;
-  }
-
-  // check alternatives
-  for (const auto& o : m_Alternatives) {
-    if (o.archive.name == archiveName) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-bool FileEntry::isFromArchive() const
-{
-  std::scoped_lock lock(m_OriginsMutex);
-  return !m_Origin.archive.name.empty();
-}
-
-std::wstring FileEntry::getFullPath(OriginID originID) const
-{
-  if (originID == InvalidOriginID) {
-    // use primary when no specific origin is given
-    std::scoped_lock lock(m_OriginsMutex);
-    originID = m_Origin.originID;
-  }
-
-  const auto* o = m_Parent->findOriginByID(originID);
-  if (!o) {
-    log::error(
-      "for file {}, can't get full path for origin {}, origin not found",
-      debugName(), originID);
-
-    return {};
-  }
-
-  return o->getPath() + L"\\" + getRelativePath();
-}
-
-std::wstring FileEntry::getRelativePath() const
-{
-  std::wstring path;
-  const DirectoryEntry* e = m_Parent;
-
-  while (e) {
-    if (e->isTopLevel()) {
-      // don't add the top-level name to the path (such as Data/)
-      break;
-    }
-
-    path = e->getName() + L"\\" + path;
-    e = e->getParent();
-  }
-
-  path += m_Name;
-
-  return path;
-}
-
-std::wstring FileEntry::debugName() const
-{
-  return fmt::format(L"{}:{}", m_Name, m_Index);
 }
 
 } // namespace
