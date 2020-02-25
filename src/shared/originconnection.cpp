@@ -99,31 +99,6 @@ const FilesOrigin* OriginConnection::findByName(std::wstring_view name) const
   return &itor2->second;
 }
 
-void OriginConnection::changePriorityLookup(int oldPriority, int newPriority)
-{
-  std::scoped_lock lock(m_mutex);
-
-  // looking up old priority
-  auto itor = m_priorities.find(oldPriority);
-
-  if (itor == m_priorities.end()) {
-    log::error(
-      "cannot change origin priority lookup from {} to {}, "
-      "not found in priority map",
-      oldPriority, newPriority);
-
-    return;
-  }
-
-  const OriginID index = itor->second;
-
-  // removing old
-  m_priorities.erase(itor);
-
-  // setting new
-  m_priorities.emplace(newPriority, index);
-}
-
 void OriginConnection::changeNameLookup(std::wstring_view oldName, std::wstring_view newName)
 {
   std::scoped_lock lock(m_mutex);
@@ -165,19 +140,15 @@ FilesOrigin& OriginConnection::createOriginNoLock(
   auto self = shared_from_this();
 
   // origins
-  auto itor = m_origins.emplace(
+  auto r = m_origins.emplace(
     std::piecewise_construct,
     std::forward_as_tuple(newID),
-    std::forward_as_tuple(newID, name, directory, priority, self))
-      .first;
+    std::forward_as_tuple(newID, name, directory, priority, self));
 
   // names
-  m_names.insert({std::wstring(name.begin(), name.end()), newID});
+  m_names.emplace(std::wstring(name.begin(), name.end()), newID);
 
-  // priorities
-  m_priorities.insert({priority, newID});
-
-  return itor->second;
+  return r.first->second;
 }
 
 } // namespace

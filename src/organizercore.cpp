@@ -1536,10 +1536,14 @@ void OrganizerCore::modStatusChanged(QList<unsigned int> index) {
     QMap<unsigned int, ModInfo::Ptr> modsToEnable;
     QMap<unsigned int, ModInfo::Ptr> modsToDisable;
     for (auto idx : index) {
-      if (m_CurrentProfile->modEnabled(idx)) {
-        modsToEnable[idx] = ModInfo::getByIndex(idx);
-      } else {
-        modsToDisable[idx] = ModInfo::getByIndex(idx);
+      auto mod = ModInfo::getByIndex(idx);
+
+      if (mod->canBeEnabled()) {
+        if (m_CurrentProfile->modEnabled(idx)) {
+          modsToEnable[idx] = mod;
+        } else {
+          modsToDisable[idx] = mod;
+        }
       }
     }
     if (!modsToEnable.isEmpty()) {

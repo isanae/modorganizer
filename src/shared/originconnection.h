@@ -56,11 +56,6 @@ public:
     return const_cast<FilesOrigin*>(std::as_const(*this).findByName(name));
   }
 
-  // moves the origin from `oldPriority` to `newPriority`; if an origin was
-  // already present at `newPriority`, it is overwritten
-  //
-  void changePriorityLookup(int oldPriority, int newPriority);
-
   // moves the origin from `oldName` to `newName`; if an origin was already
   // present at `newName`, it is overwritten
   //
@@ -79,9 +74,6 @@ private:
 
   // map of names to ids
   std::map<std::wstring, OriginID, std::less<>> m_names;
-
-  // map of priorities to ids
-  std::map<int, OriginID> m_priorities;
 
   // global register
   std::weak_ptr<FileRegister> m_register;

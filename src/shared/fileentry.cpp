@@ -241,7 +241,7 @@ void FileEntry::addAlternativeOrigin(const OriginInfo& newOrigin)
       return;
     }
 
-    if (comparePriorities(*itor, newOrigin) < 0) {
+    if (comparePriorities(*itor, newOrigin) > 0) {
       m_alternatives.insert(itor, newOrigin);
       assertAlternativesSorted();
       return;

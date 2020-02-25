@@ -13,4 +13,8 @@ file={m_wsFile}
 name={m_name}
 }}</DisplayString></Type>
 
+<Type Name="MOShared::FilesOrigin"><DisplayString>{{
+id={m_ID} enabled={m_Enabled} prio={m_Priority} files={m_Files} name={m_Name}
+}}</DisplayString></Type>
+
 </AutoVisualizer>

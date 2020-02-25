@@ -312,8 +312,9 @@ void DirectoryStructure::addMods(
 
   // for each mod
   for (std::size_t i=0; i<mods.size(); ++i) {
-    const auto& m = mods[i];
-    const int prio = static_cast<int>(i + 1);
+    auto m = mods[i];
+
+    m.priority = static_cast<int>(i + 1);
 
     if constexpr (DirectoryStats::EnableInstrumentation) {
       stats[i].mod = m.mod->internalName().toStdString();
