@@ -2,9 +2,8 @@
 #include "shared/directoryentry.h"
 #include "shared/originconnection.h"
 #include "shared/filesorigin.h"
-#include <log.h>
 
-namespace MOShared
+namespace MOShared::tests
 {
 
 struct FileEntryTests : public ::testing::Test
@@ -304,7 +303,6 @@ TEST_F(FileEntryTests, OriginManipulation)
   EXPECT_TRUE(e->isFromArchive());                       // primary
   EXPECT_TRUE(e->existsInArchive(origin4Archive.name));  // primary
   EXPECT_TRUE(e->existsInArchive(origin0Archive.name));  // alt
-  EXPECT_FALSE(e->existsInArchive(L"bad archive name")); // bad alt
 
 
   // removing origin 2 from the alternatives
@@ -323,7 +321,6 @@ TEST_F(FileEntryTests, OriginManipulation)
   EXPECT_TRUE(e->isFromArchive());                       // primary
   EXPECT_TRUE(e->existsInArchive(origin4Archive.name));  // primary
   EXPECT_TRUE(e->existsInArchive(origin0Archive.name));  // alt
-  EXPECT_FALSE(e->existsInArchive(L"bad archive name")); // bad alt
 
 
   // removing origin 4, which is currently the primary; will make origin 3 the
@@ -342,7 +339,6 @@ TEST_F(FileEntryTests, OriginManipulation)
   EXPECT_FALSE(e->isFromArchive());                      // primary
   EXPECT_FALSE(e->existsInArchive(origin4Archive.name)); // gone
   EXPECT_TRUE(e->existsInArchive(origin0Archive.name));  // alt
-  EXPECT_FALSE(e->existsInArchive(L"bad archive name")); // bad alt
 
 
   // removing origin 4 again, shouldn't do anything, same tests as above
@@ -369,7 +365,6 @@ TEST_F(FileEntryTests, OriginManipulation)
   EXPECT_FALSE(e->isFromArchive());                      // primary
   EXPECT_FALSE(e->existsInArchive(origin4Archive.name)); // gone
   EXPECT_TRUE(e->existsInArchive(origin0Archive.name));  // alt
-  EXPECT_FALSE(e->existsInArchive(L"bad archive name")); // bad alt
 
 
   // removing origin 3, which is current the primary; will make origin 0 the
@@ -384,7 +379,6 @@ TEST_F(FileEntryTests, OriginManipulation)
   EXPECT_TRUE(e->isFromArchive());                       // primary
   EXPECT_FALSE(e->existsInArchive(origin4Archive.name)); // gone
   EXPECT_TRUE(e->existsInArchive(origin0Archive.name));  // primary
-  EXPECT_FALSE(e->existsInArchive(L"bad archive name")); // bad alt
 
 
   // remove origin 0; this is the last origin, so removeOrigin() will return
@@ -399,7 +393,6 @@ TEST_F(FileEntryTests, OriginManipulation)
   EXPECT_FALSE(e->isFromArchive());                      // primary
   EXPECT_FALSE(e->existsInArchive(origin4Archive.name)); // gone
   EXPECT_FALSE(e->existsInArchive(origin0Archive.name)); // primary
-  EXPECT_FALSE(e->existsInArchive(L"bad archive name")); // bad alt
 }
 
 TEST_F(FileEntryTests, OriginSorting)

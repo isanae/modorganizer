@@ -73,6 +73,7 @@ AddMOSource(shared/fileregisterfwd)
 
 AddTestSource(main)
 AddTestSource(fileentry)
+AddTestSource(originconnection)
 
 set(AllSources ${MOSources} ${TestSources})
 set(AllHeaders ${MOHeaders} ${TestHeaders})
