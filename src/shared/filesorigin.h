@@ -22,9 +22,7 @@ public:
   FilesOrigin(const FilesOrigin&) = delete;
   FilesOrigin& operator=(const FilesOrigin&) = delete;
 
-  // sets the priority of this origin, this also calls
-  // OriginConnection::changePriorityLookup(); note that if there is currently
-  // an origin at the given priority, OriginConnection will lose track of it
+  // sets the priority of this origin
   //
   void setPriority(int priority);
 

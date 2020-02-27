@@ -7,7 +7,20 @@
 namespace MOShared
 {
 
-TEST(FileEntry, CreateNoParent)
+struct FileEntryTests : public ::testing::Test
+{
+  std::shared_ptr<FileRegister> fr;
+  std::unique_ptr<DirectoryEntry> root;
+
+  FileEntryTests()
+  {
+    fr = FileRegister::create();
+    root = DirectoryEntry::createRoot(fr);
+  }
+};
+
+
+TEST_F(FileEntryTests, CreateNoParent)
 {
   auto e = FileEntry::create(1, L"name.ext", nullptr);
 
@@ -36,11 +49,9 @@ TEST(FileEntry, CreateNoParent)
   EXPECT_FALSE(e->getCompressedFileSize().has_value());
 }
 
-TEST(FileEntry, CreateInRoot)
+TEST_F(FileEntryTests, CreateInRoot)
 {
-  auto fr = FileRegister::create();
-  auto d = DirectoryEntry::createRoot(fr);
-  auto e = FileEntry::create(2, L"name.ext", d.get());
+  auto e = FileEntry::create(2, L"name.ext", root.get());
 
   EXPECT_EQ(e->getIndex(), 2);
   EXPECT_EQ(e->getName(), L"name.ext");
@@ -48,7 +59,7 @@ TEST(FileEntry, CreateInRoot)
   EXPECT_EQ(e->getOrigin(), InvalidOriginID);
   EXPECT_EQ(e->getArchive().name, L"");
   EXPECT_EQ(e->getArchive().order, InvalidOrder);
-  EXPECT_EQ(e->getParent(), d.get());
+  EXPECT_EQ(e->getParent(), root.get());
 
   // empty because the file has no origin
   EXPECT_TRUE(e->getFullPath().empty());
@@ -67,11 +78,8 @@ TEST(FileEntry, CreateInRoot)
   EXPECT_FALSE(e->getCompressedFileSize().has_value());
 }
 
-TEST(FileEntry, CreateInDirectory)
+TEST_F(FileEntryTests, CreateInDirectory)
 {
-  auto fr = FileRegister::create();
-  auto root = DirectoryEntry::createRoot(fr);
-
   // creating a sub directory with no origin
   auto d = root->addSubDirectory(L"SubDir", L"subdir", InvalidOriginID);
 
@@ -106,16 +114,12 @@ TEST(FileEntry, CreateInDirectory)
   EXPECT_FALSE(e->getCompressedFileSize().has_value());
 }
 
-TEST(FileEntry, SingleOrigin)
+TEST_F(FileEntryTests, SingleOrigin)
 {
-  auto fr = FileRegister::create();
-  auto root = DirectoryEntry::createRoot(fr);
-
-  // creating an origin for the subdirectory
   const auto& origin = fr->getOriginConnection()->createOrigin(
-    L"origin name", "c:\\origin path", 0);
+    L"origin one", "c:\\origin one path", 0);
 
-  // creating a sub directory from that origin
+  // creating a sub directory from this origin
   auto d = root->addSubDirectory(L"SubDir", L"subdir", origin.getID());
 
   // creating a file inside that directory
@@ -155,32 +159,30 @@ TEST(FileEntry, SingleOrigin)
   EXPECT_FALSE(e->getCompressedFileSize().has_value());
 }
 
-TEST(FileEntry, OriginManipulation)
+TEST_F(FileEntryTests, OriginManipulation)
 {
-  auto fr = FileRegister::create();
-  auto root = DirectoryEntry::createRoot(fr);
-
   // creating five origins in order of priority
-  const FilesOrigin* origins[] = {
+  std::array<FilesOrigin*, 5> origins = {
     &fr->getOriginConnection()->createOrigin(
-      L"origin one", "c:\\origin one path", 0),
+      L"origin zero", "c:\\origin zero path", 0),
 
     &fr->getOriginConnection()->createOrigin(
-      L"origin two", "c:\\origin two path", 1),
+      L"origin one", "c:\\origin one path", 1),
 
     &fr->getOriginConnection()->createOrigin(
-      L"origin three", "c:\\origin three path", 2),
+      L"origin two", "c:\\origin two path", 2),
 
     &fr->getOriginConnection()->createOrigin(
-      L"origin four", "c:\\origin four path", 3),
+      L"origin three", "c:\\origin three path", 3),
 
     &fr->getOriginConnection()->createOrigin(
-      L"origin five", "c:\\origin five path", 4)
+      L"origin four", "c:\\origin four path", 4)
   };
 
+
   // origins 0 and 4 will be from archives
-  const ArchiveInfo origin0Archive(L"archive one", 1);
-  const ArchiveInfo origin4Archive(L"archive two", 2);
+  const ArchiveInfo origin0Archive(L"origin zero archive", 1);
+  const ArchiveInfo origin4Archive(L"origin four archive", 2);
 
   // creating a sub directory from origin 2
   auto d = root->addSubDirectory(L"SubDir", L"subdir", origins[2]->getID());
@@ -398,6 +400,133 @@ TEST(FileEntry, OriginManipulation)
   EXPECT_FALSE(e->existsInArchive(origin4Archive.name)); // gone
   EXPECT_FALSE(e->existsInArchive(origin0Archive.name)); // primary
   EXPECT_FALSE(e->existsInArchive(L"bad archive name")); // bad alt
+}
+
+TEST_F(FileEntryTests, OriginSorting)
+{
+  // a file entry will keep its origins sorted when adding or removing them,
+  // but sortOrigins() must be called when the origins themselves change
+  // priorities
+
+  // creating five origins in order of priority
+  std::array<FilesOrigin*, 5> origins = {
+    &fr->getOriginConnection()->createOrigin(
+      L"origin zero", "c:\\origin zero path", 0),
+
+    &fr->getOriginConnection()->createOrigin(
+      L"origin one", "c:\\origin one path", 0),
+
+    &fr->getOriginConnection()->createOrigin(
+      L"origin two", "c:\\origin two path", 1),
+
+    &fr->getOriginConnection()->createOrigin(
+      L"origin three", "c:\\origin three path", 2),
+
+    &fr->getOriginConnection()->createOrigin(
+      L"origin four", "c:\\origin four path", 2)
+  };
+
+  // origins 1 and 3 are from archives
+  std::array<ArchiveInfo, 5> archives = {{
+    {},
+    {L"origin one archive", 1},
+    {},
+    {L"origin three archive", 2},
+    {}
+  }};
+
+
+  // prios are 0, 0, 1, 2, 2
+  // order is  1, 0, 2, 3, 4
+
+
+  // creating a file inside the root
+  auto e = FileEntry::create(1, L"name.ext", root.get());
+
+  // adding all origins
+  for (std::size_t i=0; i<origins.size(); ++i) {
+    e->addOrigin({origins[i]->getID(), archives[i]}, {});
+  }
+
+  // origin 4 is primary because it has the highest prio along with origin 3,
+  // but it's not from an archive, while origin 3 is
+  EXPECT_EQ(e->getOrigin(), origins[4]->getID());
+  EXPECT_EQ(e->getArchive(), archives[4]);
+
+  // origin 1 is from an archive, so it gets sorted lower than origin 0 even
+  // if they have the same prio
+  EXPECT_EQ(e->getAlternatives(), std::vector<OriginInfo>({
+    {origins[1]->getID(), archives[1]},
+    {origins[0]->getID(), archives[0]},
+    {origins[2]->getID(), archives[2]},
+    {origins[3]->getID(), archives[3]}
+  }));
+
+
+  // prios are 0, 0, 1, 2, 2
+  // order is  1, 0, 2, 3, 4
+
+
+  // make origin 1 have the same prio has origin 2; will be lower than 2
+  // because it's from an archive
+  origins[1]->setPriority(1);
+  e->sortOrigins();
+
+  // primary doesn't change, alts have moved around
+  EXPECT_EQ(e->getOrigin(), origins[4]->getID());
+  EXPECT_EQ(e->getArchive(), archives[4]);
+
+  EXPECT_EQ(e->getAlternatives(), std::vector<OriginInfo>({
+    {origins[0]->getID(), archives[0]},
+    {origins[1]->getID(), archives[1]},
+    {origins[2]->getID(), archives[2]},
+    {origins[3]->getID(), archives[3]}
+  }));
+
+
+  // prios are 0, 1, 1, 2, 2
+  // order is  0, 1, 2, 3, 4
+
+
+  // make origin 4 have a prio of 0; will be moved to the front and origin 3
+  // will now be the primary
+  origins[4]->setPriority(0);
+  e->sortOrigins();
+
+  // primary doesn't change, alts have moved around
+  EXPECT_EQ(e->getOrigin(), origins[3]->getID());
+  EXPECT_EQ(e->getArchive(), archives[3]);
+
+  EXPECT_EQ(e->getAlternatives(), std::vector<OriginInfo>({
+    {origins[0]->getID(), archives[0]},
+    {origins[4]->getID(), archives[4]},
+    {origins[1]->getID(), archives[1]},
+    {origins[2]->getID(), archives[2]}
+  }));
+
+
+  // prios are 0, 1, 1, 2, 0
+  // order is  0, 4, 1, 2, 3
+
+
+  // make origin 1 have a prio of 4; will become primary
+  origins[1]->setPriority(4);
+  e->sortOrigins();
+
+  // primary now 1, 3 the next highest
+  EXPECT_EQ(e->getOrigin(), origins[1]->getID());
+  EXPECT_EQ(e->getArchive(), archives[1]);
+
+  EXPECT_EQ(e->getAlternatives(), std::vector<OriginInfo>({
+    {origins[0]->getID(), archives[0]},
+    {origins[4]->getID(), archives[4]},
+    {origins[2]->getID(), archives[2]},
+    {origins[3]->getID(), archives[3]}
+  }));
+
+
+  // prios are 0, 4, 1, 2, 0
+  // order is  0, 4, 2, 3, 1
 }
 
 } // namespace

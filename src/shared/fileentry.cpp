@@ -277,24 +277,24 @@ int FileEntry::comparePriorities(const OriginInfo& a, const OriginInfo& b) const
 
   if (aOrigin == bOrigin) {
     // same origin
-    return true;
+    return 0;
   }
 
   // shouldn't happen, but an origin that's not found will be sorted lower
   if (aOrigin && !bOrigin) {
-    return -1;
-  } else if (!aOrigin && bOrigin) {
     return 1;
+  } else if (!aOrigin && bOrigin) {
+    return -1;
   }
 
   // getting origin priorities (basically the order in the mod list)
   const auto aPriority = aOrigin->getPriority();
   const auto bPriority = bOrigin->getPriority();
 
-  if (aPriority < bPriority) {
-    return -1;
-  } else if (aPriority > bPriority) {
+  if (aPriority > bPriority) {
     return 1;
+  } else if (aPriority < bPriority) {
+    return -1;
   }
 
   // if both origins have the same priority, the one that is not from an
@@ -304,13 +304,12 @@ int FileEntry::comparePriorities(const OriginInfo& a, const OriginInfo& b) const
   const bool bFromArchive = !b.archive.name.empty();
 
   if (!aFromArchive && bFromArchive) {
-    return -1;
-  } else if (aFromArchive && !bFromArchive) {
     return 1;
+  } else if (aFromArchive && !bFromArchive) {
+    return -1;
   }
 
   // the two origins effectively have the same priority
-
   return 0;
 }
 

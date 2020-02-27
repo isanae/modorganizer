@@ -215,7 +215,8 @@ private:
   void addAlternativeOrigin(const OriginInfo& newOrigin);
 
   // three-way comparison of the given origins based on priorities and
-  // whether they're from archives
+  // whether they're from archives; -1 if `a` has a lower prio, +1 if `a` has
+  // a higher prio, 0 if they're equal
   //
   int comparePriorities(const OriginInfo& a, const OriginInfo& b) const;
 
