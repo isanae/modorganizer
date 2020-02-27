@@ -120,6 +120,7 @@ using OriginID = int;
 constexpr FileIndex InvalidFileIndex = UINT_MAX;
 constexpr OriginID InvalidOriginID = -1;
 constexpr OriginID DataOriginID = 0;
+constexpr int InvalidOrder = -1;
 
 // the filename of an archive and the load order of its associated plugin
 //

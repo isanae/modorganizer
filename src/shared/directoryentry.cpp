@@ -33,16 +33,33 @@ namespace MOShared
 
 using namespace MOBase;
 
+struct Elapsed
+{
+  using hr_clock = std::chrono::high_resolution_clock;
+
+  Elapsed(std::chrono::nanoseconds& out)
+    : m_out(out), m_start(hr_clock::now())
+  {
+  }
+
+  ~Elapsed()
+  {
+    const auto end = std::chrono::high_resolution_clock::now();
+    m_out += (end - m_start);
+  }
+
+  std::chrono::nanoseconds& m_out;
+  hr_clock::time_point m_start;
+};
+
 template <class F>
-void elapsedImpl(std::chrono::nanoseconds& out, F&& f)
+auto elapsedImpl(std::chrono::nanoseconds& out, F&& f)
 {
   if constexpr (DirectoryStats::EnableInstrumentation) {
-    const auto start = std::chrono::high_resolution_clock::now();
-    f();
-    const auto end = std::chrono::high_resolution_clock::now();
-    out += (end - start);
+    Elapsed e(out);
+    return f();
   } else {
-    f();
+    return f();
   }
 }
 
@@ -543,16 +560,26 @@ DirectoryEntry* DirectoryEntry::getOrCreateSubDirectory(
     return itor->second;
   }
 
+  return elapsed(stats.addDirectoryTimes, [&] {
+    return addSubDirectory(
+      std::wstring(name.begin(), name.end()),
+      std::move(nameLc), originID);
+  });
+}
+
+DirectoryEntry* DirectoryEntry::addSubDirectory(
+  std::wstring name, std::wstring nameLc, OriginID originID)
+{
   std::unique_ptr<DirectoryEntry> entry(new DirectoryEntry(
-    std::wstring(name.begin(), name.end()), this, originID, m_register.lock()));
+    std::move(name), this, originID, m_register.lock()));
+
+  // name is moved from this point
 
   auto* p = entry.get();
 
-  elapsed(stats.addDirectoryTimes, [&] {
-    m_dirsLookup.emplace(std::move(nameLc), entry.get());
-    m_dirs.push_back(std::move(entry));
-    // nameLc is moved from this point
-  });
+  m_dirsLookup.emplace(std::move(nameLc), entry.get());
+  m_dirs.push_back(std::move(entry));
+  // nameLc is moved from this point
 
   return p;
 }

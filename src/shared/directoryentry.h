@@ -278,6 +278,11 @@ public:
     const OriginInfo& originInfo, const fs::path& archive, int order,
     DirectoryStats& stats);
 
+  // manually adds a subdirectory to this one, mostly for tests
+  //
+  DirectoryEntry* addSubDirectory(
+    std::wstring name, std::wstring nameLc, OriginID originID);
+
   // remove files from the directory structure that are known to be
   // irrelevant to the game
   //

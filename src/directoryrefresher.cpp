@@ -385,7 +385,7 @@ void DirectoryStructure::addAssociatedFiles(
     // add file to origin
     origin.addFile(file->getIndex());
 
-    // add origin to file
+    // add origin to file, reuse the file time from the Data origin
     file->addOrigin({origin.getID(), {}}, file->getFileTime());
   }
 }

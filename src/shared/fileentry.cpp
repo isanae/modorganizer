@@ -22,6 +22,11 @@ FileEntryPtr FileEntry::create(
 
 fs::path FileEntry::getFullPath(OriginID originID) const
 {
+  if (!m_parent) {
+    // no parent, can't get the OriginConnection, so that's not going to work
+    return {};
+  }
+
   if (originID == InvalidOriginID) {
     // use primary when no specific origin is given
     std::scoped_lock lock(m_originsMutex);
@@ -83,7 +88,8 @@ bool FileEntry::isFromArchive() const
   return !m_origin.archive.name.empty();
 }
 
-void FileEntry::addOrigin(const OriginInfo& newOrigin, FILETIME fileTime)
+void FileEntry::addOrigin(
+  const OriginInfo& newOrigin, std::optional<FILETIME> fileTime)
 {
   std::scoped_lock lock(m_originsMutex);
 
@@ -201,7 +207,8 @@ bool FileEntry::shouldReplacePrimaryOrigin(const OriginInfo& newOrigin) const
   return false;
 }
 
-void FileEntry::setPrimaryOrigin(const OriginInfo& newOrigin, FILETIME ft)
+void FileEntry::setPrimaryOrigin(
+  const OriginInfo& newOrigin, std::optional<FILETIME> time)
 {
   // the given origin must replace the current one, if any; if there _is_ a
   // current origin, move it to the alternatives
@@ -223,7 +230,7 @@ void FileEntry::setPrimaryOrigin(const OriginInfo& newOrigin, FILETIME ft)
   }
 
   m_origin = newOrigin;
-  m_fileTime = ft;
+  m_fileTime = time;
 }
 
 void FileEntry::addAlternativeOrigin(const OriginInfo& newOrigin)
