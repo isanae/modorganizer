@@ -72,7 +72,7 @@ AddMOSource(shared/directoryentry)
 AddMOSource(shared/fileregisterfwd)
 
 AddTestSource(main)
-AddTestSource(register)
+AddTestSource(fileentry)
 
 set(AllSources ${MOSources} ${TestSources})
 set(AllHeaders ${MOHeaders} ${TestHeaders})
