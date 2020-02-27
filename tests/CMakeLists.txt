@@ -69,7 +69,7 @@ AddMOSource(shared/originconnection)
 AddMOSource(shared/fileregister)
 AddMOSource(shared/filesorigin)
 AddMOSource(shared/directoryentry)
-AddMOSource(shared/fileregisterfwd.h)
+AddMOSource(shared/fileregisterfwd)
 
 AddTestSource(main)
 AddTestSource(register)

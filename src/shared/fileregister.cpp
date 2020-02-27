@@ -3,6 +3,7 @@
 #include "directoryentry.h"
 #include "originconnection.h"
 #include "filesorigin.h"
+#include "util.h"
 #include <log.h>
 
 namespace MOShared
@@ -164,12 +165,31 @@ std::shared_ptr<OriginConnection> FileRegister::getOriginConnection() const
   return m_OriginConnection;
 }
 
+
+std::wstring ArchiveInfo::debugName() const
+{
+  return fmt::format(L"{}:{}", name, order);
+}
+
+std::ostream& operator<<(std::ostream& out, const ArchiveInfo& a)
+{
+  out << ToString(a.debugName(), true);
+  return out;
+}
+
+
 std::wstring OriginInfo::debugName() const
 {
   return fmt::format(
     L"{}:{}",
     originID,
     archive.name.empty() ? L"loose" : archive.name);
+}
+
+std::ostream& operator<<(std::ostream& out, const OriginInfo& a)
+{
+  out << ToString(a.debugName(), true);
+  return out;
 }
 
 } // namespace

@@ -138,6 +138,22 @@ struct ArchiveInfo
     : name(std::move(name)), order(order)
   {
   }
+
+  bool operator==(const ArchiveInfo& other) const
+  {
+    return (name == other.name) && (order == other.order);
+  }
+
+  bool operator!=(const ArchiveInfo& other) const
+  {
+    return !(*this == other);
+  }
+
+  // returns a string that represents this file, such as "name:order";
+  // useful for logging
+  //
+  std::wstring debugName() const;
+  friend std::ostream& operator<<(std::ostream& out, const ArchiveInfo& a);
 };
 
 // a mod id and an archive, used by FileEntry to remember alternative origins
@@ -157,10 +173,21 @@ struct OriginInfo
   {
   }
 
+  bool operator==(const OriginInfo& other) const
+  {
+    return (originID == other.originID) && (archive == other.archive);
+  }
+
+  bool operator!=(const OriginInfo& other) const
+  {
+    return !(*this == other);
+  }
+
   // returns a string that represents this file, such as "originid:archive";
   // useful for logging
   //
   std::wstring debugName() const;
+  friend std::ostream& operator<<(std::ostream& out, const OriginInfo& a);
 };
 
 
