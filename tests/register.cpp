@@ -1,8 +1,15 @@
 #include "shared/fileentry.h"
 #include <gtest/gtest.h>
 
-TEST(register, test1)
+namespace MOShared
 {
-  EXPECT_EQ(1, 0);
+
+TEST(FileEntry, CreateNoParent)
+{
+  auto e = FileEntry::create(1, L"name", nullptr);
+  EXPECT_EQ(e->getIndex(), 1);
+  EXPECT_EQ(e->getName(), L"name");
+  EXPECT_EQ(e->getParent(), nullptr);
 }
 
+} // namespace

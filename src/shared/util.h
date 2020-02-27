@@ -48,7 +48,6 @@ std::wstring ToLowerCopy(std::wstring_view text);
 bool CaseInsensitiveEqual(const std::wstring &lhs, const std::wstring &rhs);
 
 MOBase::VersionInfo createVersionInfo();
-QString getUsvfsVersionString();
 
 void SetThisThreadName(const QString& s);
 void checkDuplicateShortcuts(const QMenu& m);
@@ -80,6 +79,7 @@ const int RestartExitCode = INT_MAX;
 using ExitFlags = QFlags<Exit>;
 Q_DECLARE_OPERATORS_FOR_FLAGS(ExitFlags);
 
+// these are defined in mainwindow.cpp
 bool ExitModOrganizer(ExitFlags e=Exit::Normal);
 bool ModOrganizerExiting();
 bool ModOrganizerCanCloseNow();

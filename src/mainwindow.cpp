@@ -6552,3 +6552,58 @@ void MainWindow::sendSelectedModsToSeparator_clicked()
     }
   }
 }
+
+
+static bool g_exiting = false;
+static bool g_canClose = false;
+
+MainWindow* findMainWindow()
+{
+  for (auto* tl : qApp->topLevelWidgets()) {
+    if (auto* mw=dynamic_cast<MainWindow*>(tl)) {
+      return mw;
+    }
+  }
+
+  return nullptr;
+}
+
+bool ExitModOrganizer(ExitFlags e)
+{
+  if (g_exiting) {
+    return true;
+  }
+
+  g_exiting = true;
+  Guard g([&]{ g_exiting = false; });
+
+  if (!e.testFlag(Exit::Force)) {
+    if (auto* mw=findMainWindow()) {
+      if (!mw->canExit()) {
+        return false;
+      }
+    }
+  }
+
+  g_canClose = true;
+
+  const int code = (e.testFlag(Exit::Restart) ? RestartExitCode : 0);
+  qApp->exit(code);
+
+  return true;
+}
+
+bool ModOrganizerCanCloseNow()
+{
+  return g_canClose;
+}
+
+bool ModOrganizerExiting()
+{
+  return g_exiting;
+}
+
+void ResetExitFlag()
+{
+  g_exiting = false;
+}

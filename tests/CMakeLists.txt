@@ -24,12 +24,60 @@ macro(add_msvc_precompiled_header PrecompiledHeader PrecompiledSource SourcesVar
   endif(MSVC)
 endmacro(add_msvc_precompiled_header)
 
-set(SOURCES main.cpp register.cpp)
-set(HEADERS)
 
-add_msvc_precompiled_header("pch.h" "pch.cpp" SOURCES HEADERS)
+set(MOSrcRoot ../src)
+set(MOSources)
+set(MOHeaders)
+set(TestSources)
+set(TestHeaders)
 
-source_group(src FILES ${SOURCES} ${HEADERS})
+macro(AddMOSource name)
+	set(cpp ${MOSrcRoot}/${name}.cpp)
+	set(h ${MOSrcRoot}/${name}.h)
+
+	if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${cpp})
+		set(MOSources ${MOSources} ${cpp})
+	endif()
+
+	if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${h})
+		set(MOHeaders ${MOHeaders} ${h})
+	endif()
+
+	source_group(src FILES ${cpp} ${h})
+endmacro()
+
+macro(AddTestSource name)
+	set(cpp ${name}.cpp)
+	set(h ${name}.h)
+
+	if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${cpp})
+		set(TestSources ${TestSources} ${cpp})
+	endif()
+
+	if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${h})
+		set(TestHeaders ${TestHeaders} ${h})
+	endif()
+
+	source_group(tests FILES ${cpp} ${h})
+endmacro()
+
+AddMOSource(envfs)
+AddMOSource(shared/util)
+AddMOSource(shared/windows_error)
+AddMOSource(shared/fileentry)
+AddMOSource(shared/originconnection)
+AddMOSource(shared/fileregister)
+AddMOSource(shared/filesorigin)
+AddMOSource(shared/directoryentry)
+
+AddTestSource(main)
+AddTestSource(register)
+
+set(AllSources ${MOSources} ${TestSources})
+set(AllHeaders ${MOHeaders} ${TestHeaders})
+
+add_msvc_precompiled_header("pch.h" "pch.cpp" AllSources AllHeaders)
+source_group(src FILES pch.cpp pch.h)
 
 # Qt5
 SET(CMAKE_INCLUDE_CURRENT_DIR ON)
@@ -109,7 +157,7 @@ ELSE()
   SET(usvfs_name usvfs_x86)
 ENDIF()
 
-ADD_EXECUTABLE(ModOrganizerTests ${SOURCES} ${HEADERS})
+ADD_EXECUTABLE(ModOrganizerTests ${AllSources} ${AllHeaders})
 
 TARGET_LINK_LIBRARIES(ModOrganizerTests
                       Qt5::Widgets Qt5::WinExtras Qt5::WebEngineWidgets Qt5::Quick

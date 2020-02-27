@@ -21,6 +21,7 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "aboutdialog.h"
 #include "ui_aboutdialog.h"
 #include "util.h"
+#include "usvfsconnector.h"
 #include <utility.h>
 
 #include <QApplication>
@@ -87,7 +88,7 @@ AboutDialog::AboutDialog(const QString &version, QWidget *parent)
 #endif
 
 
-  ui->usvfsLabel->setText(ui->usvfsLabel->text() + " " + MOShared::getUsvfsVersionString());
+  ui->usvfsLabel->setText(ui->usvfsLabel->text() + " " + getUsvfsVersionString());
   ui->licenseText->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
 }
 

@@ -26,6 +26,7 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include <sstream>
 #include <iomanip>
 #include <usvfs.h>
+#include <usvfs_version.h>
 #include <QTemporaryFile>
 #include <QProgressDialog>
 #include <QDateTime>
@@ -309,4 +310,48 @@ std::vector<HANDLE> getRunningUSVFSProcesses()
   }
 
   return v;
+}
+
+QString getUsvfsDLLVersion()
+{
+  // once 2.2.2 is released, this can be changed to call USVFSVersionString()
+  // directly; until then, using GetProcAddress() allows for mixing up devbuilds
+  // and usvfs dlls
+
+  using USVFSVersionStringType = const char* WINAPI ();
+
+  QString s;
+
+  const auto m = ::LoadLibraryW(L"usvfs_x64.dll");
+
+  if (m) {
+    auto* f = reinterpret_cast<USVFSVersionStringType*>(
+      ::GetProcAddress(m, "USVFSVersionString"));
+
+    if (f) {
+      s = f();
+    }
+
+    ::FreeLibrary(m);
+  }
+
+  if (s.isEmpty()) {
+    s = "?";
+  }
+
+  return s;
+}
+
+QString getUsvfsVersionString()
+{
+  const QString dll = getUsvfsDLLVersion();
+  const QString header = USVFS_VERSION_STRING;
+
+  QString usvfsVersion;
+
+  if (dll == header) {
+    return dll;
+  } else {
+    return "dll is " + dll + ", compiled against " + header;
+  }
 }

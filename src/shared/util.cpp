@@ -19,11 +19,8 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "util.h"
 #include "windows_error.h"
-#include "mainwindow.h"
 #include "env.h"
 #include <log.h>
-#include <usvfs.h>
-#include <usvfs_version.h>
 
 using namespace MOBase;
 
@@ -253,50 +250,6 @@ VersionInfo createVersionInfo()
   }
 }
 
-QString getUsvfsDLLVersion()
-{
-  // once 2.2.2 is released, this can be changed to call USVFSVersionString()
-  // directly; until then, using GetProcAddress() allows for mixing up devbuilds
-  // and usvfs dlls
-
-  using USVFSVersionStringType = const char* WINAPI ();
-
-  QString s;
-
-  const auto m = ::LoadLibraryW(L"usvfs_x64.dll");
-
-  if (m) {
-    auto* f = reinterpret_cast<USVFSVersionStringType*>(
-      ::GetProcAddress(m, "USVFSVersionString"));
-
-    if (f) {
-      s = f();
-    }
-
-    ::FreeLibrary(m);
-  }
-
-  if (s.isEmpty()) {
-    s = "?";
-  }
-
-  return s;
-}
-
-QString getUsvfsVersionString()
-{
-  const QString dll = getUsvfsDLLVersion();
-  const QString header = USVFS_VERSION_STRING;
-
-  QString usvfsVersion;
-
-  if (dll == header) {
-    return dll;
-  } else {
-    return "dll is " + dll + ", compiled against " + header;
-  }
-}
-
 void SetThisThreadName(const QString& s)
 {
   using SetThreadDescriptionType = HRESULT (
@@ -406,56 +359,4 @@ int naturalCompare(const QString& a, const QString& b)
 } // namespace MOShared
 
 
-static bool g_exiting = false;
-static bool g_canClose = false;
-
-MainWindow* findMainWindow()
-{
-  for (auto* tl : qApp->topLevelWidgets()) {
-    if (auto* mw=dynamic_cast<MainWindow*>(tl)) {
-      return mw;
-    }
-  }
-
-  return nullptr;
-}
-
-bool ExitModOrganizer(ExitFlags e)
-{
-  if (g_exiting) {
-    return true;
-  }
-
-  g_exiting = true;
-  Guard g([&]{ g_exiting = false; });
-
-  if (!e.testFlag(Exit::Force)) {
-    if (auto* mw=findMainWindow()) {
-      if (!mw->canExit()) {
-        return false;
-      }
-    }
-  }
-
-  g_canClose = true;
-
-  const int code = (e.testFlag(Exit::Restart) ? RestartExitCode : 0);
-  qApp->exit(code);
-
-  return true;
-}
-
-bool ModOrganizerCanCloseNow()
-{
-  return g_canClose;
-}
-
-bool ModOrganizerExiting()
-{
-  return g_exiting;
-}
-
-void ResetExitFlag()
-{
-  g_exiting = false;
-}
+// ExitModOrganizer() and others are defined in mainwindow.cpp

@@ -49,6 +49,7 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "env.h"
 #include "envmodule.h"
 #include "util.h"
+#include "usvfsconnector.h"
 
 #include <eh.h>
 #include <windows_error.h>
@@ -511,7 +512,7 @@ int runApplication(MOApplication &application, SingleInstance &instance,
   log::info(
     "starting Mod Organizer version {} revision {} in {}, usvfs: {}",
     getVersionDisplayString(), GITID, QCoreApplication::applicationDirPath(),
-    MOShared::getUsvfsVersionString());
+    getUsvfsVersionString());
 
   preloadSsl();
   if (!QSslSocket::supportsSsl()) {

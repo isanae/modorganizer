@@ -105,4 +105,6 @@ CrashDumpsType crashDumpsType(int type);
 
 std::vector<HANDLE> getRunningUSVFSProcesses();
 
+QString getUsvfsVersionString();
+
 #endif // USVFSCONNECTOR_H
