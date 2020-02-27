@@ -22,6 +22,7 @@ LIST(APPEND CMAKE_PREFIX_PATH ${LZ4_ROOT}/dll)
 LIST(APPEND CMAKE_PREFIX_PATH ${FMT_ROOT}/build)
 
 ADD_SUBDIRECTORY(src)
+ADD_SUBDIRECTORY(tests)
 
 set(vcxproj_user_file "${CMAKE_CURRENT_BINARY_DIR}/INSTALL.vcxproj.user")
 if(NOT EXISTS ${vcxproj_user_file})
