@@ -99,13 +99,19 @@ const FilesOrigin* OriginConnection::findByName(std::wstring_view name) const
   return &itor2->second;
 }
 
-void OriginConnection::changeNameLookup(std::wstring_view oldName, std::wstring_view newName)
+void OriginConnection::changeNameLookup(
+  std::wstring_view oldName, std::wstring_view newName)
 {
   std::scoped_lock lock(m_mutex);
 
-  auto itor = m_names.find(oldName);
+  // this moves a mod from oldName to newName in the m_names map; if there's
+  // no mod at m_names[oldName] or if there's already a mod at
+  // m_names[newName], something's wrong
 
-  if (itor == m_names.end()) {
+  auto oldItor = m_names.find(oldName);
+
+  if (oldItor == m_names.end()) {
+    // oldName not found
     log::error(
       "cannot change origin name lookup from '{}' to '{}', "
       "not found in name map",
@@ -114,13 +120,81 @@ void OriginConnection::changeNameLookup(std::wstring_view oldName, std::wstring_
     return;
   }
 
-  const OriginID index = itor->second;
+  // index of the mod being moved
+  const OriginID index = oldItor->second;
 
-  // removing old
-  m_names.erase(itor);
+  // look for the new name in the map, it shouldn't be there; the iterator can
+  // also be used in emplace() as a hint below
+  auto newItor = m_names.lower_bound(newName);
 
-  // setting new
-  m_names.emplace(newName, index);
+  if (newItor != m_names.end() && newItor->first == newName) {
+    // this shouldn't happen, it means that there is already a mod with the
+    // new name
+    //
+    // because the mod index at m_names[newName] will be overwritten, m_origins
+    // will end up desynchronized because it will still have the old index in
+    // it, so it has to be removed
+    handleRenameDiscrepancies(oldName, newName, index, newItor);
+
+    // the already existing mod should now be gone from both maps and the
+    // renaming can proceed
+  }
+
+  if (newItor == oldItor) {
+    newItor = m_names.end();
+  }
+
+  // removing old name
+  m_names.erase(oldItor);
+
+  // adding new name
+  m_names.emplace_hint(newItor, newName, index);
+}
+
+void OriginConnection::handleRenameDiscrepancies(
+  std::wstring_view oldName, std::wstring_view newName,
+  FileIndex index, NamesMap::iterator newItor)
+{
+  // there's already a mod in m_names[newName] and it's about to be overwritten
+  // by the mod at m_names[oldName]; make sure the overwritten mod is also
+  // removed from m_origins because it doesn't seem to exist anymore
+
+  if (newItor->second == index) {
+    // not only does the name already exist, but the index is the same;
+    // something's seriously wrong; the index shouldn't be removed because it
+    // still exists
+
+    log::warn(
+      "while changing origin {} name from '{}' to '{}', there's already an "
+      "origin with the same index and name; overwriting",
+      index, oldName, newName);
+
+    return;
+  }
+
+  log::warn(
+    "while changing origin {} name from '{}' to '{}', there's already an "
+    "origin with the new name, index is {}; overwriting",
+    index, oldName, newName, newItor->second);
+
+  // look for the index in m_origins
+  auto itor = m_origins.find(newItor->second);
+
+  if (itor == m_origins.end()) {
+    // heck, the maps are really desynced, not much that can be done at this
+    // point
+    log::error(
+      "...but the index {} wasn't found in the origins map; ignoring",
+      newItor->second);
+
+    return;
+  }
+
+  // remove the now duplicated mod
+  m_names.erase(newItor);
+
+  // remove the overwritten mod from the map
+  m_origins.erase(itor);
 }
 
 std::shared_ptr<FileRegister> OriginConnection::getFileRegister() const

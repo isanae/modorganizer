@@ -66,14 +66,17 @@ public:
   std::shared_ptr<FileRegister> getFileRegister() const;
 
 private:
+  using IndicesMap = std::map<OriginID, FilesOrigin>;
+  using NamesMap = std::map<std::wstring, OriginID, std::less<>>;
+
   // next origin id
   std::atomic<OriginID> m_nextID;
 
   // map of ids to origins
-  std::map<OriginID, FilesOrigin> m_origins;
+  IndicesMap m_origins;
 
   // map of names to ids
-  std::map<std::wstring, OriginID, std::less<>> m_names;
+  NamesMap m_names;
 
   // global register
   std::weak_ptr<FileRegister> m_register;
@@ -94,6 +97,10 @@ private:
   //
   FilesOrigin& createOriginNoLock(
     std::wstring_view name, const fs::path& directory, int priority);
+
+  void handleRenameDiscrepancies(
+    std::wstring_view oldName, std::wstring_view newName,
+    FileIndex index, NamesMap::iterator newItor);
 };
 
 } // namespace

@@ -14,14 +14,14 @@ using namespace MOBase;
 FileRegister::FileRegister()
   : m_fileCount(0)
 {
-  // note that m_OriginConnection is set in create() because it needs the
+  // note that m_originConnection is set in create() because it needs the
   // shared_ptr
 }
 
 std::shared_ptr<FileRegister> FileRegister::create()
 {
   std::shared_ptr<FileRegister> p(new FileRegister);
-  p->m_OriginConnection = OriginConnection::create(p);
+  p->m_originConnection = OriginConnection::create(p);
   return p;
 }
 
@@ -94,13 +94,13 @@ bool FileRegister::removeFile(FileIndex index)
   --m_fileCount;
 
   // unregister from primary origin
-  if (auto* o=m_OriginConnection->findByID(file->getOrigin())) {
+  if (auto* o=m_originConnection->findByID(file->getOrigin())) {
     o->removeFile(file->getIndex());
   }
 
   // unregister from other origins
   for (const auto& [altID, unused] : file->getAlternatives()) {
-    if (auto* o=m_OriginConnection->findByID(altID)) {
+    if (auto* o=m_originConnection->findByID(altID)) {
       o->removeFile(file->getIndex());
     }
   }
@@ -162,7 +162,7 @@ void FileRegister::sortOrigins()
 
 std::shared_ptr<OriginConnection> FileRegister::getOriginConnection() const
 {
-  return m_OriginConnection;
+  return m_originConnection;
 }
 
 

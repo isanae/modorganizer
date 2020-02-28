@@ -30,12 +30,15 @@ public:
   //
   int getPriority() const
   {
-    return m_Priority;
+    return m_priority;
   }
 
-  // sets the name of this origin, this also calls
-  // OriginConnection::changeNameLookup(); note that if there is currently
-  // an origin with the given name, OriginConnection will lose track of it
+  // sets the name of this origin, also changes the last component of the path
+  // to the same value
+  //
+  // this also calls OriginConnection::changeNameLookup(); note that if there
+  // is currently an origin with the given name, OriginConnection will lose
+  // track of it
   //
   void setName(std::wstring_view name);
 
@@ -43,21 +46,21 @@ public:
   //
   const std::wstring& getName() const
   {
-    return m_Name;
+    return m_name;
   }
 
   // this origin's unique id
   //
   OriginID getID() const
   {
-    return m_ID;
+    return m_id;
   }
 
   // the path of the origin on the filesystem
   //
   const fs::path& getPath() const
   {
-    return m_Path;
+    return m_path;
   }
 
   // list of files in this origin; this function is expensive because it has
@@ -80,7 +83,7 @@ public:
   //
   bool isEnabled() const
   {
-    return m_Enabled;
+    return m_enabled;
   }
 
   // adds the given file to this origin
@@ -100,30 +103,36 @@ public:
   //
   std::shared_ptr<FileRegister> getFileRegister() const;
 
+
+  // returns a string that represents this file, such as "name:id";
+  // useful for logging
+  //
+  std::wstring debugName() const;
+
 private:
   // unique id
-  OriginID m_ID;
+  OriginID m_id;
 
   // whether the origin is enabled
-  bool m_Enabled;
+  bool m_enabled;
 
   // files in this origin
-  std::set<FileIndex> m_Files;
+  std::set<FileIndex> m_files;
 
   // origin name
-  std::wstring m_Name;
+  std::wstring m_name;
 
   // path on the filesystem
-  fs::path m_Path;
+  fs::path m_path;
 
   // priority
-  int m_Priority;
+  int m_priority;
 
   // global register
-  std::weak_ptr<OriginConnection> m_OriginConnection;
+  std::weak_ptr<OriginConnection> m_originConnection;
 
   // protects m_Files
-  mutable std::mutex m_FilesMutex;
+  mutable std::mutex m_filesMutex;
 };
 
 } // namespace

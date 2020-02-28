@@ -9,13 +9,11 @@ namespace MOShared::tests
 struct OriginConnectionTests : public ::testing::Test
 {
   std::shared_ptr<FileRegister> fr;
-  std::unique_ptr<DirectoryEntry> root;
   std::shared_ptr<OriginConnection> oc;
 
   OriginConnectionTests()
   {
     fr = FileRegister::create();
-    root = DirectoryEntry::createRoot(fr);
     oc = fr->getOriginConnection();
   }
 };

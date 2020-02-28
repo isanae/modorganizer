@@ -73,6 +73,7 @@ AddMOSource(shared/fileregisterfwd)
 
 AddTestSource(main)
 AddTestSource(fileentry)
+AddTestSource(filesorigin)
 AddTestSource(originconnection)
 
 set(AllSources ${MOSources} ${TestSources})

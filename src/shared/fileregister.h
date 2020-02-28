@@ -80,7 +80,7 @@ private:
   FileMap m_files;
 
   // origins
-  std::shared_ptr<OriginConnection> m_OriginConnection;
+  std::shared_ptr<OriginConnection> m_originConnection;
 
   // total number of files, has to be kept separately because m_files never
   // shrinks
