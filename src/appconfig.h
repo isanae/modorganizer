@@ -22,19 +22,29 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <string>
 
-namespace AppConfig {
+namespace AppConfig
+{
 
+#define APPPARAM(T, NAME, VALUE) inline T NAME() { return VALUE; }
 
-#define PARWSTRING wstring
-#define APPPARAM(partype, parid, value) partype parid ();
-#include "appconfig.inc"
+APPPARAM(std::wstring, translationPrefix, L"organizer")
+APPPARAM(std::wstring, pluginPath, L"plugins")
+APPPARAM(std::wstring, profilesPath, L"profiles")
+APPPARAM(std::wstring, modsPath, L"mods")
+APPPARAM(std::wstring, downloadPath, L"downloads")
+APPPARAM(std::wstring, overwritePath, L"overwrite")
+APPPARAM(std::wstring, stylesheetsPath, L"stylesheets")
+APPPARAM(std::wstring, cachePath, L"webcache")
+APPPARAM(std::wstring, tutorialsPath, L"tutorials")
+APPPARAM(std::wstring, logPath, L"logs")
+APPPARAM(std::wstring, dumpsDir, L"crashDumps")
+APPPARAM(std::wstring, profileTweakIni, L"profile_tweaks.ini")
+APPPARAM(std::wstring, iniFileName, L"ModOrganizer.ini")
+APPPARAM(std::wstring, portableLockFileName, L"portable.txt")
+APPPARAM(std::wstring, firstStepsTutorial, L"tutorial_firststeps_main.js")
 
-namespace MOShared {
-#undef PARWSTRING
 #undef APPPARAM
 
-}
-
-} // namespace MOShared
+} // namespace
 
 #endif // APPCONFIG_H

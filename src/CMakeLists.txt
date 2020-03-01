@@ -157,7 +157,6 @@ SET(organizer_SRCS
 	fileregister.cpp
 	originconnection.cpp
     util.cpp
-    appconfig.cpp
   )
 
 SET(organizer_HDRS
@@ -289,7 +288,6 @@ SET(organizer_HDRS
 	originconnection.h
     util.h
     appconfig.h
-    appconfig.inc
   )
 
 SET(organizer_UIS
