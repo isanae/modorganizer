@@ -123,12 +123,12 @@ TEST_F(FilesOriginTests, files)
   auto& o = oc->createOrigin({L"origin1", L"c:\\somewhere\\origin1", 1});
 
   // create three files in the root from that origin
-  auto file0 = fr->addFile(*root, L"file0", o, {}, {});
-  auto file1 = fr->addFile(*root, L"file1", o, {}, {});
-  auto file2 = fr->addFile(*root, L"file2", o, {}, {});
+  auto f0 = fr->addFile(*root, L"file0", o, {}, {});
+  auto f1 = fr->addFile(*root, L"file1", o, {}, {});
+  auto f2 = fr->addFile(*root, L"file2", o, {}, {});
 
-  auto expectHasFiles = [&](std::vector<FileEntry*> v) {
-    auto files = o.getFiles();
+  auto expectsFiles = [&](std::vector<FileEntry*> v) {
+    const auto files = o.getFiles();
     ASSERT_EQ(files.size(), v.size());
 
     for (std::size_t i=0; i<files.size(); ++i) {
@@ -136,31 +136,43 @@ TEST_F(FilesOriginTests, files)
     }
   };
 
+  auto expectsIndices = [&](std::set<FileIndex> set) {
+    const auto indices = o.getFileIndices();
+    ASSERT_EQ(indices, set);
+  };
+
 
   // get them back
-  expectHasFiles({file0.get(), file1.get(), file2.get()});
+  expectsFiles({f0.get(), f1.get(), f2.get()});
+  expectsIndices({f0->getIndex(), f1->getIndex(), f2->getIndex()});
 
-  // add a non-existing file to it, should be skipped by getFiles()
+  // add a non-existing file to it, should be skipped by getFiles(); note that
+  // the structures are now desynced, but file 42 will be removed just below
   o.addFileInternal(42);
-  expectHasFiles({file0.get(), file1.get(), file2.get()});
+  expectsFiles({f0.get(), f1.get(), f2.get()});
+  expectsIndices({42, f0->getIndex(), f1->getIndex(), f2->getIndex()});
 
   // remove a file that isn't in the origin, should be a no-op
   o.removeFileInternal(999);
-  expectHasFiles({file0.get(), file1.get(), file2.get()});
+  expectsFiles({f0.get(), f1.get(), f2.get()});
+  expectsIndices({42, f0->getIndex(), f1->getIndex(), f2->getIndex()});
 
-  // remove the non-existent file, should be a no-op
+  // remove the non-existent file
   o.removeFileInternal(42);
-  expectHasFiles({file0.get(), file1.get(), file2.get()});
+  expectsFiles({f0.get(), f1.get(), f2.get()});
+  expectsIndices({f0->getIndex(), f1->getIndex(), f2->getIndex()});
 
-  // remove file1
-  fr->removeFile(file1->getIndex());
-  expectHasFiles({file0.get(), file2.get()});
+  // remove f1
+  fr->removeFile(f1->getIndex());
+  expectsFiles({f0.get(), f2.get()});
+  expectsIndices({f0->getIndex(), f2->getIndex()});
 
   // disable the origin, all files should be gone
   fr->disableOrigin(o);
 
   // no more files, disabled, file registry empty
-  expectHasFiles({});
+  expectsFiles({});
+  expectsIndices({});
   EXPECT_EQ(fr->fileCount(), 0);
 }
 
