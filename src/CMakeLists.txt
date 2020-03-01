@@ -151,14 +151,14 @@ SET(organizer_SRCS
 	filetreemodel.cpp
 	filetreeitem.cpp
 	iconfetcher.cpp
+    directoryentry.cpp
+	fileentry.cpp
+	filesorigin.cpp
+	fileregister.cpp
+	originconnection.cpp
 
     shared/windows_error.cpp
     shared/error_report.cpp
-    shared/directoryentry.cpp
-	shared/fileentry.cpp
-	shared/filesorigin.cpp
-	shared/fileregister.cpp
-	shared/originconnection.cpp
     shared/util.cpp
     shared/appconfig.cpp
     shared/leaktrace.cpp
@@ -286,15 +286,15 @@ SET(organizer_HDRS
 	filetreeitem.h
 	filetreemodel.h
 	iconfetcher.h
+    directoryentry.h
+	fileentry.h
+	filesorigin.h
+	fileregister.h
+	fileregisterfwd.h
+	originconnection.h
 
     shared/windows_error.h
     shared/error_report.h
-    shared/directoryentry.h
-	shared/fileentry.h
-	shared/filesorigin.h
-	shared/fileregister.h
-	shared/fileregisterfwd.h
-	shared/originconnection.h
     shared/util.h
     shared/appconfig.h
     shared/appconfig.inc
@@ -478,12 +478,12 @@ set(profiles
 )
 
 set(register
-	shared/directoryentry
-	shared/fileentry
-	shared/filesorigin
-	shared/fileregister
-	shared/fileregisterfwd
-	shared/originconnection
+	directoryentry
+	fileentry
+	filesorigin
+	fileregister
+	fileregisterfwd
+	originconnection
 	directoryrefresher
 )
 

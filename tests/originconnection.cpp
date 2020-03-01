@@ -1,7 +1,7 @@
-#include "shared/fileentry.h"
-#include "shared/directoryentry.h"
-#include "shared/originconnection.h"
-#include "shared/filesorigin.h"
+#include "fileentry.h"
+#include "directoryentry.h"
+#include "originconnection.h"
+#include "filesorigin.h"
 
 namespace MOShared::tests
 {

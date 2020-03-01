@@ -88,9 +88,9 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "browserdialog.h"
 
 #include "directoryrefresher.h"
-#include "shared/directoryentry.h"
-#include "shared/fileentry.h"
-#include "shared/filesorigin.h"
+#include "directoryentry.h"
+#include "fileentry.h"
+#include "filesorigin.h"
 
 #include <QAbstractItemDelegate>
 #include <QAbstractProxyModel>

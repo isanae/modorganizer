@@ -4,7 +4,7 @@
 #include "modinfodialogtab.h"
 #include "expanderwidget.h"
 #include "filterwidget.h"
-#include "shared/fileregisterfwd.h"
+#include "fileregisterfwd.h"
 #include <QTreeWidget>
 #include <optional>
 

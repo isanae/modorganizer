@@ -1,9 +1,9 @@
 #include "modinfowithconflictinfo.h"
 #include "utility.h"
 #include "organizercore.h"
-#include "shared/directoryentry.h"
-#include "shared/filesorigin.h"
-#include "shared/fileentry.h"
+#include "directoryentry.h"
+#include "filesorigin.h"
+#include "fileentry.h"
 #include "directoryrefresher.h"
 #include <filesystem>
 

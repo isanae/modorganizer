@@ -2,8 +2,8 @@
 #include "organizercore.h"
 #include "filesorigin.h"
 #include "util.h"
-#include "shared/directoryentry.h"
-#include "shared/fileentry.h"
+#include "directoryentry.h"
+#include "fileentry.h"
 #include "directoryrefresher.h"
 #include <log.h>
 

@@ -27,10 +27,10 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "pluginlist.h"
 #include "settings.h"
 #include "modinforegular.h"
-#include "shared/directoryentry.h"
-#include "shared/fileentry.h"
-#include "shared/filesorigin.h"
-#include "shared/originconnection.h"
+#include "directoryentry.h"
+#include "fileentry.h"
+#include "filesorigin.h"
+#include "originconnection.h"
 
 #include <appconfig.h>
 #include <utility.h>

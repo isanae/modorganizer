@@ -3,7 +3,7 @@
 #include "directoryentry.h"
 #include "originconnection.h"
 #include "filesorigin.h"
-#include "util.h"
+#include "shared/util.h"
 #include <log.h>
 
 namespace MOShared

@@ -18,10 +18,10 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "directoryrefresher.h"
-#include "shared/fileentry.h"
-#include "shared/filesorigin.h"
-#include "shared/directoryentry.h"
-#include "shared/originconnection.h"
+#include "fileentry.h"
+#include "filesorigin.h"
+#include "directoryentry.h"
+#include "originconnection.h"
 
 #include "iplugingame.h"
 #include "modinfo.h"

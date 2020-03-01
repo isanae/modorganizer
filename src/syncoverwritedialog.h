@@ -21,7 +21,7 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #define SYNCOVERWRITEDIALOG_H
 
 #include "tutorabledialog.h"
-#include "shared/fileregisterfwd.h"
+#include "fileregisterfwd.h"
 #include <QTreeWidgetItem>
 
 namespace Ui {

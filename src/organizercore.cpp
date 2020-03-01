@@ -35,10 +35,10 @@
 #include "envmodule.h"
 #include "envfs.h"
 #include "directoryrefresher.h"
-#include "shared/directoryentry.h"
-#include "shared/filesorigin.h"
-#include "shared/fileentry.h"
-#include "shared/originconnection.h"
+#include "directoryentry.h"
+#include "filesorigin.h"
+#include "fileentry.h"
+#include "originconnection.h"
 
 #include <QApplication>
 #include <QCoreApplication>

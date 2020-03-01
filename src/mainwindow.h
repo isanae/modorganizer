@@ -31,7 +31,7 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "tutorialcontrol.h"
 #include "plugincontainer.h" //class PluginContainer;
 #include "iplugingame.h" //namespace MOBase { class IPluginGame; }
-#include "shared/fileregisterfwd.h"
+#include "fileregisterfwd.h"
 #include <log.h>
 
 class Executable;

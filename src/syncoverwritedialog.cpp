@@ -18,10 +18,10 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "syncoverwritedialog.h"
-#include "shared/directoryentry.h"
-#include "shared/fileentry.h"
-#include "shared/filesorigin.h"
-#include "shared/originconnection.h"
+#include "directoryentry.h"
+#include "fileentry.h"
+#include "filesorigin.h"
+#include "originconnection.h"
 #include "directoryrefresher.h"
 #include "ui_syncoverwritedialog.h"
 

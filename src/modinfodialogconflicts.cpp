@@ -5,9 +5,9 @@
 #include "organizercore.h"
 #include "util.h"
 #include "directoryrefresher.h"
-#include "shared/directoryentry.h"
-#include "shared/filesorigin.h"
-#include "shared/fileentry.h"
+#include "directoryentry.h"
+#include "filesorigin.h"
+#include "fileentry.h"
 #include <utility.h>
 
 using namespace MOShared;

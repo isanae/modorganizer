@@ -3,7 +3,7 @@
 
 #include "filetreeitem.h"
 #include "iconfetcher.h"
-#include "shared/fileregisterfwd.h"
+#include "fileregisterfwd.h"
 #include <unordered_set>
 
 class OrganizerCore;

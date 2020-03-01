@@ -23,10 +23,10 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "modinfo.h"
 #include "modlist.h"
 #include "viewmarkingscrollbar.h"
-#include "shared/directoryentry.h"
-#include "shared/filesorigin.h"
-#include "shared/fileentry.h"
-#include "shared/originconnection.h"
+#include "directoryentry.h"
+#include "filesorigin.h"
+#include "fileentry.h"
+#include "originconnection.h"
 
 #include <utility.h>
 #include <iplugingame.h>
