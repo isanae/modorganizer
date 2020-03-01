@@ -541,6 +541,27 @@ std::vector<Profile::ActiveMod> Profile::getActiveMods()
 }
 
 
+Profile::ActiveMod Profile::findActiveMod(const QString& name)
+{
+  auto index = ModInfo::getIndex(name);
+  if (index == UINT_MAX) {
+    return {};
+  }
+
+  auto m = ModInfo::getByIndex(index);
+  if (!m) {
+    return {};
+  }
+
+  const auto& status = m_ModStatus[index];
+  if (!status.m_Enabled) {
+    return {};
+  }
+
+  return {m, status.m_Priority};
+}
+
+
 unsigned int Profile::modIndexByPriority(int priority) const
 {
   try {

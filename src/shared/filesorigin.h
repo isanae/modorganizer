@@ -67,23 +67,17 @@ public:
   //
   std::vector<FileEntryPtr> getFiles() const;
 
+  // list of files indices in this origin
+  //
+  const std::set<FileIndex>& getFileIndices() const
+  {
+    return m_files;
+  }
+
   // removes all of this origin's files from the register and marks the origin
   // as being disabled
   //
-  void disable();
-
-  // marks the origin as being enabled, doesn't do anything else; this is only
-  // used while refreshing this origin and so the files will be added back
-  // later
-  //
-  void setEnabledFlag();
-
-  // whether this origin is enabled
-  //
-  bool isEnabled() const
-  {
-    return m_enabled;
-  }
+  void clearFilesInternal();
 
   // adds the given file to this origin
   //
@@ -111,9 +105,6 @@ public:
 private:
   // unique id
   OriginID m_id;
-
-  // whether the origin is enabled
-  bool m_enabled;
 
   // files in this origin
   std::set<FileIndex> m_files;

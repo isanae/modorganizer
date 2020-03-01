@@ -11,7 +11,7 @@ using namespace MOBase;
 
 FilesOrigin::FilesOrigin(
   OriginID ID, const OriginData& data, std::shared_ptr<OriginConnection> oc) :
-    m_id(ID), m_enabled(true), m_name(data.name), m_path(data.path),
+    m_id(ID), m_name(data.name), m_path(data.path),
     m_priority(data.priority), m_originConnection(oc)
 {
 }
@@ -81,28 +81,10 @@ std::vector<FileEntryPtr> FilesOrigin::getFiles() const
   return v;
 }
 
-void FilesOrigin::disable()
+void FilesOrigin::clearFilesInternal()
 {
-  std::set<FileIndex> files;
-
-  // stealing the files
-  {
-    std::scoped_lock lock(m_filesMutex);
-    files = std::move(m_files);
-    m_files.clear();
-  }
-
-  // removing files
-  if (auto fr=getFileRegister()) {
-    fr->removeOrigin(files, m_id);
-  }
-
-  m_enabled = false;
-}
-
-void FilesOrigin::setEnabledFlag()
-{
-  m_enabled = true;
+  std::scoped_lock lock(m_filesMutex);
+  m_files.clear();
 }
 
 void FilesOrigin::addFileInternal(FileIndex index)

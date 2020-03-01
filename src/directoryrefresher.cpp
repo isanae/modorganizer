@@ -268,6 +268,29 @@ void DirectoryStructure::addFiles(const std::vector<Profile::ActiveMod>& mods)
   addMods(m_root.get(), mods, true, false, p);
 }
 
+void DirectoryStructure::updateFiles(const std::vector<Profile::ActiveMod>& mods)
+{
+  TimeThis tt("DirectoryStructure::updateFiles()");
+
+  Progress p;
+
+  for (const auto& m : mods) {
+    auto* origin = findOriginByName(m.mod->name().toStdWString());
+
+    if (!origin) {
+      log::error(
+        "DirectoryStructure::updateFiles(): mod '{}' not found",
+        m.mod->name());
+
+      continue;
+    }
+
+    m_register->disableOrigin(*origin);
+  }
+
+  addMods(mods);
+}
+
 DirectoryRefreshProgress DirectoryStructure::progress() const
 {
   return m_progress;
@@ -315,6 +338,11 @@ void DirectoryStructure::addMods(
 
   // for wait the remaining threads to finish
   m_modThreads.waitForAll();
+
+  // todo: is this actually needed?
+  root->getFileRegister()->sortOrigins();
+
+  root->cleanupIrrelevant();
 }
 
 void DirectoryStructure::addAssociatedFiles(
@@ -512,10 +540,6 @@ void DirectoryStructure::refreshThread(
 
       // add mods
       addMods(root.get(), mods, true, true, m_progress);
-
-      // cleanup
-      root->getFileRegister()->sortOrigins();
-      root->cleanupIrrelevant();
 
       // swapping
       setRoot(std::move(fr), std::move(root));

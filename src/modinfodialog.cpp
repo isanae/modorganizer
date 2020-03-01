@@ -625,12 +625,7 @@ MOShared::FilesOrigin* ModInfoDialog::getOrigin()
     return nullptr;
   }
 
-  auto* origin = ds->findOriginByName(m_mod->name().toStdWString());
-  if (!origin->isEnabled()) {
-    return nullptr;
-  }
-
-  return origin;
+  return ds->findOriginByName(m_mod->name().toStdWString());
 }
 
 void ModInfoDialog::saveState() const

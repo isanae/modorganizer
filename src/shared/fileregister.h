@@ -73,12 +73,14 @@ public:
     DirectoryEntry& root, std::wstring_view name,
     FilesOrigin& from, FilesOrigin& to);
 
-  // for each given file:
+  // for each file in the given origin:
   //  1) removes the given origin from the file,
   //  2) removes the file from its parent directory
   //  3) if the file has no more origins, removes it from the registry
   //
-  void removeOrigin(std::set<FileIndex> indices, OriginID originID);
+  // then clears all files from the origin itself
+  //
+  void disableOrigin(FilesOrigin& o);
 
   // sorts the origins of every file and re-checks which one is the primary
   //

@@ -240,6 +240,11 @@ public:
    **/
   std::vector<ActiveMod> getActiveMods();
 
+  // retrieves an active mod that has the given name, or empty if the mod
+  // doesn't exist or is disabled
+  //
+  ActiveMod findActiveMod(const QString& name);
+
   /**
    * @brief retrieve a mod of the indexes ordered by priority
    *

@@ -457,7 +457,7 @@ private slots:
 
   void motdReceived(const QString &motd);
 
-  void originModified(int originID);
+  void originModified(MOShared::OriginID origin);
 
   void addRemoveCategories_MenuHandler();
   void replaceCategories_MenuHandler();

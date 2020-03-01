@@ -2869,7 +2869,7 @@ void MainWindow::displayModInformation(
     modInfo->saveMeta();
 
     ModInfoDialog dialog(this, &m_OrganizerCore, &m_PluginContainer, modInfo);
-    connect(&dialog, SIGNAL(originModified(int)), this, SLOT(originModified(int)));
+    connect(&dialog, &ModInfoDialog::originModified, this, &MainWindow::originModified);
 
 	  //Open the tab first if we want to use the standard indexes of the tabs.
 	  if (tabID != ModInfoTabIDs::None) {
@@ -2884,7 +2884,8 @@ void MainWindow::displayModInformation(
   }
 
   if (m_OrganizerCore.currentProfile()->modEnabled(modIndex) && !modInfo->hasFlag(ModInfo::FLAG_FOREIGN)) {
-    FilesOrigin* origin = m_OrganizerCore.directoryStructure()->findOriginByName(ToWString(modInfo->name()));
+    FilesOrigin* origin = m_OrganizerCore.directoryStructure()
+      ->findOriginByName(ToWString(modInfo->name()));
 
     if (!origin) {
       log::error(
@@ -2894,13 +2895,10 @@ void MainWindow::displayModInformation(
       return;
     }
 
-    origin->disable();
+    m_OrganizerCore.directoryStructure()->updateFiles({{
+      modInfo,
+      m_OrganizerCore.currentProfile()->getModPriority(modIndex)}});
 
-    m_OrganizerCore.directoryStructure()->addMods(
-      {{modInfo, m_OrganizerCore.currentProfile()->getModPriority(modIndex)}});
-
-    m_OrganizerCore.directoryStructure()->root()->cleanupIrrelevant();
-    m_OrganizerCore.directoryStructure()->root()->getFileRegister()->sortOrigins();
     m_OrganizerCore.refreshLists();
   }
 }
@@ -5175,9 +5173,9 @@ void MainWindow::languageChange(const QString &newLanguage)
   ui->openFolderMenu->setMenu(openFolderMenu());
 }
 
-void MainWindow::originModified(int originID)
+void MainWindow::originModified(OriginID originID)
 {
-  FilesOrigin* origin = m_OrganizerCore.directoryStructure()
+  const auto* origin = m_OrganizerCore.directoryStructure()
     ->findOriginByID(originID);
 
   if (!origin) {
@@ -5185,10 +5183,19 @@ void MainWindow::originModified(int originID)
     return;
   }
 
-  origin->disable();
+  auto m = m_OrganizerCore.currentProfile()->findActiveMod(
+    QString::fromStdWString(origin->getName()));
 
-  m_OrganizerCore.directoryStructure()->root()->addFromOrigin(*origin);
-  m_OrganizerCore.directoryStructure()->root()->cleanupIrrelevant();
+  if (!m.mod) {
+    log::error(
+      "MainWindow::originModified(): mod '{}' not found",
+      origin->getName());
+
+    return;
+  }
+
+  m_OrganizerCore.directoryStructure()->updateFiles({{m}});
+  m_OrganizerCore.refreshLists();
 }
 
 

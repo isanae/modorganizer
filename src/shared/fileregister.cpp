@@ -176,12 +176,9 @@ void FileRegister::changeFileOrigin(
   file->addOriginInternal({to.getID(), {}}, ft);
 }
 
-void FileRegister::removeOrigin(
-  std::set<FileIndex> indices, OriginID originID)
+void FileRegister::disableOrigin(FilesOrigin& o)
 {
-  std::scoped_lock lock(m_mutex);
-
-  for (auto&& index : indices) {
+  for (auto& index : o.getFileIndices()) {
     if (index >= m_files.size()) {
       log::error(
         "FileRegister::removeOriginMulti(): index {} out of range, size is {}",
@@ -197,9 +194,10 @@ void FileRegister::removeOrigin(
       continue;
     }
 
-    // removeOrigin() returns true when the last origin was removed from the
-    // file; in that case, the file has to be removed from the directory
-    if (file->removeOriginInternal(originID)) {
+    // removeOriginInternal() returns true when the last origin was removed
+    // from the file; in that case, the file has to be removed from the
+    // directory
+    if (file->removeOriginInternal(o.getID())) {
       // remove from directory
       if (auto* dir=file->getParent()) {
         dir->removeFileInternal(file->getName());
@@ -210,6 +208,8 @@ void FileRegister::removeOrigin(
       --m_fileCount;
     }
   }
+
+  o.clearFilesInternal();
 }
 
 void FileRegister::sortOrigins()

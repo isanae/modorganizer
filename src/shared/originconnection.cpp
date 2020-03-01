@@ -33,9 +33,7 @@ FilesOrigin& OriginConnection::getOrCreateOrigin(const OriginData& data)
 
     if (itor2 != m_origins.end()) {
       // already exists
-      FilesOrigin& origin = itor2->second;
-      origin.setEnabledFlag();
-      return origin;
+      return itor2->second;
     }
 
     // found by name but not by id, this shouldn't happen

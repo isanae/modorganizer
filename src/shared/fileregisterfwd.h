@@ -32,6 +32,30 @@
 //
 // the register owns all the FileEntry objects; the FilesOrigin and
 // DirectoryEntry objects use FileIndex to refer to them
+//
+// there are lots of references between the various classes, mostly for faster
+// lookups; for example, a FileEntry is:
+//   1) owned by the FileRegister in a flat list,
+//   2) referred to by index by any FilesOrigin that has the file, and
+//   3) referred to by index by DirectoryEntry that contains the file,
+// the FileEntry also refers to the FilesOrigin by its index
+//
+// most of these classes have multiple data structures that refer to the
+// same data for faster lookups while keeping the order, like both a vector and
+// a hash map
+//
+// which means a lot of work has to be done to maintain all these objects
+// synchronized
+//
+// most entry points are in FileRegister, which takes care of keeping the
+// various structures synchronized; for example, adding a new file to the
+// structure requires adding the file to the directory, the file to the origin
+// and the origin to the file
+//
+// therefore, member functions that are named somethingInternal() are not entry
+// points: they are used by the FileRegister or other classes to change data,
+// but they are not typically sufficient to update the whole structure and will
+// create discrepancies between the various objects
 
 
 class DirectoryStructure;

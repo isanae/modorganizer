@@ -29,7 +29,6 @@ TEST_F(FilesOriginTests, constructor)
   EXPECT_EQ(o.getName(), L"name");
   EXPECT_EQ(o.getID(), 1);
   EXPECT_TRUE(o.getFiles().empty());
-  EXPECT_TRUE(o.isEnabled());
   EXPECT_EQ(o.getOriginConnection().get(), oc.get());
   EXPECT_EQ(o.getFileRegister().get(), fr.get());
 }
@@ -158,12 +157,10 @@ TEST_F(FilesOriginTests, files)
   expectHasFiles({file0.get(), file2.get()});
 
   // disable the origin, all files should be gone
-  EXPECT_TRUE(o.isEnabled());
-  o.disable();
+  fr->disableOrigin(o);
 
   // no more files, disabled, file registry empty
   expectHasFiles({});
-  EXPECT_FALSE(o.isEnabled());
   EXPECT_EQ(fr->fileCount(), 0);
 }
 

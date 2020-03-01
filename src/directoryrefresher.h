@@ -128,6 +128,8 @@ public:
   //
   void addFiles(const std::vector<Profile::ActiveMod>& mods);
 
+  void updateFiles(const std::vector<Profile::ActiveMod>& mods);
+
   // returns the progress of a current async refresh, finished() is true if
   // there is no refresh running
   //
