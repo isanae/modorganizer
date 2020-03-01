@@ -21,7 +21,7 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "settings.h"
 #include "organizercore.h"
 #include "envmodule.h"
-#include "shared/util.h"
+#include "util.h"
 #include <memory>
 #include <sstream>
 #include <iomanip>

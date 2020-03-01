@@ -68,7 +68,7 @@ AddMOSource(fileregister)
 AddMOSource(filesorigin)
 AddMOSource(directoryentry)
 AddMOSource(fileregisterfwd)
-AddMOSource(shared/util)
+AddMOSource(util)
 
 AddTestSource(main)
 AddTestSource(fileentry)

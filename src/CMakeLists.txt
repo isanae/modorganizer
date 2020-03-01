@@ -156,9 +156,8 @@ SET(organizer_SRCS
 	filesorigin.cpp
 	fileregister.cpp
 	originconnection.cpp
-
-    shared/util.cpp
-    shared/appconfig.cpp
+    util.cpp
+    appconfig.cpp
   )
 
 SET(organizer_HDRS
@@ -288,10 +287,9 @@ SET(organizer_HDRS
 	fileregister.h
 	fileregisterfwd.h
 	originconnection.h
-
-    shared/util.h
-    shared/appconfig.h
-    shared/appconfig.inc
+    util.h
+    appconfig.h
+    appconfig.inc
   )
 
 SET(organizer_UIS
@@ -496,13 +494,13 @@ set(settingsdialog
 )
 
 set(utilities
-	shared/appconfig
+	appconfig
 	bbcode
 	csvbuilder
 	persistentcookiejar
 	serverinfo
 	spawn
-	shared/util
+	util
 	usvfsconnector
 	json
 )

@@ -1,6 +1,6 @@
 #include "originconnection.h"
 #include "filesorigin.h"
-#include "shared/util.h"
+#include "util.h"
 #include <iplugingame.h>
 #include <log.h>
 

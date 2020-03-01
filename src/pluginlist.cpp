@@ -27,7 +27,7 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "filesorigin.h"
 #include "fileentry.h"
 #include "originconnection.h"
-#include "shared/util.h"
+#include "util.h"
 
 #include <utility.h>
 #include <iplugingame.h>
