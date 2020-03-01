@@ -157,8 +157,6 @@ SET(organizer_SRCS
 	fileregister.cpp
 	originconnection.cpp
 
-    shared/windows_error.cpp
-    shared/error_report.cpp
     shared/util.cpp
     shared/appconfig.cpp
   )
@@ -291,8 +289,6 @@ SET(organizer_HDRS
 	fileregisterfwd.h
 	originconnection.h
 
-    shared/windows_error.h
-    shared/error_report.h
     shared/util.h
     shared/appconfig.h
     shared/appconfig.inc
@@ -503,13 +499,11 @@ set(utilities
 	shared/appconfig
 	bbcode
 	csvbuilder
-	shared/error_report
 	persistentcookiejar
 	serverinfo
 	spawn
 	shared/util
 	usvfsconnector
-	shared/windows_error
 	json
 )
 

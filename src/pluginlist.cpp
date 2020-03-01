@@ -27,12 +27,12 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "filesorigin.h"
 #include "fileentry.h"
 #include "originconnection.h"
+#include "shared/util.h"
 
 #include <utility.h>
 #include <iplugingame.h>
 #include <espfile.h>
 #include <report.h>
-#include <windows_error.h>
 #include <safewritefile.h>
 #include <gameplugins.h>
 

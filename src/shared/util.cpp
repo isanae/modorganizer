@@ -18,7 +18,6 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "util.h"
-#include "windows_error.h"
 #include "env.h"
 #include <log.h>
 
@@ -354,6 +353,60 @@ int naturalCompare(const QString& a, const QString& b)
   }
 
   return c.compare(a, b);
+}
+
+
+void reportError(LPCSTR format, ...)
+{
+  char buffer[1025];
+  memset(buffer, 0, sizeof(char) * 1025);
+
+  va_list argList;
+  va_start(argList, format);
+
+  vsnprintf(buffer, 1024, format, argList);
+  va_end(argList);
+
+  MessageBoxA(nullptr, buffer, "Error", MB_OK | MB_ICONERROR);
+}
+
+void reportError(LPCWSTR format, ...)
+{
+  WCHAR buffer[1025];
+  memset(buffer, 0, sizeof(WCHAR) * 1025);
+
+  va_list argList;
+  va_start(argList, format);
+
+  _vsnwprintf_s(buffer, 1024, format, argList);
+  va_end(argList);
+
+  MessageBoxW(nullptr, buffer, L"Error", MB_OK | MB_ICONERROR);
+}
+
+
+std::string windows_error::constructMessage(const std::string& input, int inErrorCode)
+{
+  std::ostringstream finalMessage;
+  finalMessage << input;
+
+  LPSTR buffer = nullptr;
+
+  DWORD errorCode = inErrorCode != -1 ? inErrorCode : ::GetLastError();
+
+  // TODO: the message is not english?
+  if (FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
+    nullptr, errorCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&buffer, 0, nullptr) == 0) {
+    finalMessage << " (errorcode " << errorCode << ")";
+  } else {
+    LPSTR lastChar = buffer + strlen(buffer) - 2;
+    *lastChar = '\0';
+    finalMessage << " (" << buffer << " [" << errorCode << "])";
+    LocalFree(buffer); // allocated by FormatMessage
+  }
+
+  ::SetLastError(errorCode); // restore error code because FormatMessage might have modified it
+  return finalMessage.str();
 }
 
 } // namespace MOShared

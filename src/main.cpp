@@ -52,7 +52,6 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "usvfsconnector.h"
 
 #include <eh.h>
-#include <windows_error.h>
 #include <usvfs.h>
 #include <log.h>
 

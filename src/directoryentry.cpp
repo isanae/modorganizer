@@ -24,7 +24,6 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "fileentry.h"
 #include "envfs.h"
 #include "shared/util.h"
-#include "shared/windows_error.h"
 #include <log.h>
 #include <utility.h>
 

@@ -69,7 +69,6 @@ AddMOSource(filesorigin)
 AddMOSource(directoryentry)
 AddMOSource(fileregisterfwd)
 AddMOSource(shared/util)
-AddMOSource(shared/windows_error)
 
 AddTestSource(main)
 AddTestSource(fileentry)

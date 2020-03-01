@@ -63,6 +63,21 @@ inline FILETIME ToFILETIME(std::filesystem::file_time_type t)
 
 int naturalCompare(const QString& a, const QString& b);
 
+void reportError(LPCSTR format, ...);
+void reportError(LPCWSTR format, ...);
+
+class windows_error : public std::runtime_error {
+public:
+  windows_error(const std::string& message, int errorcode = ::GetLastError())
+    : runtime_error(constructMessage(message, errorcode)), m_ErrorCode(errorcode)
+  {}
+  int getErrorCode() const { return m_ErrorCode; }
+private:
+  std::string constructMessage(const std::string& input, int errorcode);
+private:
+  int m_ErrorCode;
+};
+
 } // namespace MOShared
 
 
