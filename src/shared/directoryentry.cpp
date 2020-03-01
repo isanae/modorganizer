@@ -33,42 +33,6 @@ namespace MOShared
 
 using namespace MOBase;
 
-struct Elapsed
-{
-  using hr_clock = std::chrono::high_resolution_clock;
-
-  Elapsed(std::chrono::nanoseconds& out)
-    : m_out(out), m_start(hr_clock::now())
-  {
-  }
-
-  ~Elapsed()
-  {
-    const auto end = std::chrono::high_resolution_clock::now();
-    m_out += (end - m_start);
-  }
-
-  std::chrono::nanoseconds& m_out;
-  hr_clock::time_point m_start;
-};
-
-template <class F>
-auto elapsedImpl(std::chrono::nanoseconds& out, F&& f)
-{
-  if constexpr (DirectoryStats::EnableInstrumentation) {
-    Elapsed e(out);
-    return f();
-  } else {
-    return f();
-  }
-}
-
-// elapsed() is not optimized out when EnableInstrumentation is false even
-// though it's equivalent to this macro
-#define elapsed(OUT, F) (F)();
-//#define elapsed(OUT, F) elapsedImpl(OUT, F);
-
-
 // calls f(c, last) on each component, where `c` is the name and `last` is
 // true only for the last component; if f() returns false, stops the iteration
 //
@@ -253,37 +217,21 @@ FileEntryPtr DirectoryEntry::findFileRecursiveImpl(std::wstring_view path) const
   return file;
 }
 
-FilesOrigin& DirectoryEntry::getOrCreateOrigin(const OriginInfo& originInfo)
+void DirectoryEntry::addFromOrigin(
+  FilesOrigin& origin, env::DirectoryWalker& walker)
 {
-  return getOriginConnection()->getOrCreateOrigin(
-    originInfo.name, originInfo.path, originInfo.priority);
+  addFiles(walker, origin, origin.getPath());
 }
 
-
-void DirectoryEntry::addFromOrigin(
-  const OriginInfo& originInfo,
-  env::DirectoryWalker& walker, DirectoryStats& stats)
-{
-  FilesOrigin& origin = getOrCreateOrigin(originInfo);
-
-  if (!originInfo.path.empty()) {
-    addFiles(walker, origin, originInfo.path, stats);
-  }
-}
-
-void DirectoryEntry::addFromOrigin(
-  const OriginInfo& originInfo, DirectoryStats& stats)
+void DirectoryEntry::addFromOrigin(FilesOrigin& origin)
 {
   env::DirectoryWalker walker;
-  addFromOrigin(originInfo, walker, stats);
+  addFromOrigin(origin, walker);
 }
 
 void DirectoryEntry::addFromBSA(
-  const OriginInfo& originInfo, const fs::path& archive,
-  int order, DirectoryStats& stats)
+  FilesOrigin& origin, const fs::path& archive, int order)
 {
-  FilesOrigin& origin = getOrCreateOrigin(originInfo);
-
   const auto archiveName = archive.filename().native();
 
   BSA::Archive bsa;
@@ -307,7 +255,7 @@ void DirectoryEntry::addFromBSA(
     ft = ToFILETIME(lwt);
   }
 
-  addFiles(origin, bsa.getRoot(), ft, {archiveName, order}, stats);
+  addFiles(origin, bsa.getRoot(), ft, {archiveName, order});
 }
 
 void DirectoryEntry::cleanupIrrelevant()
@@ -337,7 +285,7 @@ void DirectoryEntry::cleanupIrrelevant()
   }
 }
 
-void DirectoryEntry::propagateOrigin(OriginID origin)
+void DirectoryEntry::propagateOriginInternal(OriginID origin)
 {
   DirectoryEntry* d = this;
 
@@ -351,7 +299,12 @@ void DirectoryEntry::propagateOrigin(OriginID origin)
   }
 }
 
-void DirectoryEntry::removeFile(std::wstring_view name)
+std::wstring DirectoryEntry::debugName() const
+{
+  return m_name;
+}
+
+void DirectoryEntry::removeFileInternal(std::wstring_view name)
 {
   const auto lcname = ToLowerCopy(name);
 
@@ -374,65 +327,15 @@ void DirectoryEntry::removeFile(std::wstring_view name)
   }
 }
 
-FileEntryPtr DirectoryEntry::insert(
-  std::wstring_view fileName, FilesOrigin& origin, FILETIME fileTime,
-  const ArchiveInfo& archive, DirectoryStats& stats)
-{
-  FileEntryPtr fe;
-
-  {
-    FileKey key(ToLowerCopy(fileName));
-
-    std::unique_lock lock(m_filesMutex);
-
-    FilesLookup::iterator itor;
-    elapsed(stats.filesLookupTimes, [&]{
-      itor = m_filesLookup.find(key);
-    });
-
-    auto fr = getFileRegister();
-    if (!fr) {
-      return {};
-    }
-
-    if (itor != m_filesLookup.end()) {
-      // file exists
-      lock.unlock();
-      fe = fr->getFile(itor->second);
-    } else {
-      // file not found, create it
-      fe = fr->createFile(std::wstring(fileName.begin(), fileName.end()), this);
-
-      elapsed(stats.addFileTimes, [&] {
-        m_filesLookup.emplace(key.value, fe->getIndex());
-        m_files.emplace(std::move(key.value), fe->getIndex());
-        // key has been moved from this point
-      });
-    }
-  }
-
-  // add the origin to the file
-  elapsed(stats.addOriginToFileTimes, [&]{
-    fe->addOrigin({origin.getID(), archive}, fileTime);
-  });
-
-  // add the file to the origin
-  elapsed(stats.addFileToOriginTimes, [&]{
-    origin.addFile(fe->getIndex());
-  });
-
-  return fe;
-}
-
 // given to the DirectoryWalker, passed to every callback
 //
 struct DirectoryEntry::Context
 {
-  // stats
-  DirectoryStats& stats;
-
   // origin the files are being added from
   FilesOrigin& origin;
+
+  // register, avoids locking the weak_ptr for every file
+  std::shared_ptr<FileRegister> fr;
 
   // stack of directories, pushed in onDirectoryStart(), popped in
   // onDirectoryEnd()
@@ -440,10 +343,9 @@ struct DirectoryEntry::Context
 };
 
 void DirectoryEntry::addFiles(
-  env::DirectoryWalker& walker, FilesOrigin& origin,
-  const std::wstring& path, DirectoryStats& stats)
+  env::DirectoryWalker& walker, FilesOrigin& origin, const std::wstring& path)
 {
-  Context cx = {stats, origin};
+  Context cx = {origin, m_register.lock()};
   cx.current.push(this);
 
   walker.forEachEntry(path, &cx,
@@ -470,32 +372,25 @@ void DirectoryEntry::onDirectoryStart(Context* cx, std::wstring_view path)
 {
   // creates the directory and pushes it on the stack
 
-  elapsed(cx->stats.dirTimes, [&] {
-    auto* sd = cx->current.top()->getOrCreateSubDirectory(
-      path, cx->origin.getID(), cx->stats);
+  auto* sd = cx->current.top()->getOrCreateSubDirectory(
+    path, cx->origin.getID());
 
-    cx->current.push(sd);
-  });
+  cx->current.push(sd);
 }
 
 void DirectoryEntry::onDirectoryEnd(Context* cx, std::wstring_view path)
 {
   // sorts the directory and pops it
 
-  elapsed(cx->stats.dirTimes, [&] {
-    auto* current = cx->current.top();
-    current->sortSubDirectories();
-    cx->current.pop();
-  });
+  auto* current = cx->current.top();
+  current->sortSubDirectories();
+  cx->current.pop();
 }
 
 void DirectoryEntry::onFile(Context* cx, std::wstring_view path, FILETIME ft)
 {
   // adds the file to the current directory
-
-  elapsed(cx->stats.fileTimes, [&]{
-    cx->current.top()->insert(path, cx->origin, ft, {}, cx->stats);
-  });
+  cx->fr->addFile(*cx->current.top(), path, cx->origin, ft, {});
 }
 
 void DirectoryEntry::sortSubDirectories()
@@ -509,17 +404,22 @@ void DirectoryEntry::sortSubDirectories()
 
 void DirectoryEntry::addFiles(
   FilesOrigin& origin, const BSA::Folder::Ptr& archiveFolder,
-  FILETIME archiveFileTime, const ArchiveInfo& archive, DirectoryStats& stats)
+  FILETIME archiveFileTime, const ArchiveInfo& archive)
 {
+  auto fr = m_register.lock();
+  if (!fr) {
+    return;
+  }
+
   // add files
   const auto fileCount = archiveFolder->getNumFiles();
 
   for (unsigned int i=0; i<fileCount; ++i) {
     const BSA::File::Ptr file = archiveFolder->getFile(i);
 
-    auto f = insert(
-      ToWString(file->getName(), true),
-      origin, archiveFileTime, archive, stats);
+    auto f = fr->addFile(
+      *this, ToWString(file->getName(), true),
+      origin, archiveFileTime, archive);
 
     if (f) {
       if (file->getUncompressedFileSize() > 0) {
@@ -537,34 +437,28 @@ void DirectoryEntry::addFiles(
     const BSA::Folder::Ptr folder = archiveFolder->getSubFolder(i);
 
     DirectoryEntry* folderEntry = getOrCreateSubDirectories(
-      ToWString(folder->getName(), true), origin.getID(), stats);
+      ToWString(folder->getName(), true), origin.getID());
 
-    folderEntry->addFiles(origin, folder, archiveFileTime, archive, stats);
+    folderEntry->addFiles(origin, folder, archiveFileTime, archive);
   }
 }
 
 DirectoryEntry* DirectoryEntry::getOrCreateSubDirectory(
-  std::wstring_view name, OriginID originID, DirectoryStats& stats)
+  std::wstring_view name, OriginID originID)
 {
   std::wstring nameLc = ToLowerCopy(name);
 
   std::scoped_lock lock(m_dirsMutex);
 
-  SubDirectoriesLookup::iterator itor;
-  elapsed(stats.subdirLookupTimes, [&] {
-    itor = m_dirsLookup.find(FileKeyView(nameLc));
-  });
-
+  auto itor = m_dirsLookup.find(FileKeyView(nameLc));
   if (itor != m_dirsLookup.end()) {
     // already exists
     return itor->second;
   }
 
-  return elapsed(stats.addDirectoryTimes, [&] {
-    return addSubDirectory(
-      std::wstring(name.begin(), name.end()),
-      std::move(nameLc), originID);
-  });
+  return addSubDirectory(
+    std::wstring(name.begin(), name.end()),
+    std::move(nameLc), originID);
 }
 
 DirectoryEntry* DirectoryEntry::addSubDirectory(
@@ -584,13 +478,42 @@ DirectoryEntry* DirectoryEntry::addSubDirectory(
   return p;
 }
 
+FileEntryPtr DirectoryEntry::addFileInternal(std::wstring_view name)
+{
+  auto fr = getFileRegister();
+  if (!fr) {
+    return {};
+  }
+
+  FileKey key(ToLowerCopy(name));
+
+  std::unique_lock lock(m_filesMutex);
+  auto itor = m_filesLookup.find(key);
+
+  if (itor != m_filesLookup.end()) {
+    // file exists
+    lock.unlock();
+    return fr->getFile(itor->second);
+  } else {
+    // file not found, create it
+    auto fe = fr->createFile(
+      std::wstring(name.begin(), name.end()), this);
+
+    m_filesLookup.emplace(key.value, fe->getIndex());
+    m_files.emplace(std::move(key.value), fe->getIndex());
+    // key has been moved from this point
+
+    return fe;
+  }
+}
+
 DirectoryEntry* DirectoryEntry::getOrCreateSubDirectories(
-  std::wstring_view path, OriginID originID, DirectoryStats& stats)
+  std::wstring_view path, OriginID originID)
 {
   DirectoryEntry* cwd = this;
 
   forEachPathComponent(path, [&](std::wstring_view name, bool) {
-    cwd = cwd->getOrCreateSubDirectory(name, originID, stats);
+    cwd = cwd->getOrCreateSubDirectory(name, originID);
     return true;
   });
 
@@ -706,7 +629,7 @@ void DirectoryEntry::dump(std::FILE* f, const std::wstring& parentPath) const
         log::error(
           "while dumping directory entry '{}', "
           "cannot found origin '{}' for file '{}'",
-          m_name, file->getOrigin(), file->getName());
+          debugName(), file->getOrigin(), file->getName());
 
         continue;
       }

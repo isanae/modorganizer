@@ -1,6 +1,7 @@
 #include "originconnection.h"
 #include "filesorigin.h"
 #include "util.h"
+#include <iplugingame.h>
 #include <log.h>
 
 namespace MOShared
@@ -19,13 +20,12 @@ std::shared_ptr<OriginConnection> OriginConnection::create(
   return std::shared_ptr<OriginConnection>(new OriginConnection(std::move(r)));
 }
 
-FilesOrigin& OriginConnection::getOrCreateOrigin(
-  std::wstring_view name, const fs::path& path, int priority)
+FilesOrigin& OriginConnection::getOrCreateOrigin(const OriginData& data)
 {
   std::unique_lock lock(m_mutex);
 
   // lookup by name
-  auto itor = m_names.find(name);
+  auto itor = m_names.find(data.name);
 
   if (itor != m_names.end()) {
     // lookup by id
@@ -42,17 +42,33 @@ FilesOrigin& OriginConnection::getOrCreateOrigin(
     log::error(
       "OriginConnection::getOrCreateOrigin(): "
       "origin '{}' found in names map but index {} not found; recreating",
-      name, itor->second);
+      data.name, itor->second);
   }
 
-  return createOriginNoLock(name, path, priority);
+  return createOriginNoLock(data);
 }
 
-FilesOrigin& OriginConnection::createOrigin(
-  std::wstring_view name, const fs::path& directory, int priority)
+FilesOrigin& OriginConnection::createOrigin(const OriginData& data)
 {
   std::scoped_lock lock(m_mutex);
-  return createOriginNoLock(name, directory, priority);
+  return createOriginNoLock(data);
+}
+
+FilesOrigin& OriginConnection::getDataOrigin()
+{
+  std::scoped_lock lock(m_mutex);
+
+  auto itor = m_origins.find(DataOriginID);
+
+  if (itor != m_origins.end()) {
+    return itor->second;
+  }
+
+  const auto* game = qApp->property("managed_game").value<IPluginGame*>();
+  const auto dir = game->dataDirectory().absolutePath();
+  const auto dirW = QDir::toNativeSeparators(dir).toStdWString();
+
+  return createOriginNoLock({L"data", dirW, DataOriginID});
 }
 
 bool OriginConnection::exists(std::wstring_view name)
@@ -99,7 +115,7 @@ const FilesOrigin* OriginConnection::findByName(std::wstring_view name) const
   return &itor2->second;
 }
 
-void OriginConnection::changeNameLookup(
+void OriginConnection::changeNameLookupInternal(
   std::wstring_view oldName, std::wstring_view newName)
 {
   std::scoped_lock lock(m_mutex);
@@ -207,8 +223,7 @@ OriginID OriginConnection::createID()
   return m_nextID++;
 }
 
-FilesOrigin& OriginConnection::createOriginNoLock(
-  std::wstring_view name, const fs::path& directory, int priority)
+FilesOrigin& OriginConnection::createOriginNoLock(const OriginData& data)
 {
   const OriginID newID = createID();
   auto self = shared_from_this();
@@ -217,10 +232,10 @@ FilesOrigin& OriginConnection::createOriginNoLock(
   auto r = m_origins.emplace(
     std::piecewise_construct,
     std::forward_as_tuple(newID),
-    std::forward_as_tuple(newID, name, directory, priority, self));
+    std::forward_as_tuple(newID, data, self));
 
   // names
-  m_names.emplace(std::wstring(name.begin(), name.end()), newID);
+  m_names.emplace(std::wstring(data.name.begin(), data.name.end()), newID);
 
   return r.first->second;
 }

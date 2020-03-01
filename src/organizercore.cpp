@@ -224,8 +224,6 @@ void OrganizerCore::setUserInterface(IUserInterface* ui)
             SLOT(removeMod_clicked()));
     connect(&m_ModList, SIGNAL(clearOverwrite()), w,
       SLOT(clearOverwrite()));
-    connect(&m_ModList, SIGNAL(fileMoved(QString, QString, QString)), w,
-            SLOT(fileMoved(QString, QString, QString)));
     connect(&m_ModList, SIGNAL(modorder_changed()), w,
             SLOT(modorder_changed()));
     connect(&m_PluginList, SIGNAL(writePluginsList()), w,
@@ -235,6 +233,8 @@ void OrganizerCore::setUserInterface(IUserInterface* ui)
     connect(&m_DownloadManager, SIGNAL(showMessage(QString)), w,
             SLOT(showMessage(QString)));
   }
+
+  connect(&m_ModList, &ModList::fileMoved, this, &OrganizerCore::fileMoved);
 
   m_InstallationManager.setParentWidget(w);
   m_Updater.setUserInterface(w);
@@ -1585,6 +1585,30 @@ void OrganizerCore::modStatusChanged(QList<unsigned int> index) {
   } catch (const std::exception &e) {
     reportError(tr("failed to update mod list: %1").arg(e.what()));
   }
+}
+
+void OrganizerCore::fileMoved(
+  const QString &filePath,
+  const QString &oldOriginName, const QString &newOriginName)
+{
+  auto* from = m_DirectoryStructure->findOriginByName(
+    oldOriginName.toStdWString());
+
+  if (!from) {
+    log::error("fileMoved(): old origin '{}' not found", oldOriginName);
+    return;
+  }
+
+  auto* to = m_DirectoryStructure->findOriginByName(
+    newOriginName.toStdWString());
+
+  if (!to) {
+    log::error("fileMoved(): new origin '{}' not found", newOriginName);
+    return;
+  }
+
+  m_DirectoryStructure->getFileRegister()->changeFileOrigin(
+    *m_DirectoryStructure->root(), filePath.toStdWString(), *from, *to);
 }
 
 void OrganizerCore::loginSuccessful(bool necessary)

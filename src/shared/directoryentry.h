@@ -47,13 +47,6 @@ class DirectoryEntry
 public:
   using SubDirectories = std::vector<std::unique_ptr<DirectoryEntry>>;
 
-  struct OriginInfo
-  {
-    std::wstring_view name;
-    fs::path path;
-    int priority;
-  };
-
 
   // creates a root directory
   //
@@ -259,29 +252,31 @@ public:
     std::wstring_view path, bool alreadyLowerCase=false) const;
 
 
-  FilesOrigin& getOrCreateOrigin(const OriginInfo& originInfo);
-
   // adds files to this directory recursively from the specified origin; uses
   // the given DirectoryWalker as an optimization
   //
-  void addFromOrigin(
-    const OriginInfo& originInfo,
-    env::DirectoryWalker& walker, DirectoryStats& stats);
+  void addFromOrigin(FilesOrigin& origin, env::DirectoryWalker& walker);
 
   // convenience; forwards to the above with a new DirectoryWalker
   //
-  void addFromOrigin(const OriginInfo& origin, DirectoryStats& stats);
+  void addFromOrigin(FilesOrigin& origin);
 
   // parses the given archive and adds all files from it to this directory
   //
-  void addFromBSA(
-    const OriginInfo& originInfo, const fs::path& archive, int order,
-    DirectoryStats& stats);
+  void addFromBSA(FilesOrigin& origin, const fs::path& archive, int order);
 
   // manually adds a subdirectory to this one, mostly for tests
   //
   DirectoryEntry* addSubDirectory(
-    std::wstring name, std::wstring nameLc, OriginID originID);
+    std::wstring name, std::wstring nameLowercase, OriginID originID);
+
+  // adds the given file this directory
+  //
+  FileEntryPtr addFileInternal(std::wstring_view name);
+
+  // removes the given file from this directory
+  //
+  void removeFileInternal(std::wstring_view name);
 
   // remove files from the directory structure that are known to be
   // irrelevant to the game
@@ -290,11 +285,9 @@ public:
 
   // adds the given origin to this directory and its parent recursively
   //
-  void propagateOrigin(OriginID origin);
+  void propagateOriginInternal(OriginID origin);
 
-  // removes the given file from this directory
-  //
-  void removeFile(std::wstring_view name);
+  std::wstring debugName() const;
 
   void dump(const std::wstring& file) const;
 
@@ -352,14 +345,10 @@ private:
 
   // helpers for findSubDirectoryRecursive() and findFileRecursive()
   //
-  const DirectoryEntry* findSubDirectoryRecursiveImpl(std::wstring_view path) const;
-  FileEntryPtr findFileRecursiveImpl(std::wstring_view path) const;
+  const DirectoryEntry* findSubDirectoryRecursiveImpl(
+    std::wstring_view path) const;
 
-  // inserts the given file in the list and in the register
-  //
-  FileEntryPtr insert(
-    std::wstring_view fileName, FilesOrigin& origin, FILETIME fileTime,
-    const ArchiveInfo& archive, DirectoryStats& stats);
+  FileEntryPtr findFileRecursiveImpl(std::wstring_view path) const;
 
   // walks each file and directory in the given path recursively, calls
   // onDirectoryStart() when a directory is entered, onDirectoryEnd() when
@@ -367,7 +356,7 @@ private:
   //
   void addFiles(
     env::DirectoryWalker& walker, FilesOrigin& origin,
-    const std::wstring& path, DirectoryStats& stats);
+    const std::wstring& path);
 
   struct Context;
   static void onDirectoryStart(Context* cx, std::wstring_view path);
@@ -382,19 +371,18 @@ private:
   //
   void addFiles(
     FilesOrigin& origin, const BSA::Folder::Ptr& archiveFolder,
-    FILETIME archiveFileTime, const ArchiveInfo& archive,
-    DirectoryStats& stats);
+    FILETIME archiveFileTime, const ArchiveInfo& archive);
 
   // creates the given subdirectory or returns an existing one
   //
   DirectoryEntry* getOrCreateSubDirectory(
-    std::wstring_view name, OriginID originID, DirectoryStats& stats);
+    std::wstring_view name, OriginID originID);
 
   // splits `path` on separators and calls getOrCreateSubDirectory()
   // recursively
   //
   DirectoryEntry* getOrCreateSubDirectories(
-    std::wstring_view path, OriginID originID, DirectoryStats& stats);
+    std::wstring_view path, OriginID originID);
 
   // calls removeSelfRecursive() on the given directory, then removes it from
   // both lists in this directory, which deletes the associated DirectoryEntry

@@ -51,11 +51,27 @@ public:
   //
   FileEntryPtr createFile(std::wstring name, DirectoryEntry* parent);
 
+  // 1) creates the given file if it doesn't exist,
+  // 2) adds it to `parent`,
+  // 3) adds the given origin to the file, and
+  // 4) adds the file to the origin
+  //
+  FileEntryPtr addFile(
+    DirectoryEntry& parent, std::wstring_view name, FilesOrigin& origin,
+    FILETIME fileTime, const ArchiveInfo& archive);
+
   // 1) removes the file from the register,
-  // 2) removes the file from all of its origins,
+  // 2) removes the file from all of its origins, and
   // 3) removes the file from its parent directory
   //
   bool removeFile(FileIndex index);
+
+  // 1) removes the file from the old origin and vice-versa, and
+  // 2) adds the file to the old origin and vice-versa
+  //
+  void changeFileOrigin(
+    DirectoryEntry& root, std::wstring_view name,
+    FilesOrigin& from, FilesOrigin& to);
 
   // for each given file:
   //  1) removes the given origin from the file,

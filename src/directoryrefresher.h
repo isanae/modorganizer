@@ -159,8 +159,7 @@ private:
     //
     void set(
       DirectoryStructure* s, MOShared::DirectoryEntry* root,
-      Profile::ActiveMod m, Progress* p, MOShared::DirectoryStats* stats,
-      bool addFiles, bool addBSAs);
+      Profile::ActiveMod m, Progress* p, bool addFiles, bool addBSAs);
 
     // runs it
     //
@@ -174,7 +173,6 @@ private:
     MOShared::DirectoryEntry* m_root;
     Profile::ActiveMod m_mod;
     Progress* m_progress;
-    MOShared::DirectoryStats* m_stats;
     bool m_addFiles;
     bool m_addBSAs;
     env::DirectoryWalker m_walker;
@@ -242,14 +240,11 @@ private:
   //
   void addFiles(
     MOShared::DirectoryEntry* root,
-    env::DirectoryWalker& walker, MOShared::DirectoryStats& stats,
-    const Profile::ActiveMod& m);
+    env::DirectoryWalker& walker, const Profile::ActiveMod& m);
 
   // adds files from all BSAs found in the given mod's directory
   //
-  void addBSAs(
-    MOShared::DirectoryEntry* root,
-    MOShared::DirectoryStats& stats, const Profile::ActiveMod& m);
+  void addBSAs(MOShared::DirectoryEntry* root, const Profile::ActiveMod& m);
 
   // swaps the given register and root with the current ones and schedules root
   // for deletion in m_deleterThread

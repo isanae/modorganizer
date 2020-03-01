@@ -10,10 +10,9 @@ namespace MOShared
 using namespace MOBase;
 
 FilesOrigin::FilesOrigin(
-  OriginID ID, std::wstring_view name, const fs::path& path, int prio,
-  std::shared_ptr<OriginConnection> oc) :
-    m_id(ID), m_enabled(true), m_name(name), m_path(path), m_priority(prio),
-    m_originConnection(oc)
+  OriginID ID, const OriginData& data, std::shared_ptr<OriginConnection> oc) :
+    m_id(ID), m_enabled(true), m_name(data.name), m_path(data.path),
+    m_priority(data.priority), m_originConnection(oc)
 {
 }
 
@@ -41,7 +40,7 @@ void FilesOrigin::setName(std::wstring_view name)
   }
 
   if (auto oc=m_originConnection.lock()) {
-    oc->changeNameLookup(m_name, name);
+    oc->changeNameLookupInternal(m_name, name);
   }
 
   // the path should always match the name
@@ -106,13 +105,13 @@ void FilesOrigin::setEnabledFlag()
   m_enabled = true;
 }
 
-void FilesOrigin::addFile(FileIndex index)
+void FilesOrigin::addFileInternal(FileIndex index)
 {
   std::scoped_lock lock(m_filesMutex);
   m_files.insert(index);
 }
 
-void FilesOrigin::removeFile(FileIndex index)
+void FilesOrigin::removeFileInternal(FileIndex index)
 {
   std::scoped_lock lock(m_filesMutex);
 

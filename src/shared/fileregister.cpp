@@ -69,6 +69,23 @@ FileEntryPtr FileRegister::createFile(
   return p;
 }
 
+FileEntryPtr FileRegister::addFile(
+  DirectoryEntry& parent, std::wstring_view name, FilesOrigin& origin,
+  FILETIME fileTime, const ArchiveInfo& archive)
+{
+  FileKey key(ToLowerCopy(name));
+
+  auto fe = parent.addFileInternal(name);
+
+  // add the origin to the file
+  fe->addOriginInternal({origin.getID(), archive}, fileTime);
+
+  // add the file to the origin
+  origin.addFileInternal(fe->getIndex());
+
+  return fe;
+}
+
 bool FileRegister::removeFile(FileIndex index)
 {
   std::scoped_lock lock(m_mutex);
@@ -95,22 +112,68 @@ bool FileRegister::removeFile(FileIndex index)
 
   // unregister from primary origin
   if (auto* o=m_originConnection->findByID(file->getOrigin())) {
-    o->removeFile(file->getIndex());
+    o->removeFileInternal(file->getIndex());
   }
 
   // unregister from other origins
   for (const auto& [altID, unused] : file->getAlternatives()) {
     if (auto* o=m_originConnection->findByID(altID)) {
-      o->removeFile(file->getIndex());
+      o->removeFileInternal(file->getIndex());
     }
   }
 
   // unregister from directory
   if (auto* dir=file->getParent()) {
-    dir->removeFile(file->getName());
+    dir->removeFileInternal(file->getName());
   }
 
   return true;
+}
+
+void FileRegister::changeFileOrigin(
+  DirectoryEntry& root, std::wstring_view relativePath,
+  FilesOrigin& from, FilesOrigin& to)
+{
+  const auto file = root.findFileRecursive(relativePath);
+
+  if (!file) {
+    log::error(
+      "cannot change origin for file '{}' from {} to {}, "
+      "file was not found in the directories",
+      relativePath, from.debugName(), to.debugName());
+
+    return;
+  }
+
+
+  fs::path newPath(to.getPath() / relativePath);
+
+  std::error_code ec;
+  const auto lastModified = fs::last_write_time(newPath, ec);
+  FILETIME ft = {};
+
+  if (ec) {
+    log::warn(
+      "while changing file origin for {} from {} to {}, "
+      "could not get last modified time from real path {}: {}",
+      relativePath, from.debugName(), to.debugName(), newPath, ec.message());
+  } else {
+    ft = ToFILETIME(lastModified);
+  }
+
+
+  // removing file from origin
+  from.removeFileInternal(file->getIndex());
+
+  // remove origin from file
+  file->removeOriginInternal(from.getID());
+
+
+  // add file to origin
+  to.addFileInternal(file->getIndex());
+
+  // add origin to file
+  file->addOriginInternal({to.getID(), {}}, ft);
 }
 
 void FileRegister::removeOrigin(
@@ -136,10 +199,10 @@ void FileRegister::removeOrigin(
 
     // removeOrigin() returns true when the last origin was removed from the
     // file; in that case, the file has to be removed from the directory
-    if (file->removeOrigin(originID)) {
+    if (file->removeOriginInternal(originID)) {
       // remove from directory
       if (auto* dir=file->getParent()) {
-        dir->removeFile(file->getName());
+        dir->removeFileInternal(file->getName());
       }
 
       // remove from list

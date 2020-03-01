@@ -531,7 +531,6 @@ private slots:
 
   void modlistChanged(const QModelIndex &index, int role);
   void modlistChanged(const QModelIndexList &indicies, int role);
-  void fileMoved(const QString &filePath, const QString &oldOriginName, const QString &newOriginName);
 
 
   void modFilterActive(bool active);

@@ -96,13 +96,14 @@ public:
 
   // adds the given origin to this file
   //
-  void addOrigin(const OriginInfo& newOrigin, std::optional<FILETIME> time);
+  void addOriginInternal(
+    const OriginInfo& newOrigin, std::optional<FILETIME> time);
 
   // removes the specified origin from the list of origins that contain this
   // file; returns true if that was the last origin, which is used elsewhere
   // to determine that this file should be removed entirely from the register
   //
-  bool removeOrigin(OriginID origin);
+  bool removeOriginInternal(OriginID origin);
 
   // sorts this file's origins by priority and makes the origin with the
   // highest priority the primary one

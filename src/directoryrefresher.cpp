@@ -35,9 +35,6 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 using namespace MOBase;
 using namespace MOShared;
 
-void dumpStats(std::vector<DirectoryStats>& stats);
-
-
 DirectoryRefreshProgress::DirectoryRefreshProgress()
   : m_total(0), m_done(0), m_finished(false)
 {
@@ -126,21 +123,19 @@ void DirectoryRefreshProgress::notify()
 
 
 DirectoryStructure::ModThread::ModThread() :
-  m_structure(nullptr), m_root(nullptr), m_progress(nullptr), m_stats(nullptr),
+  m_structure(nullptr), m_root(nullptr), m_progress(nullptr),
   m_addFiles(false), m_addBSAs(false)
 {
 }
 
 void DirectoryStructure::ModThread::set(
   DirectoryStructure* s, MOShared::DirectoryEntry* root,
-  Profile::ActiveMod m, Progress* p, MOShared::DirectoryStats* stats,
-  bool addFiles, bool addBSAs)
+  Profile::ActiveMod m, Progress* p, bool addFiles, bool addBSAs)
 {
   m_structure = s;
   m_root = root;
   m_progress = p;
   m_mod = m;
-  m_stats = stats;
   m_addFiles = addFiles;
   m_addBSAs = addBSAs;
 }
@@ -162,12 +157,12 @@ void DirectoryStructure::ModThread::run()
         if (!m_mod.mod->associatedFiles().empty()) {
           m_structure->addAssociatedFiles(m_root, m_mod);
         } else {
-          m_structure->addFiles(m_root, m_walker, *m_stats, m_mod);
+          m_structure->addFiles(m_root, m_walker, m_mod);
         }
       }
 
       if (m_addBSAs) {
-        m_structure->addBSAs(m_root, *m_stats, m_mod);
+        m_structure->addBSAs(m_root, m_mod);
       }
 
       m_progress->addDone();
@@ -291,12 +286,7 @@ void DirectoryStructure::asyncRefresh(
 
 void DirectoryStructure::addFromData(DirectoryEntry* root)
 {
-  const auto* game = qApp->property("managed_game").value<IPluginGame*>();
-  const auto dir = game->dataDirectory().absolutePath();
-  const auto dirW = QDir::toNativeSeparators(dir).toStdWString();
-
-  DirectoryStats dummyStats;
-  root->addFromOrigin({L"data", dirW, DataOriginID}, dummyStats);
+  root->addFromOrigin(root->getOriginConnection()->getDataOrigin());
 }
 
 void DirectoryStructure::addMods(
@@ -304,9 +294,6 @@ void DirectoryStructure::addMods(
   const std::vector<Profile::ActiveMod>& mods, bool addFiles, bool addBSAs,
   Progress& p)
 {
-  // one stats object per mod
-  std::vector<DirectoryStats> stats(mods.size());
-
   // creating threads
   m_modThreads.setMax(m_threadCount);
 
@@ -316,15 +303,11 @@ void DirectoryStructure::addMods(
 
     m.priority = static_cast<int>(i + 1);
 
-    if constexpr (DirectoryStats::EnableInstrumentation) {
-      stats[i].mod = m.mod->internalName().toStdString();
-    }
-
     // request an idle thread
     auto& mt = m_modThreads.request();
 
     // set it up
-    mt.set(this, root, m, &p, &stats[i], addFiles, addBSAs);
+    mt.set(this, root, m, &p, addFiles, addBSAs);
 
     // make it run
     mt.wakeup();
@@ -332,10 +315,6 @@ void DirectoryStructure::addMods(
 
   // for wait the remaining threads to finish
   m_modThreads.waitForAll();
-
-  if constexpr (DirectoryStats::EnableInstrumentation) {
-    dumpStats(stats);
-  }
 }
 
 void DirectoryStructure::addAssociatedFiles(
@@ -349,14 +328,18 @@ void DirectoryStructure::addAssociatedFiles(
   // so there's no point in walking the filesystem for them, just change their
   // origin from Data to the given pseudo, foreign mod
 
-  FilesOrigin& origin = root->getOrCreateOrigin({
+  auto oc = root->getOriginConnection();
+
+  FilesOrigin& from = oc->getDataOrigin();
+
+  FilesOrigin& to = oc->getOrCreateOrigin({
     m.mod->internalName().toStdWString(),
     QDir::toNativeSeparators(m.mod->absolutePath()).toStdWString(),
     m.priority
   });
 
-  for (const QString& filename : m.mod->associatedFiles()) {
-    if (filename.isEmpty()) {
+  for (const QString& path : m.mod->associatedFiles()) {
+    if (path.isEmpty()) {
       log::error(
         "while adding associated files for mod '{}', "
         "a file had an empty filename", m.mod->internalName());
@@ -364,48 +347,28 @@ void DirectoryStructure::addAssociatedFiles(
       continue;
     }
 
-    const QFileInfo fileInfo(filename);
-    const auto file = root->findFile(fileInfo.fileName().toStdWString());
+    const QFileInfo fi(path);
+    const auto filename = fi.fileName().toStdWString();
 
-    if (!file) {
-      log::error(
-        "while adding associated files for mod '{}', "
-        "file '{}' was not found in the structure",
-        m.mod->internalName(), fileInfo.fileName());
-
-      continue;
-    }
-
-    // remove Data as an origin because it would put the same file in two
-    // origins
-    if (file->getOrigin() == DataOriginID) {
-      file->removeOrigin(DataOriginID);
-    }
-
-    // add file to origin
-    origin.addFile(file->getIndex());
-
-    // add origin to file, reuse the file time from the Data origin
-    file->addOrigin({origin.getID(), {}}, file->getFileTime());
+    root->getFileRegister()->changeFileOrigin(*root, filename, from, to);
   }
 }
 
 void DirectoryStructure::addFiles(
-  DirectoryEntry* root, env::DirectoryWalker& walker, MOShared::DirectoryStats& stats,
+  DirectoryEntry* root, env::DirectoryWalker& walker,
   const Profile::ActiveMod& m)
 {
-  root->addFromOrigin(
-    {
-      m.mod->internalName().toStdWString(),
-      QDir::toNativeSeparators(m.mod->absolutePath()).toStdWString(),
-      m.priority
-    },
-    walker, stats);
+  FilesOrigin& origin = root->getOriginConnection()->getOrCreateOrigin({
+    m.mod->internalName().toStdWString(),
+    QDir::toNativeSeparators(m.mod->absolutePath()).toStdWString(),
+    m.priority
+  });
+
+  root->addFromOrigin(origin, walker);
 }
 
 void DirectoryStructure::addBSAs(
-  DirectoryEntry* root,
-  MOShared::DirectoryStats& stats, const Profile::ActiveMod& m)
+  DirectoryEntry* root, const Profile::ActiveMod& m)
 {
   if (!Settings::instance().archiveParsing()) {
     // archive parsing is disabled
@@ -414,6 +377,12 @@ void DirectoryStructure::addBSAs(
 
   // getting load order
   const auto loadOrderMap = getLoadOrderMap();
+
+  FilesOrigin& origin = root->getOriginConnection()->getOrCreateOrigin({
+    m.mod->internalName().toStdWString(),
+    QDir::toNativeSeparators(m.mod->absolutePath()).toStdWString(),
+    m.priority
+  });
 
   // for each archive in this mod
   for (const auto& archive : m.mod->archives()) {
@@ -432,13 +401,7 @@ void DirectoryStructure::addBSAs(
         m.mod->internalName(), archive);
     }
 
-    root->addFromBSA(
-      {
-        m.mod->internalName().toStdWString(),
-        QDir::toNativeSeparators(m.mod->absolutePath()).toStdWString(),
-        m.priority
-      },
-      archivePath, order, stats);
+    root->addFromBSA(origin, archivePath, order);
   }
 }
 
@@ -447,7 +410,7 @@ DirectoryStructure::LoadOrderMap DirectoryStructure::getLoadOrderMap() const
   const auto* game = qApp->property("managed_game").value<IPluginGame*>();
   auto* gamePlugins = game->feature<GamePlugins>();
 
-  // getting loadorder as a list of plugin file names
+  // getting load order as a list of plugin file names
   QStringList loadOrder;
   gamePlugins->getLoadOrder(loadOrder);
 
@@ -575,98 +538,4 @@ void DirectoryStructure::refreshThread(
   {
     log::error("unhandled unknown exception in refreshThread");
   }
-}
-
-
-DirectoryStats::DirectoryStats()
-{
-  std::memset(this, 0, sizeof(DirectoryStats));
-}
-
-DirectoryStats& DirectoryStats::operator+=(const DirectoryStats& o)
-{
-  dirTimes += o.dirTimes;
-  fileTimes += o.fileTimes;
-  sortTimes += o.sortTimes;
-
-  subdirLookupTimes += o.subdirLookupTimes;
-  addDirectoryTimes += o.addDirectoryTimes;
-
-  filesLookupTimes += o.filesLookupTimes;
-  addFileTimes += o.addFileTimes;
-  addOriginToFileTimes += o.addOriginToFileTimes;
-  addFileToOriginTimes += o.addFileToOriginTimes;
-  addFileToRegisterTimes += o.addFileToRegisterTimes;
-
-  return *this;
-}
-
-std::string DirectoryStats::csvHeader()
-{
-  QStringList sl = {
-    "dirTimes",
-    "fileTimes",
-    "sortTimes",
-    "subdirLookupTimes",
-    "addDirectoryTimes",
-    "filesLookupTimes",
-    "addFileTimes",
-    "addOriginToFileTimes",
-    "addFileToOriginTimes",
-    "addFileToRegisterTimes"
-  };
-
-  return sl.join(",").toStdString();
-}
-
-std::string DirectoryStats::toCsv() const
-{
-  QStringList oss;
-
-  auto s = [](auto ns) {
-    return ns.count() / 1000.0 / 1000.0 / 1000.0;
-  };
-
-  oss
-    << QString::number(s(dirTimes))
-    << QString::number(s(fileTimes))
-    << QString::number(s(sortTimes))
-
-    << QString::number(s(subdirLookupTimes))
-    << QString::number(s(addDirectoryTimes))
-
-    << QString::number(s(filesLookupTimes))
-    << QString::number(s(addFileTimes))
-    << QString::number(s(addOriginToFileTimes))
-    << QString::number(s(addFileToOriginTimes))
-    << QString::number(s(addFileToRegisterTimes));
-
-  return oss.join(",").toStdString();
-}
-
-void dumpStats(std::vector<DirectoryStats>& stats)
-{
-  static int run = 0;
-  static const std::string file("c:\\tmp\\data.csv");
-
-  if (run == 0) {
-    std::ofstream out(file, std::ios::out|std::ios::trunc);
-    out << fmt::format("what,run,{}", DirectoryStats::csvHeader()) << "\n";
-  }
-
-  std::sort(stats.begin(), stats.end(), [](auto&& a, auto&& b){
-    return (naturalCompare(QString::fromStdString(a.mod), QString::fromStdString(b.mod)) < 0);
-  });
-
-  std::ofstream out(file, std::ios::app);
-
-  DirectoryStats total;
-  for (const auto& s : stats) {
-    out << fmt::format("{},{},{}", s.mod, run, s.toCsv()) << "\n";
-    total += s;
-  }
-
-  out << fmt::format("total,{},{}", run, total.toCsv()) << "\n";
-
-  ++run;
 }

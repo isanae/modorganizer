@@ -1,6 +1,8 @@
 #ifndef MO_REGISTER_FILEREGISTERFWD_INCLUDED
 #define MO_REGISTER_FILEREGISTERFWD_INCLUDED
 
+#include <filesystem>
+
 //                         +--------------------+
 //                 +------ | DirectoryStructure | -------------+
 //                 |       +--------------------+              |
@@ -108,7 +110,6 @@ class OriginConnection;
 class FileRegister;
 class FilesOrigin;
 class FileEntry;
-struct DirectoryStats;
 
 using FileEntryPtr = std::shared_ptr<FileEntry>;
 using FileIndex = unsigned int;
@@ -191,31 +192,11 @@ struct OriginInfo
 };
 
 
-struct DirectoryStats
+struct OriginData
 {
-  static constexpr bool EnableInstrumentation = false;
-
-  std::string mod;
-
-  std::chrono::nanoseconds dirTimes;
-  std::chrono::nanoseconds fileTimes;
-  std::chrono::nanoseconds sortTimes;
-
-  std::chrono::nanoseconds subdirLookupTimes;
-  std::chrono::nanoseconds addDirectoryTimes;
-
-  std::chrono::nanoseconds filesLookupTimes;
-  std::chrono::nanoseconds addFileTimes;
-  std::chrono::nanoseconds addOriginToFileTimes;
-  std::chrono::nanoseconds addFileToOriginTimes;
-  std::chrono::nanoseconds addFileToRegisterTimes;
-
-  DirectoryStats();
-
-  DirectoryStats& operator+=(const DirectoryStats& o);
-
-  static std::string csvHeader();
-  std::string toCsv() const;
+  std::wstring_view name;
+  std::filesystem::path path;
+  int priority;
 };
 
 } // namespace

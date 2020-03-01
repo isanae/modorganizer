@@ -88,7 +88,7 @@ bool FileEntry::isFromArchive() const
   return !m_origin.archive.name.empty();
 }
 
-void FileEntry::addOrigin(
+void FileEntry::addOriginInternal(
   const OriginInfo& newOrigin, std::optional<FILETIME> fileTime)
 {
   std::scoped_lock lock(m_originsMutex);
@@ -104,7 +104,7 @@ void FileEntry::addOrigin(
 
   if (m_parent) {
     // also add the origin to the parent directories
-    m_parent->propagateOrigin(newOrigin.originID);
+    m_parent->propagateOriginInternal(newOrigin.originID);
   }
 
   if (shouldReplacePrimaryOrigin(newOrigin)) {
@@ -114,7 +114,7 @@ void FileEntry::addOrigin(
   }
 }
 
-bool FileEntry::removeOrigin(OriginID removeOriginID)
+bool FileEntry::removeOriginInternal(OriginID removeOriginID)
 {
   std::scoped_lock lock(m_originsMutex);
 
@@ -147,7 +147,8 @@ bool FileEntry::removeOrigin(OriginID removeOriginID)
 
     if (itor == m_alternatives.end()) {
       log::warn(
-        "for file {}, cannot remove origin {}, not in alternative list",
+        "for file {}, cannot remove origin {}, not primary and not "
+        "in alternative list",
         debugName(), removeOriginID);
     } else {
       m_alternatives.erase(itor);

@@ -2546,34 +2546,6 @@ void MainWindow::modRenamed(const QString &oldName, const QString &newName)
   }
 }
 
-void MainWindow::fileMoved(const QString &filePath, const QString &oldOriginName, const QString &newOriginName)
-{
-  const FileEntryPtr filePtr = m_OrganizerCore.directoryStructure()->root()->findFile(ToWString(filePath));
-  if (filePtr.get() != nullptr) {
-    try {
-      auto* newOrigin = m_OrganizerCore.directoryStructure()->findOriginByName(ToWString(newOriginName));
-      if (newOrigin) {
-        QString fullNewPath = ToQString(newOrigin->getPath()) + "\\" + filePath;
-        WIN32_FIND_DATAW findData;
-        HANDLE hFind;
-        hFind = ::FindFirstFileW(ToWString(fullNewPath).c_str(), &findData);
-        filePtr->addOrigin({newOrigin->getID(), {}}, findData.ftCreationTime);
-        FindClose(hFind);
-      }
-
-      auto* oldOrigin = m_OrganizerCore.directoryStructure()->findOriginByName(ToWString(oldOriginName));
-      if (oldOrigin) {
-        filePtr->removeOrigin(oldOrigin->getID());
-      }
-    } catch (const std::exception &e) {
-      reportError(tr("failed to move \"%1\" from mod \"%2\" to \"%3\": %4").arg(filePath).arg(oldOriginName).arg(newOriginName).arg(e.what()));
-    }
-  } else {
-    // this is probably not an error, the specified path is likely a directory
-  }
-}
-
-
 void MainWindow::renameMod_clicked()
 {
   try {
@@ -5215,10 +5187,7 @@ void MainWindow::originModified(int originID)
 
   origin->disable();
 
-  DirectoryStats dummy;
-  m_OrganizerCore.directoryStructure()->root()->addFromOrigin(
-    {origin->getName(), origin->getPath(), origin->getPriority()}, dummy);
-
+  m_OrganizerCore.directoryStructure()->root()->addFromOrigin(*origin);
   m_OrganizerCore.directoryStructure()->root()->cleanupIrrelevant();
 }
 

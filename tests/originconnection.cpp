@@ -22,7 +22,7 @@ struct OriginConnectionTests : public ::testing::Test
 TEST_F(OriginConnectionTests, getOrCreate)
 {
   // create an origin first
-  const auto& o = oc->getOrCreateOrigin(L"name", "C:\\origin dir", 1);
+  const auto& o = oc->getOrCreateOrigin({L"name", "C:\\origin dir", 1});
   EXPECT_EQ(o.getFileRegister().get(), fr.get());
 
   EXPECT_EQ(o.getName(), L"name");
@@ -32,7 +32,7 @@ TEST_F(OriginConnectionTests, getOrCreate)
   // then call getOrCreateOrigin() with the same name, but with different
   // parameters; those should be ignored because the origin is looked up by
   // name first
-  const auto& o2 = oc->getOrCreateOrigin(L"name", "C:\\other path", 3);
+  const auto& o2 = oc->getOrCreateOrigin({L"name", "C:\\other path", 3});
 
   // should be the same object
   EXPECT_EQ(&o2, &o);
@@ -46,7 +46,7 @@ TEST_F(OriginConnectionTests, getOrCreate)
 TEST_F(OriginConnectionTests, create)
 {
   // create an origin first
-  const auto& o = oc->createOrigin(L"name", "C:\\origin dir", 1);
+  const auto& o = oc->createOrigin({L"name", "C:\\origin dir", 1});
   EXPECT_EQ(o.getFileRegister().get(), fr.get());
 
   EXPECT_EQ(o.getName(), L"name");
@@ -59,7 +59,7 @@ TEST_F(OriginConnectionTests, create)
   // note that this shouldn't normally happen because createOrigin() should
   // only be called when the origin doesn't exist, but let's make sure the
   // behaviour is consistent
-  const auto& o2 = oc->createOrigin(L"name", "C:\\other path", 3);
+  const auto& o2 = oc->createOrigin({L"name", "C:\\other path", 3});
 
   // from this point, `o` has been destroyed
 
@@ -80,8 +80,8 @@ TEST_F(OriginConnectionTests, exists)
   EXPECT_FALSE(oc->exists(L"origin 2"));
 
   // add two origins
-  oc->createOrigin(L"origin 1", "C:\\origin 1 path", 1);
-  oc->createOrigin(L"origin 2", "C:\\origin 2 path", 2);
+  oc->createOrigin({L"origin 1", "C:\\origin 1 path", 1});
+  oc->createOrigin({L"origin 2", "C:\\origin 2 path", 2});
 
   EXPECT_FALSE(oc->exists(L""));
   EXPECT_FALSE(oc->exists(L"non-existent"));
@@ -92,8 +92,8 @@ TEST_F(OriginConnectionTests, exists)
 TEST_F(OriginConnectionTests, findByID)
 {
   // add two origins
-  const auto& o1 = oc->createOrigin(L"origin 1", {}, 1);
-  const auto& o2 = oc->createOrigin(L"origin 2", {}, 2);
+  const auto& o1 = oc->createOrigin({L"origin 1", {}, 1});
+  const auto& o2 = oc->createOrigin({L"origin 2", {}, 2});
 
   EXPECT_EQ(oc->findByID(o1.getID()), &o1);
   EXPECT_EQ(oc->findByID(o2.getID()), &o2);
@@ -105,8 +105,8 @@ TEST_F(OriginConnectionTests, findByID)
 TEST_F(OriginConnectionTests, findByName)
 {
   // add two origins
-  const auto& o1 = oc->createOrigin(L"origin 1", {}, 1);
-  const auto& o2 = oc->createOrigin(L"origin 2", {}, 2);
+  const auto& o1 = oc->createOrigin({L"origin 1", {}, 1});
+  const auto& o2 = oc->createOrigin({L"origin 2", {}, 2});
 
   EXPECT_EQ(oc->findByName(o1.getName()), &o1);
   EXPECT_EQ(oc->findByName(o2.getName()), &o2);
@@ -118,8 +118,8 @@ TEST_F(OriginConnectionTests, findByName)
 TEST_F(OriginConnectionTests, changeNameLoookup)
 {
   // add two origins
-  const auto& o1 = oc->createOrigin(L"origin 1", {}, 1);
-  const auto& o2 = oc->createOrigin(L"origin 2", {}, 2);
+  const auto& o1 = oc->createOrigin({L"origin 1", {}, 1});
+  const auto& o2 = oc->createOrigin({L"origin 2", {}, 2});
 
   EXPECT_EQ(oc->findByName(L"origin 1"), &o1);
   EXPECT_EQ(oc->findByName(L"origin 2"), &o2);
@@ -127,7 +127,7 @@ TEST_F(OriginConnectionTests, changeNameLoookup)
   EXPECT_EQ(oc->findByName(L"origin 2 renamed"), nullptr); // non-existent yet
 
   // rename origin 1
-  oc->changeNameLookup(L"origin 1", L"origin 1 renamed");
+  oc->changeNameLookupInternal(L"origin 1", L"origin 1 renamed");
 
   EXPECT_EQ(oc->findByName(L"origin 1"), nullptr);         // dead
   EXPECT_EQ(oc->findByName(L"origin 2"), &o2);
@@ -135,7 +135,7 @@ TEST_F(OriginConnectionTests, changeNameLoookup)
   EXPECT_EQ(oc->findByName(L"origin 2 renamed"), nullptr); // non-existent yet
 
   // rename origin 2
-  oc->changeNameLookup(L"origin 2", L"origin 2 renamed");
+  oc->changeNameLookupInternal(L"origin 2", L"origin 2 renamed");
 
   EXPECT_EQ(oc->findByName(L"origin 1"), nullptr);         // dead
   EXPECT_EQ(oc->findByName(L"origin 2"), nullptr);         // dead
@@ -143,7 +143,7 @@ TEST_F(OriginConnectionTests, changeNameLoookup)
   EXPECT_EQ(oc->findByName(L"origin 2 renamed"), &o2);     // old origin 2
 
   // rename origin 1 back to original
-  oc->changeNameLookup(L"origin 1 renamed", L"origin 1");
+  oc->changeNameLookupInternal(L"origin 1 renamed", L"origin 1");
 
   EXPECT_EQ(oc->findByName(L"origin 1"), &o1);             // back to life
   EXPECT_EQ(oc->findByName(L"origin 2"), nullptr);         // dead
@@ -151,7 +151,7 @@ TEST_F(OriginConnectionTests, changeNameLoookup)
   EXPECT_EQ(oc->findByName(L"origin 2 renamed"), &o2);     // old origin 2
 
   // no effect
-  oc->changeNameLookup(L"unknown origin", L"something else");
+  oc->changeNameLookupInternal(L"unknown origin", L"something else");
 
   // same tests as above
   EXPECT_EQ(oc->findByName(L"origin 1"), &o1);             // back to life

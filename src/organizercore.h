@@ -247,6 +247,10 @@ public slots:
 
   void modStatusChanged(unsigned int index);
   void modStatusChanged(QList<unsigned int> index);
+  void fileMoved(
+    const QString &filePath,
+    const QString &oldOriginName, const QString &newOriginName);
+
   void requestDownload(const QUrl &url, QNetworkReply *reply);
   void downloadRequestedNXM(const QString &url);
 

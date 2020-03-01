@@ -15,8 +15,7 @@ public:
   // creates an empty origin
   //
   FilesOrigin(
-    OriginID ID, std::wstring_view name, const fs::path& path, int priority,
-    std::shared_ptr<OriginConnection> oc);
+    OriginID ID, const OriginData& data, std::shared_ptr<OriginConnection> oc);
 
   // non-copyable
   FilesOrigin(const FilesOrigin&) = delete;
@@ -88,11 +87,11 @@ public:
 
   // adds the given file to this origin
   //
-  void addFile(FileIndex index);
+  void addFileInternal(FileIndex index);
 
   // removes the given file from this origin
   //
-  void removeFile(FileIndex index);
+  void removeFileInternal(FileIndex index);
 
 
   // global origin connection

@@ -28,13 +28,15 @@ public:
   // returns an origin with the given name or creates one; if the origin
   // exists, its enabled flag is also set to true
   //
-  FilesOrigin& getOrCreateOrigin(
-    std::wstring_view name, const fs::path& path, int priority);
+  FilesOrigin& getOrCreateOrigin(const OriginData& data);
 
   // creates a new origin
   //
-  FilesOrigin& createOrigin(
-    std::wstring_view name, const fs::path& directory, int priority);
+  FilesOrigin& createOrigin(const OriginData& data);
+
+  // returns the Data origin
+  //
+  FilesOrigin& getDataOrigin();
 
   // returns whether an origin with the given name exists
   //
@@ -59,7 +61,8 @@ public:
   // moves the origin from `oldName` to `newName`; if an origin was already
   // present at `newName`, it is overwritten
   //
-  void changeNameLookup(std::wstring_view oldName, std::wstring_view newName);
+  void changeNameLookupInternal(
+    std::wstring_view oldName, std::wstring_view newName);
 
   // global file register
   //
@@ -95,8 +98,7 @@ private:
 
   // creates a file origin and adds it to the maps; doesn't lock the mutex
   //
-  FilesOrigin& createOriginNoLock(
-    std::wstring_view name, const fs::path& directory, int priority);
+  FilesOrigin& createOriginNoLock(const OriginData& data);
 
   void handleRenameDiscrepancies(
     std::wstring_view oldName, std::wstring_view newName,
