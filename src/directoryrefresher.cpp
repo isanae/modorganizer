@@ -339,9 +339,6 @@ void DirectoryStructure::addMods(
   // for wait the remaining threads to finish
   m_modThreads.waitForAll();
 
-  // todo: is this actually needed?
-  root->getFileRegister()->sortOrigins();
-
   root->cleanupIrrelevant();
 }
 

@@ -220,7 +220,6 @@ void FileEntry::setPrimaryOrigin(
 
     if (itor == m_alternatives.end()) {
       m_alternatives.push_back(m_origin);
-      assertAlternativesSorted();
     } else {
       log::warn(
         "for file {}, while moving the current origin {} to alternatives so "
@@ -232,6 +231,8 @@ void FileEntry::setPrimaryOrigin(
 
   m_origin = newOrigin;
   m_fileTime = time;
+
+  assertAlternativesSorted();
 }
 
 void FileEntry::addAlternativeOrigin(const OriginInfo& newOrigin)
