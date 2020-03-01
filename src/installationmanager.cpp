@@ -56,13 +56,9 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include <boost/assign.hpp>
 #include <boost/scoped_ptr.hpp>
 
-
 using namespace MOBase;
-using namespace MOShared;
-
 
 typedef Archive* (*CreateArchiveType)();
-
 
 
 template <typename T>

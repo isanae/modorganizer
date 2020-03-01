@@ -31,7 +31,6 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include <algorithm>
 
 using namespace MOBase;
-using namespace MOShared;
 
 class IgnoreChanges
 {

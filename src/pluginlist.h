@@ -25,6 +25,7 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "loot.h"
 
 namespace MOBase { class IPluginGame; }
+class DirectoryEntry;
 
 #include <QString>
 #include <QListWidget>
@@ -118,7 +119,7 @@ public:
    * @todo the profile is not used? If it was, we should pass the Profile-object instead
    **/
   void refresh(const QString &profileName
-               , const MOShared::DirectoryEntry &baseDirectory
+               , const DirectoryEntry &baseDirectory
                , const QString &lockedOrderFile
                , bool refresh);
 
@@ -193,7 +194,7 @@ public:
    *       in different mods can also have different load orders which makes this very intransparent
    * @note also stores to disk the list of locked esps
    **/
-  bool saveLoadOrder(MOShared::DirectoryEntry &directoryStructure);
+  bool saveLoadOrder(DirectoryEntry &directoryStructure);
 
   /**
    * @return number of enabled plugins in the list
@@ -213,7 +214,7 @@ public:
   static QString getColumnName(int column);
   static QString getColumnToolTip(int column);
 
-  void highlightPlugins(const QItemSelectionModel *selection, const MOShared::DirectoryEntry &directoryEntry, const Profile &profile);
+  void highlightPlugins(const QItemSelectionModel *selection, const DirectoryEntry &directoryEntry, const Profile &profile);
 
   void refreshLoadOrder();
 

@@ -71,7 +71,7 @@ LogWorker::~LogWorker()
 
 void LogWorker::process()
 {
-  MOShared::SetThisThreadName("LogWorker");
+  SetThisThreadName("LogWorker");
 
   int noLogCycles = 0;
   while (!m_QuitRequested) {
@@ -131,7 +131,7 @@ UsvfsConnector::UsvfsConnector()
   const LogLevel logLevel = toUsvfsLogLevel(s.diagnostics().logLevel());
   const CrashDumpsType dumpType = s.diagnostics().crashDumpsType();
   const auto delay = duration_cast<milliseconds>(s.diagnostics().spawnDelay());
-  std::string dumpPath = MOShared::ToString(OrganizerCore::crashDumpsPath(), true);
+  std::string dumpPath = ToString(OrganizerCore::crashDumpsPath(), true);
 
   usvfsParameters* params = usvfsCreateParameters();
 

@@ -27,11 +27,10 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "modinfodialogfwd.h"
 
 namespace Ui { class ModInfoDialog; }
-namespace MOShared { class FilesOrigin; }
 
+class FilesOrigin;
 class PluginContainer;
 class OrganizerCore;
-class Settings;
 class ModInfoDialogTab;
 class MainWindow;
 
@@ -159,7 +158,7 @@ private:
 
   // returns the origin of the current mod, may be null
   //
-  MOShared::FilesOrigin* getOrigin();
+  FilesOrigin* getOrigin();
 
 
   // returns the currently selected tab, taking re-ordering in to account;

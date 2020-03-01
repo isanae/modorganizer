@@ -8,8 +8,6 @@
 #include <filesystem>
 
 using namespace MOBase;
-using namespace MOShared;
-namespace fs = std::filesystem;
 
 ModInfoWithConflictInfo::ModInfoWithConflictInfo(
   PluginContainer *pluginContainer, OrganizerCore& core) :

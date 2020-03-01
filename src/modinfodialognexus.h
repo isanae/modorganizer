@@ -42,7 +42,7 @@ public:
   void clear() override;
   void update() override;
   void firstActivation() override;
-  void setMod(ModInfoPtr mod, MOShared::FilesOrigin* origin) override;
+  void setMod(ModInfoPtr mod, FilesOrigin* origin) override;
   bool usesOriginFiles() const override;
 
 private:

@@ -75,7 +75,7 @@ bool ModInfoDialogTab::usesOriginFiles() const
   return true;
 }
 
-void ModInfoDialogTab::setMod(ModInfoPtr mod, MOShared::FilesOrigin* origin)
+void ModInfoDialogTab::setMod(ModInfoPtr mod, FilesOrigin* origin)
 {
   m_mod = mod;
   m_origin = origin;
@@ -93,7 +93,7 @@ ModInfoPtr ModInfoDialogTab::modPtr() const
   return m_mod;
 }
 
-MOShared::FilesOrigin* ModInfoDialogTab::origin() const
+FilesOrigin* ModInfoDialogTab::origin() const
 {
   return m_origin;
 }

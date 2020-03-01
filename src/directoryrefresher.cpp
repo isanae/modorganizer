@@ -33,7 +33,6 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include <gameplugins.h>
 
 using namespace MOBase;
-using namespace MOShared;
 
 DirectoryRefreshProgress::DirectoryRefreshProgress()
   : m_total(0), m_done(0), m_finished(false)
@@ -129,7 +128,7 @@ DirectoryStructure::ModThread::ModThread() :
 }
 
 void DirectoryStructure::ModThread::set(
-  DirectoryStructure* s, MOShared::DirectoryEntry* root,
+  DirectoryStructure* s, DirectoryEntry* root,
   Profile::ActiveMod m, Progress* p, bool addFiles, bool addBSAs)
 {
   m_structure = s;
@@ -235,8 +234,7 @@ const FilesOrigin* DirectoryStructure::findOriginByName(
   return m_register->getOriginConnection()->findByName(name);
 }
 
-std::shared_ptr<MOShared::FileRegister>
-DirectoryStructure::getFileRegister() const
+std::shared_ptr<FileRegister> DirectoryStructure::getFileRegister() const
 {
   return m_register;
 }

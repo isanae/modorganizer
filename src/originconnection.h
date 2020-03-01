@@ -3,9 +3,6 @@
 
 #include "fileregisterfwd.h"
 
-namespace MOShared
-{
-
 // central map of file origins, owned by a FileRegister
 //
 // maintains maps of:
@@ -104,7 +101,5 @@ private:
     std::wstring_view oldName, std::wstring_view newName,
     FileIndex index, NamesMap::iterator newItor);
 };
-
-} // namespace
 
 #endif // MO_REGISTER_ORIGINCONNECTION_INCLUDED

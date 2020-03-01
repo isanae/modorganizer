@@ -62,7 +62,7 @@ public:
   void finished()
   {
     std::sort(m_files.begin(), m_files.end(), [](const auto& a, const auto& b) {
-      return (MOShared::naturalCompare(a.text, b.text) < 0);
+      return (naturalCompare(a.text, b.text) < 0);
     });
 
     endResetModel();

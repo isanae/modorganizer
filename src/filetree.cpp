@@ -10,9 +10,7 @@
 #include <log.h>
 #include <widgetutility.h>
 
-using namespace MOShared;
 using namespace MOBase;
-
 
 bool canPreviewFile(const PluginContainer& pc, const FileEntry& file)
 {
@@ -720,7 +718,7 @@ void FileTree::addFileMenus(QMenu& menu, const FileEntry& file, int originID)
   }
 }
 
-void FileTree::addOpenMenus(QMenu& menu, const MOShared::FileEntry& file)
+void FileTree::addOpenMenus(QMenu& menu, const FileEntry& file)
 {
   using namespace spawn;
 

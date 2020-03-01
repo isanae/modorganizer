@@ -191,7 +191,6 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #pragma warning( disable : 4428 )
 
 using namespace MOBase;
-using namespace MOShared;
 
 const QSize SmallToolbarSize(24, 24);
 const QSize MediumToolbarSize(32, 32);

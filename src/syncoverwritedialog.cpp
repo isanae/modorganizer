@@ -34,9 +34,7 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include <QComboBox>
 #include <QStringList>
 
-
 using namespace MOBase;
-using namespace MOShared;
 
 
 SyncOverwriteDialog::SyncOverwriteDialog(

@@ -35,8 +35,6 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include <filesystem>
 
 using namespace MOBase;
-using namespace MOShared;
-namespace fs = std::filesystem;
 
 const int max_scan_for_context_menu = 50;
 
@@ -617,7 +615,7 @@ void ModInfoDialog::switchToTab(ModInfoTabIDs id)
   log::debug("can't switch to tab ID {}, not available", static_cast<int>(id));
 }
 
-MOShared::FilesOrigin* ModInfoDialog::getOrigin()
+FilesOrigin* ModInfoDialog::getOrigin()
 {
   auto* ds = m_core->directoryStructure();
 

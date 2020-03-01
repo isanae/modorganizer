@@ -61,9 +61,6 @@
 class DirectoryStructure;
 class DirectoryRefreshProgress;
 
-namespace MOShared
-{
-
 // the two WStringViewKey and WStringKey classes are used by DirectoryEntry,
 // they're keys in the hash maps
 //
@@ -223,34 +220,32 @@ struct OriginData
   int priority;
 };
 
-} // namespace
-
 
 namespace std
 {
 
 template <>
-struct hash<MOShared::WStringKey>
+struct hash<WStringKey>
 {
-  using argument_type = MOShared::WStringKey;
+  using argument_type = WStringKey;
   using result_type = std::size_t;
   using is_transparent = void;
 
-  inline result_type operator()(const MOShared::WStringKey& key) const
+  inline result_type operator()(const WStringKey& key) const
   {
     return key.hash;
   }
 
-  inline result_type operator()(const MOShared::WStringViewKey& key) const
+  inline result_type operator()(const WStringViewKey& key) const
   {
     return key.hash;
   }
 };
 
 template <>
-struct hash<MOShared::WStringViewKey>
+struct hash<WStringViewKey>
 {
-  using argument_type = MOShared::WStringViewKey;
+  using argument_type = WStringViewKey;
   using result_type = std::size_t;
   using is_transparent = void;
 
@@ -260,6 +255,6 @@ struct hash<MOShared::WStringViewKey>
   }
 };
 
-} // namespace
+} // namespace std
 
 #endif // MO_REGISTER_FILEREGISTERFWD_INCLUDED

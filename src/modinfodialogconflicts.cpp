@@ -10,7 +10,6 @@
 #include "fileentry.h"
 #include <utility.h>
 
-using namespace MOShared;
 using namespace MOBase;
 
 // if there are more than 50 selected items in the conflict tree, don't bother
@@ -1032,7 +1031,7 @@ bool GeneralConflictsTab::update()
 
 ConflictItem GeneralConflictsTab::createOverwriteItem(
   FileIndex index, bool archive, QString fileName, QString relativeName,
-  const std::vector<MOShared::OriginInfo>& alternatives)
+  const std::vector<OriginInfo>& alternatives)
 {
   const auto& ds = *m_core.directoryStructure();
   std::wstring altString;
@@ -1255,7 +1254,7 @@ void AdvancedConflictsTab::update()
 std::optional<ConflictItem> AdvancedConflictsTab::createItem(
   FileIndex index, int fileOrigin, bool archive,
   QString fileName, QString relativeName,
-  const std::vector<MOShared::OriginInfo>& alternatives)
+  const std::vector<OriginInfo>& alternatives)
 {
   const auto& ds = *m_core.directoryStructure();
 

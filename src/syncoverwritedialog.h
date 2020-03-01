@@ -43,10 +43,7 @@ public:
 
 private:
   void refresh(const QString &path);
-
-  void readTree(
-    const QString &path, MOShared::DirectoryEntry* dir,
-    QTreeWidgetItem *subTree);
+  void readTree(const QString &path, DirectoryEntry* dir, QTreeWidgetItem *subTree);
 
   void applyTo(
     QTreeWidgetItem *item, const QString &path, const QString &modDirectory);

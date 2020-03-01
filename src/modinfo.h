@@ -23,10 +23,6 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "imodinterface.h"
 #include "versioninfo.h"
 
-class PluginContainer;
-class QDir;
-class QDateTime;
-
 #include <QMutex>
 #include <QSharedPointer>
 #include <QString>
@@ -39,9 +35,14 @@ class QDateTime;
 #include <set>
 #include <vector>
 
-namespace MOBase { class IPluginGame; }
-namespace MOShared { class DirectoryEntry; }
+namespace MOBase
+{
+  class IPluginGame;
+}
 
+class PluginContainer;
+class QDir;
+class QDateTime;
 class OrganizerCore;
 
 /**

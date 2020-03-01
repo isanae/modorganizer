@@ -40,7 +40,6 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include <QStringList>
 
 using namespace MOBase;
-using namespace MOShared;
 
 //These two classes give the save-transfer box a smidgin of useful info even
 //if save game isn't supported yet.

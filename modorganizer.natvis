@@ -9,11 +9,11 @@ file={m_wsFile}
  expanded={m_expanded}
 }}</DisplayString></Type>
 
-<Type Name="MOShared::DirectoryEntry"><DisplayString>{{
+<Type Name="DirectoryEntry"><DisplayString>{{
 name={m_name}
 }}</DisplayString></Type>
 
-<Type Name="MOShared::FilesOrigin"><DisplayString>{{
+<Type Name="FilesOrigin"><DisplayString>{{
 id={m_ID} enabled={m_Enabled} prio={m_Priority} files={m_Files} name={m_Name}
 }}</DisplayString></Type>
 

@@ -27,8 +27,6 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 
 class Executable;
 
-namespace MOShared {
-
 /// Test if a file (or directory) by the specified name exists
 bool FileExists(const std::string &filename);
 bool FileExists(const std::wstring &filename);
@@ -77,8 +75,6 @@ private:
 private:
   int m_ErrorCode;
 };
-
-} // namespace MOShared
 
 
 enum class Exit

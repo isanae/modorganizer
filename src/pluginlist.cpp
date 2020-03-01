@@ -56,10 +56,7 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include <algorithm>
 #include <stdexcept>
 
-
 using namespace MOBase;
-using namespace MOShared;
-
 
 static bool ByName(const PluginList::ESPInfo& LHS, const PluginList::ESPInfo& RHS)
 {
@@ -134,7 +131,7 @@ QString PluginList::getColumnToolTip(int column)
   }
 }
 
-void PluginList::highlightPlugins(const QItemSelectionModel *selection, const MOShared::DirectoryEntry &directoryEntry, const Profile &profile)
+void PluginList::highlightPlugins(const QItemSelectionModel *selection, const DirectoryEntry &directoryEntry, const Profile &profile)
 {
   for (auto &esp : m_ESPs) {
     esp.modSelected = false;
@@ -149,7 +146,7 @@ void PluginList::highlightPlugins(const QItemSelectionModel *selection, const MO
     if (!selectedMod.isNull() && profile.modEnabled(modIndex)) {
       QDir dir(selectedMod->absolutePath());
       QStringList plugins = dir.entryList(QStringList() << "*.esp" << "*.esm" << "*.esl");
-      const MOShared::FilesOrigin* origin = directoryEntry.getOriginConnection()->findByName(selectedMod->internalName().toStdWString());
+      const FilesOrigin* origin = directoryEntry.getOriginConnection()->findByName(selectedMod->internalName().toStdWString());
       if (!origin) {
         log::error("PluginList::highlightPlugins(): origin '{}' not found", selectedMod->internalName());
         continue;
@@ -157,7 +154,7 @@ void PluginList::highlightPlugins(const QItemSelectionModel *selection, const MO
 
       if (plugins.size() > 0) {
         for (auto plugin : plugins) {
-          MOShared::FileEntryPtr file = directoryEntry.findFile(plugin.toStdWString());
+          FileEntryPtr file = directoryEntry.findFile(plugin.toStdWString());
           if (file && file->getOrigin() != origin->getID()) {
             const auto& alternatives = file->getAlternatives();
             if (std::find_if(alternatives.begin(), alternatives.end(), [&](auto&& element) { return element.originID == origin->getID(); }) == alternatives.end())

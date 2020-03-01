@@ -6,7 +6,6 @@
 #include <QApplication>
 
 using namespace MOBase;
-using namespace MOShared;
 
 QDateTime ModInfoForeign::creationTime() const
 {

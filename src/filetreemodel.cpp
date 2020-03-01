@@ -8,7 +8,6 @@
 #include <log.h>
 
 using namespace MOBase;
-using namespace MOShared;
 
 // in mainwindow.cpp
 QString UnmanagedModName();
@@ -465,7 +464,7 @@ QModelIndex FileTreeModel::indexFromItem(FileTreeItem& item, int col) const
 }
 
 void FileTreeModel::update(
-  FileTreeItem& parentItem, const MOShared::DirectoryEntry& parentEntry,
+  FileTreeItem& parentItem, const DirectoryEntry& parentEntry,
   const std::wstring& parentPath)
 {
   trace(log::debug("updating {}", parentItem.debugName()));
@@ -498,7 +497,7 @@ void FileTreeModel::update(
 
 bool FileTreeModel::updateDirectories(
   FileTreeItem& parentItem, const std::wstring& parentPath,
-  const MOShared::DirectoryEntry& parentEntry)
+  const DirectoryEntry& parentEntry)
 {
   // removeDisappearingDirectories() will add directories that are in the
   // tree and still on the filesystem to this set; addNewDirectories() will
@@ -510,7 +509,7 @@ bool FileTreeModel::updateDirectories(
 }
 
 void FileTreeModel::removeDisappearingDirectories(
-  FileTreeItem& parentItem, const MOShared::DirectoryEntry& parentEntry,
+  FileTreeItem& parentItem, const DirectoryEntry& parentEntry,
   const std::wstring& parentPath, std::unordered_set<std::wstring_view>& seen)
 {
   auto& children = parentItem.children();
@@ -586,7 +585,7 @@ void FileTreeModel::removeDisappearingDirectories(
 }
 
 bool FileTreeModel::addNewDirectories(
-  FileTreeItem& parentItem, const MOShared::DirectoryEntry& parentEntry,
+  FileTreeItem& parentItem, const DirectoryEntry& parentEntry,
   const std::wstring& parentPath,
   const std::unordered_set<std::wstring_view>& seen)
 {
@@ -638,7 +637,7 @@ bool FileTreeModel::addNewDirectories(
 
 bool FileTreeModel::updateFiles(
   FileTreeItem& parentItem, const std::wstring& parentPath,
-  const MOShared::DirectoryEntry& parentEntry)
+  const DirectoryEntry& parentEntry)
 {
   // removeDisappearingFiles() will add files that are in the tree and still on
   // the filesystem to this set; addNewFiless() will use this to figure out if
@@ -652,7 +651,7 @@ bool FileTreeModel::updateFiles(
 }
 
 void FileTreeModel::removeDisappearingFiles(
-  FileTreeItem& parentItem, const MOShared::DirectoryEntry& parentEntry,
+  FileTreeItem& parentItem, const DirectoryEntry& parentEntry,
   int& firstFileRow, std::unordered_set<FileIndex>& seen)
 {
   auto& children = parentItem.children();
@@ -718,7 +717,7 @@ void FileTreeModel::removeDisappearingFiles(
 }
 
 bool FileTreeModel::addNewFiles(
-  FileTreeItem& parentItem, const MOShared::DirectoryEntry& parentEntry,
+  FileTreeItem& parentItem, const DirectoryEntry& parentEntry,
   const std::wstring& parentPath, const int firstFileRow,
   const std::unordered_set<FileIndex>& seen)
 {
@@ -805,7 +804,7 @@ FileTreeItem::Ptr FileTreeModel::createFileItem(
 }
 
 void FileTreeModel::updateFileItem(
-  FileTreeItem& item, const MOShared::FileEntry& file)
+  FileTreeItem& item, const FileEntry& file)
 {
   const int originID = file.getOrigin();
 
@@ -965,7 +964,7 @@ QVariant FileTreeModel::displayData(const FileTreeItem* item, int column) const
 }
 
 std::wstring FileTreeModel::makeModName(
-  const MOShared::FileEntry& file, int originID) const
+  const FileEntry& file, int originID) const
 {
   static const std::wstring Unmanaged = UnmanagedModName().toStdWString();
 

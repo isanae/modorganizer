@@ -4,9 +4,6 @@
 #include <iplugingame.h>
 #include <log.h>
 
-namespace MOShared
-{
-
 using namespace MOBase;
 
 OriginConnection::OriginConnection(std::shared_ptr<FileRegister> r)
@@ -237,5 +234,3 @@ FilesOrigin& OriginConnection::createOriginNoLock(const OriginData& data)
 
   return r.first->second;
 }
-
-} // namespace

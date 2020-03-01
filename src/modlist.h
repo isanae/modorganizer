@@ -42,6 +42,7 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 
 class QSortFilterProxyModel;
 class PluginContainer;
+class DirectoryEntry;
 
 /**
  * Model presenting an overview of the installed mod
@@ -121,7 +122,7 @@ public:
 
   int timeElapsedSinceLastChecked() const;
 
-  void highlightMods(const QItemSelectionModel *selection, const MOShared::DirectoryEntry &directoryEntry);
+  void highlightMods(const QItemSelectionModel *selection, const DirectoryEntry &directoryEntry);
 
 public:
 

@@ -3,9 +3,6 @@
 
 #include "fileregisterfwd.h"
 
-namespace MOShared
-{
-
 // represents a mod or a pseudo-mod like the data directory; an origin
 // maintains a list of files
 //
@@ -124,7 +121,5 @@ private:
   // protects m_Files
   mutable std::mutex m_filesMutex;
 };
-
-} // namespace
 
 #endif // MO_REGISTER_FILESORIGIN_INCLUDED

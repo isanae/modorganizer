@@ -29,9 +29,6 @@ namespace env
 }
 
 
-namespace MOShared
-{
-
 // a directory has files, subdirectories and a list of origins having the
 // directory
 //
@@ -398,7 +395,5 @@ private:
   //
   void dump(std::FILE* f, const std::wstring& parentPath) const;
 };
-
-} // namespace MOShared
 
 #endif // MO_REGISTER_DIRECTORYENTRY_INCLUDED

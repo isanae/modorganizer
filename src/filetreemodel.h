@@ -81,7 +81,7 @@ public:
 private:
   class Range;
 
-  using DirectoryIterator = std::vector<MOShared::DirectoryEntry*>::const_iterator;
+  using DirectoryIterator = std::vector<DirectoryEntry*>::const_iterator;
 
   OrganizerCore& m_core;
   bool m_enabled;
@@ -102,58 +102,58 @@ private:
 
 
   void update(
-    FileTreeItem& parentItem, const MOShared::DirectoryEntry& parentEntry,
+    FileTreeItem& parentItem, const DirectoryEntry& parentEntry,
     const std::wstring& parentPath);
 
 
   bool updateDirectories(
     FileTreeItem& parentItem, const std::wstring& path,
-    const MOShared::DirectoryEntry& parentEntry);
+    const DirectoryEntry& parentEntry);
 
   void removeDisappearingDirectories(
-    FileTreeItem& parentItem, const MOShared::DirectoryEntry& parentEntry,
+    FileTreeItem& parentItem, const DirectoryEntry& parentEntry,
     const std::wstring& parentPath, std::unordered_set<std::wstring_view>& seen);
 
   bool addNewDirectories(
-    FileTreeItem& parentItem, const MOShared::DirectoryEntry& parentEntry,
+    FileTreeItem& parentItem, const DirectoryEntry& parentEntry,
     const std::wstring& parentPath,
     const std::unordered_set<std::wstring_view>& seen);
 
 
   bool updateFiles(
     FileTreeItem& parentItem, const std::wstring& path,
-    const MOShared::DirectoryEntry& parentEntry);
+    const DirectoryEntry& parentEntry);
 
   void removeDisappearingFiles(
-    FileTreeItem& parentItem, const MOShared::DirectoryEntry& parentEntry,
-    int& firstFileRow, std::unordered_set<MOShared::FileIndex>& seen);
+    FileTreeItem& parentItem, const DirectoryEntry& parentEntry,
+    int& firstFileRow, std::unordered_set<FileIndex>& seen);
 
   bool addNewFiles(
-    FileTreeItem& parentItem, const MOShared::DirectoryEntry& parentEntry,
+    FileTreeItem& parentItem, const DirectoryEntry& parentEntry,
     const std::wstring& parentPath, int firstFileRow,
-    const std::unordered_set<MOShared::FileIndex>& seen);
+    const std::unordered_set<FileIndex>& seen);
 
 
   FileTreeItem::Ptr createDirectoryItem(
     FileTreeItem& parentItem, const std::wstring& parentPath,
-    const MOShared::DirectoryEntry& d);
+    const DirectoryEntry& d);
 
   FileTreeItem::Ptr createFileItem(
     FileTreeItem& parentItem, const std::wstring& parentPath,
-    const MOShared::FileEntry& file);
+    const FileEntry& file);
 
-  void updateFileItem(FileTreeItem& item, const MOShared::FileEntry& file);
+  void updateFileItem(FileTreeItem& item, const FileEntry& file);
 
 
   QVariant displayData(const FileTreeItem* item, int column) const;
-  std::wstring makeModName(const MOShared::FileEntry& file, int originID) const;
+  std::wstring makeModName(const FileEntry& file, int originID) const;
 
   void ensureLoaded(FileTreeItem* item) const;
   void updatePendingIcons();
   void removePendingIcons(const QModelIndex& parent, int first, int last);
 
-  bool shouldShowFile(const MOShared::FileEntry& file) const;
-  bool shouldShowFolder(const MOShared::DirectoryEntry& dir, const FileTreeItem* item) const;
+  bool shouldShowFile(const FileEntry& file) const;
+  bool shouldShowFolder(const DirectoryEntry& dir, const FileTreeItem* item) const;
   QString makeTooltip(const FileTreeItem& item) const;
   QVariant makeIcon(const FileTreeItem& item, const QModelIndex& index) const;
 

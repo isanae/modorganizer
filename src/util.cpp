@@ -23,9 +23,6 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 
 using namespace MOBase;
 
-namespace MOShared
-{
-
 bool FileExists(const std::string &filename)
 {
   DWORD dwAttrib = ::GetFileAttributesA(filename.c_str());
@@ -408,8 +405,5 @@ std::string windows_error::constructMessage(const std::string& input, int inErro
   ::SetLastError(errorCode); // restore error code because FormatMessage might have modified it
   return finalMessage.str();
 }
-
-} // namespace MOShared
-
 
 // ExitModOrganizer() and others are defined in mainwindow.cpp

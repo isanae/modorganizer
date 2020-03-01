@@ -126,7 +126,7 @@ public:
     return m_wsLcFile;
   }
 
-  const MOShared::FileKey& key() const
+  const FileKey& key() const
   {
     return m_key;
   }
@@ -288,7 +288,7 @@ private:
 
   const QString m_virtualParentPath;
   const std::wstring m_wsFile, m_wsLcFile;
-  const MOShared::FileKey m_key;
+  const FileKey m_key;
   const QString m_file;
   const bool m_isDirectory;
 

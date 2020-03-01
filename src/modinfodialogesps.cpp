@@ -7,7 +7,6 @@
 #include <log.h>
 
 using namespace MOBase;
-using namespace MOShared;
 
 class ESPItem
 {

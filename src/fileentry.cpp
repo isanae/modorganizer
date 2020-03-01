@@ -4,9 +4,6 @@
 #include "originconnection.h"
 #include <log.h>
 
-namespace MOShared
-{
-
 using namespace MOBase;
 
 FileEntry::FileEntry(FileIndex index, std::wstring name, DirectoryEntry* p)
@@ -336,5 +333,3 @@ void FileEntry::assertAlternativesSorted() const
     DebugBreak();
   }
 }
-
-} // namespace

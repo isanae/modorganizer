@@ -4,8 +4,7 @@
 #include "modinfo.h"
 #include "modinfodialogfwd.h"
 
-namespace MOShared { class FileEntry; }
-
+class FileEntry;
 class OrganizerCore;
 class PluginContainer;
 class FileTreeModel;
@@ -58,8 +57,8 @@ private:
   bool showShellMenu(QPoint pos);
 
   void addDirectoryMenus(QMenu& menu, FileTreeItem& item);
-  void addFileMenus(QMenu& menu, const MOShared::FileEntry& file, int originID);
-  void addOpenMenus(QMenu& menu, const MOShared::FileEntry& file);
+  void addFileMenus(QMenu& menu, const FileEntry& file, int originID);
+  void addOpenMenus(QMenu& menu, const FileEntry& file);
   void addCommonMenus(QMenu& menu);
 
   void toggleVisibility(bool b, FileTreeItem* item=nullptr);

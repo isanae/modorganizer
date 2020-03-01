@@ -17,7 +17,6 @@
 #include <boost/fusion/include/for_each.hpp>
 
 using namespace MOBase;
-using namespace MOShared;
 
 namespace bf = boost::fusion;
 

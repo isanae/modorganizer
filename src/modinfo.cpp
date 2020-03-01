@@ -44,7 +44,6 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include <QMutexLocker>
 
 using namespace MOBase;
-using namespace MOShared;
 
 
 std::vector<ModInfo::Ptr> ModInfo::s_Collection;

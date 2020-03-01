@@ -59,7 +59,6 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 
 
 using namespace MOBase;
-using namespace MOShared;
 
 ModList::ModList(PluginContainer *pluginContainer, QObject *parent)
   : QAbstractItemModel(parent)
@@ -869,7 +868,7 @@ int ModList::timeElapsedSinceLastChecked() const
   return m_LastCheck.elapsed();
 }
 
-void ModList::highlightMods(const QItemSelectionModel *selection, const MOShared::DirectoryEntry &directoryEntry)
+void ModList::highlightMods(const QItemSelectionModel *selection, const DirectoryEntry &directoryEntry)
 {
   for (unsigned int i = 0; i < ModInfo::getNumMods(); ++i) {
       ModInfo::getByIndex(i)->setPluginSelected(false);
@@ -877,7 +876,7 @@ void ModList::highlightMods(const QItemSelectionModel *selection, const MOShared
   for (QModelIndex idx : selection->selectedRows(PluginList::COL_NAME)) {
     QString modName = idx.data().toString();
 
-    const MOShared::FileEntryPtr fileEntry = directoryEntry.findFile(modName.toStdWString());
+    const FileEntryPtr fileEntry = directoryEntry.findFile(modName.toStdWString());
     if (fileEntry.get() != nullptr) {
       bool archive = false;
       std::vector<OriginInfo> origins;
@@ -886,7 +885,7 @@ void ModList::highlightMods(const QItemSelectionModel *selection, const MOShared
         origins.insert(origins.end(), {fileEntry->getOrigin(), fileEntry->getArchive()});
       }
       for (auto originInfo : origins) {
-        MOShared::FilesOrigin* origin = directoryEntry.getOriginConnection()->findByID(originInfo.originID);
+        FilesOrigin* origin = directoryEntry.getOriginConnection()->findByID(originInfo.originID);
 
         if (!origin) {
           log::error("ModList::highlightMods(): origin {} not found", originInfo.originID);

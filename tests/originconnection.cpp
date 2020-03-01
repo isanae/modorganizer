@@ -3,7 +3,7 @@
 #include "originconnection.h"
 #include "filesorigin.h"
 
-namespace MOShared::tests
+namespace tests
 {
 
 struct OriginConnectionTests : public ::testing::Test

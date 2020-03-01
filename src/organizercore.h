@@ -37,17 +37,13 @@ class PluginListSortProxy;
 class Profile;
 class IUserInterface;
 class PluginContainer;
+class DirectoryEntry;
 
 namespace MOBase
 {
   template <typename T> class GuessedValue;
   class IModInterface;
   class IPluginGame;
-}
-
-namespace MOShared
-{
-  class DirectoryEntry;
 }
 
 
@@ -294,8 +290,7 @@ private:
 
   std::vector<Mapping>
   fileMapping(const QString &dataPath, const QString &relPath,
-              const MOShared::DirectoryEntry *base,
-              const MOShared::DirectoryEntry *directoryEntry,
+              const DirectoryEntry *base, const DirectoryEntry *directoryEntry,
               int createDestination);
 
 private slots:

@@ -34,22 +34,6 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "fileregisterfwd.h"
 #include <log.h>
 
-class Executable;
-class CategoryFactory;
-class OrganizerCore;
-class FilterList;
-class DataTab;
-class BrowserDialog;
-
-class PluginListSortProxy;
-namespace BSA { class Archive; }
-
-namespace MOBase { class IPluginModPage; }
-namespace MOBase { class IPluginTool; }
-namespace MOBase { class ISaveGame; }
-
-namespace MOShared { class DirectoryEntry; }
-
 #include <QByteArray>
 #include <QDir>
 #include <QFileInfo>
@@ -65,43 +49,35 @@ namespace MOShared { class DirectoryEntry; }
 #include <QTimer>
 #include <QHeaderView>
 #include <QVariant>
+#include <QTranslator>
 #include <Qt>
 #include <QtConcurrent/QtConcurrentRun>
 #include <QFutureWatcher>
 
-class QAction;
-class QAbstractItemModel;
-class QDateTime;
-class QEvent;
-class QFile;
-class QListWidgetItem;
-class QMenu;
-class QModelIndex;
-class QPoint;
-class QProgressDialog;
-class QTranslator;
-class QTreeWidgetItem;
-class QUrl;
-class QWidget;
+class Executable;
+class CategoryFactory;
+class OrganizerCore;
+class FilterList;
+class DataTab;
+class BrowserDialog;
+class PluginListSortProxy;
+class Settings;
 
-#ifndef Q_MOC_RUN
-#include <boost/signals2.hpp>
-#endif
-
-//Sigh - just for HANDLE
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
-
-#include <functional>
-#include <set>
-#include <string>
-#include <vector>
-
-namespace Ui {
-    class MainWindow;
+namespace BSA
+{
+  class Archive;
 }
 
-class Settings;
+namespace MOBase
+{
+  class IPluginModPage;
+  class IPluginTool;
+}
+
+namespace Ui
+{
+  class MainWindow;
+}
 
 
 class MainWindow : public QMainWindow, public IUserInterface
@@ -457,7 +433,7 @@ private slots:
 
   void motdReceived(const QString &motd);
 
-  void originModified(MOShared::OriginID origin);
+  void originModified(OriginID origin);
 
   void addRemoveCategories_MenuHandler();
   void replaceCategories_MenuHandler();

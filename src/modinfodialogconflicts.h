@@ -52,16 +52,16 @@ private:
   FilterWidget m_filterNoConflicts;
 
   ConflictItem createOverwriteItem(
-    MOShared::FileIndex index, bool archive,
+    FileIndex index, bool archive,
     QString fileName, QString relativeName,
-    const std::vector<MOShared::OriginInfo>& alternatives);
+    const std::vector<OriginInfo>& alternatives);
 
   ConflictItem createNoConflictItem(
-    MOShared::FileIndex index, bool archive,
+    FileIndex index, bool archive,
     QString fileName, QString relativeName);
 
   ConflictItem createOverwrittenItem(
-    MOShared::FileIndex index, int fileOrigin, bool archive,
+    FileIndex index, int fileOrigin, bool archive,
     QString fileName, QString relativeName);
 
   void onOverwriteActivated(const QModelIndex& index);
@@ -94,9 +94,9 @@ private:
   ConflictListModel* m_model;
 
   std::optional<ConflictItem> createItem(
-    MOShared::FileIndex index, int fileOrigin, bool archive,
+    FileIndex index, int fileOrigin, bool archive,
     QString fileName, QString relativeName,
-    const std::vector<MOShared::OriginInfo>& alternatives);
+    const std::vector<OriginInfo>& alternatives);
 };
 
 

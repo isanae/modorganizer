@@ -7,7 +7,6 @@
 #include <QApplication>
 
 using namespace MOBase;
-using namespace MOShared;
 
 
 OrganizerProxy::OrganizerProxy(OrganizerCore *organizer, PluginContainer *pluginContainer, const QString &pluginName)

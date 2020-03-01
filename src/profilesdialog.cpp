@@ -43,7 +43,6 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include <exception>
 
 using namespace MOBase;
-using namespace MOShared;
 
 Q_DECLARE_METATYPE(Profile::Ptr)
 

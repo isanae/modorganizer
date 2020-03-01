@@ -8,7 +8,6 @@
 #include <log.h>
 #include <report.h>
 
-using namespace MOShared;
 using namespace MOBase;
 
 // in mainwindow.cpp

@@ -4,9 +4,6 @@
 #include "fileregisterfwd.h"
 #include <mutex>
 
-namespace MOShared
-{
-
 // central register for all files; there is only one FileRegister, owned by
 // DirectoryStructure and shared with all DirectoryEntry objects
 //
@@ -112,7 +109,5 @@ private:
   //
   FileRegister();
 };
-
-} // namespace
 
 #endif // MO_REGISTER_FILESREGISTER_INCLUDED

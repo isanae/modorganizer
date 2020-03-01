@@ -91,7 +91,7 @@ public:
   DirectoryStructure(const DirectoryStructure&) = delete;
   DirectoryStructure& operator=(const DirectoryStructure&) = delete;
 
-  MOShared::DirectoryEntry* root();
+  DirectoryEntry* root();
 
 
   // convenience: forwards to OriginConnection::exists()
@@ -100,17 +100,17 @@ public:
 
   // convenience: forwards to OriginConnection::findByID()
   //
-  MOShared::FilesOrigin* findOriginByID(MOShared::OriginID id);
-  const MOShared::FilesOrigin* findOriginByID(MOShared::OriginID id) const;
+  FilesOrigin* findOriginByID(OriginID id);
+  const FilesOrigin* findOriginByID(OriginID id) const;
 
   // convenience: forwards to OriginConnection::findByName()
   //
-  MOShared::FilesOrigin* findOriginByName(std::wstring_view name);
-  const MOShared::FilesOrigin* findOriginByName(std::wstring_view name) const;
+  FilesOrigin* findOriginByName(std::wstring_view name);
+  const FilesOrigin* findOriginByName(std::wstring_view name) const;
 
   // global register
   //
-  std::shared_ptr<MOShared::FileRegister> getFileRegister() const;
+  std::shared_ptr<FileRegister> getFileRegister() const;
 
 
   // add files for a mod to the directory structure, including bsas; async,
@@ -160,7 +160,7 @@ private:
     // sets up this thread
     //
     void set(
-      DirectoryStructure* s, MOShared::DirectoryEntry* root,
+      DirectoryStructure* s, DirectoryEntry* root,
       Profile::ActiveMod m, Progress* p, bool addFiles, bool addBSAs);
 
     // runs it
@@ -172,7 +172,7 @@ private:
 
   private:
     DirectoryStructure* m_structure;
-    MOShared::DirectoryEntry* m_root;
+    DirectoryEntry* m_root;
     Profile::ActiveMod m_mod;
     Progress* m_progress;
     bool m_addFiles;
@@ -182,10 +182,10 @@ private:
   };
 
   // root directory
-  std::unique_ptr<MOShared::DirectoryEntry> m_root;
+  std::unique_ptr<DirectoryEntry> m_root;
 
   // file register
-  std::shared_ptr<MOShared::FileRegister> m_register;
+  std::shared_ptr<FileRegister> m_register;
 
 
   // locked between the varioud add*() functions and when swapping roots after
@@ -222,38 +222,36 @@ private:
 
   // adds files from the data directory into the given root
   //
-  void addFromData(MOShared::DirectoryEntry* root);
+  void addFromData(DirectoryEntry* root);
 
   // starts a thread per mod in `mods`, up to `m_threadCount` active threads,
   // then adds files and bsas from it depending on the two bools
   //
   void addMods(
-    MOShared::DirectoryEntry* root,
-    const std::vector<Profile::ActiveMod>& mods, bool addFiles, bool addBSAs,
-    Progress& p);
+    DirectoryEntry* root, const std::vector<Profile::ActiveMod>& mods,
+    bool addFiles, bool addBSAs, Progress& p);
 
   // adds "associated files", typically files that are from a foreign mod;
   // see ModInfoForeign::associatedFiles() in modinfoforeign.h
   //
-  void addAssociatedFiles(
-    MOShared::DirectoryEntry* root, const Profile::ActiveMod& m);
+  void addAssociatedFiles(DirectoryEntry* root, const Profile::ActiveMod& m);
 
   // adds files from the given mod's directory recursively
   //
   void addFiles(
-    MOShared::DirectoryEntry* root,
+    DirectoryEntry* root,
     env::DirectoryWalker& walker, const Profile::ActiveMod& m);
 
   // adds files from all BSAs found in the given mod's directory
   //
-  void addBSAs(MOShared::DirectoryEntry* root, const Profile::ActiveMod& m);
+  void addBSAs(DirectoryEntry* root, const Profile::ActiveMod& m);
 
   // swaps the given register and root with the current ones and schedules root
   // for deletion in m_deleterThread
   //
   void setRoot(
-    std::shared_ptr<MOShared::FileRegister> fr,
-    std::unique_ptr<MOShared::DirectoryEntry> newRoot);
+    std::shared_ptr<FileRegister> fr,
+    std::unique_ptr<DirectoryEntry> newRoot);
 
   // returns the plugin load order as a map of lowercase plugin names and
   // load index

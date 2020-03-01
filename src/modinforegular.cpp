@@ -13,7 +13,6 @@
 #include <sstream>
 
 using namespace MOBase;
-using namespace MOShared;
 
 namespace {
   //Arguably this should be a class static or we should be using FileString rather

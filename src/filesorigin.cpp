@@ -4,9 +4,6 @@
 #include "fileentry.h"
 #include <log.h>
 
-namespace MOShared
-{
-
 using namespace MOBase;
 
 FilesOrigin::FilesOrigin(
@@ -145,5 +142,3 @@ std::wstring FilesOrigin::debugName() const
 {
   return fmt::format(L"{}:{}", m_name, m_id);
 }
-
-} //  namespace

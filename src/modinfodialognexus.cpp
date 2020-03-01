@@ -109,7 +109,7 @@ void NexusTab::firstActivation()
   updateWebpage();
 }
 
-void NexusTab::setMod(ModInfoPtr mod, MOShared::FilesOrigin* origin)
+void NexusTab::setMod(ModInfoPtr mod, FilesOrigin* origin)
 {
   cleanup();
 

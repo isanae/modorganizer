@@ -6,7 +6,6 @@
 #include <utility.h>
 
 using namespace MOBase;
-using namespace MOShared;
 namespace fs = std::filesystem;
 
 constexpr bool AlwaysSortDirectoriesFirst = true;

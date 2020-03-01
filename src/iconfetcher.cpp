@@ -80,7 +80,7 @@ bool IconFetcher::hasOwnIcon(const QString& path) const
 
 void IconFetcher::threadFun()
 {
-  MOShared::SetThisThreadName("IconFetcher");
+  SetThisThreadName("IconFetcher");
 
   while (!m_stop) {
     m_waiter.wait();

@@ -11,7 +11,6 @@ class Settings;
 class PluginContainer;
 class FileTree;
 
-namespace MOShared { class DirectoryEntry; }
 
 class DataTab : public QObject
 {

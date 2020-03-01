@@ -73,7 +73,6 @@
 #include <utility>
 
 
-using namespace MOShared;
 using namespace MOBase;
 
 //static

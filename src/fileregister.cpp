@@ -6,9 +6,6 @@
 #include "util.h"
 #include <log.h>
 
-namespace MOShared
-{
-
 using namespace MOBase;
 
 FileRegister::FileRegister()
@@ -254,5 +251,3 @@ std::ostream& operator<<(std::ostream& out, const OriginInfo& a)
   out << ToString(a.debugName(), true);
   return out;
 }
-
-} // namespace

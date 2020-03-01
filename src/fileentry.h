@@ -3,9 +3,6 @@
 
 #include "fileregisterfwd.h"
 
-namespace MOShared
-{
-
 // represents a file inside a DirectoryEntry
 //
 // each file has a unique index, which is generated in
@@ -230,7 +227,5 @@ private:
   //
   void assertAlternativesSorted() const;
 };
-
-} // namespace
 
 #endif // MO_REGISTER_FILEENTRY_INCLUDED

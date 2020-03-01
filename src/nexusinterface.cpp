@@ -36,7 +36,6 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 
 
 using namespace MOBase;
-using namespace MOShared;
 
 
 void throttledWarning(const APIUserAccount& user)

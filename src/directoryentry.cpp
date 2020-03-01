@@ -27,9 +27,6 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include <log.h>
 #include <utility.h>
 
-namespace MOShared
-{
-
 using namespace MOBase;
 
 // calls f(c, last) on each component, where `c` is the name and `last` is
@@ -636,7 +633,7 @@ void DirectoryEntry::dump(std::FILE* f, const std::wstring& parentPath) const
       const auto path = parentPath + L"\\" + file->getName();
       const auto line = path + L"\t(" + o->getName() + L")\r\n";
 
-      const auto lineu8 = MOShared::ToString(line, true);
+      const auto lineu8 = ToString(line, true);
 
       if (std::fwrite(lineu8.data(), lineu8.size(), 1, f) != 1) {
         const auto e = errno;
@@ -654,5 +651,3 @@ void DirectoryEntry::dump(std::FILE* f, const std::wstring& parentPath) const
     }
   }
 }
-
-} // namespace MOShared
