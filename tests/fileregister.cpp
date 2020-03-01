@@ -86,12 +86,12 @@ TEST_F(FileRegisterTests, addAndRemoveFile)
   EXPECT_EQ(f1->getFileTime()->dwHighDateTime, ft.dwHighDateTime);
 
   // file must be in directory
-  auto f1Again = root->findFile(L"file1");
+  auto f1Again = root->findFile(f1->getName());
   ASSERT_TRUE(f1Again);
   EXPECT_EQ(f1, f1Again);
 
   // file must be in origin
-  EXPECT_EQ(origin.getFileIndices(), std::set<FileIndex>({f1->getIndex()}));
+  EXPECT_TRUE(origin.hasFile(f1->getIndex()));
 
   // origin must be in file
   EXPECT_EQ(f1->getOrigin(), origin.getID());
@@ -101,13 +101,70 @@ TEST_F(FileRegisterTests, addAndRemoveFile)
   fr->removeFile(f1->getIndex());
 
   // file must be gone from directory
-  EXPECT_FALSE(root->findFile(L"file1"));
+  EXPECT_FALSE(root->findFile(f1->getName()));
 
   // file must be gone from origin
   EXPECT_TRUE(origin.getFileIndices().empty());
 
   // origin must be gone from file
   EXPECT_EQ(f1->getOrigin(), InvalidOriginID);
+}
+
+TEST_F(FileRegisterTests, changeFileOrigin)
+{
+  // adding two origins
+  auto& origin1 = fr->getOriginConnection()->createOrigin({
+    L"origin one", L"c:\\origin one path", 1});
+
+  auto& origin2 = fr->getOriginConnection()->createOrigin({
+    L"origin two", L"c:\\origin two path", 2});
+
+
+  // creating a file in origin1
+  auto f = fr->addFile(*root, L"file1", origin1, {}, {});
+
+  // making sure it's really there
+  EXPECT_EQ(root->findFile(f->getName()), f);
+  EXPECT_TRUE(origin1.hasFile(f->getIndex()));
+  EXPECT_EQ(f->getOrigin(), origin1.getID());
+
+
+  // change the origin
+  fr->changeFileOrigin(*f, origin1, origin2);
+
+  // still in the same directory
+  EXPECT_EQ(root->findFile(f->getName()), f);
+
+  // gone from origin1
+  EXPECT_FALSE(origin1.hasFile(f->getIndex()));
+
+  // now in origin2
+  EXPECT_TRUE(origin2.hasFile(f->getIndex()));
+  EXPECT_EQ(f->getOrigin(), origin2.getID());
+
+
+  // try moving it again, this should fail gracefully
+  fr->changeFileOrigin(*f, origin1, origin2);
+
+  // same tests as above
+  EXPECT_EQ(root->findFile(f->getName()), f);
+  EXPECT_FALSE(origin1.hasFile(f->getIndex()));
+  EXPECT_TRUE(origin2.hasFile(f->getIndex()));
+  EXPECT_EQ(f->getOrigin(), origin2.getID());
+
+
+  // move it back to origin1
+  fr->changeFileOrigin(*f, origin2, origin1);
+
+  // still in root
+  EXPECT_EQ(root->findFile(f->getName()), f);
+
+  // gone from origin2
+  EXPECT_FALSE(origin2.hasFile(f->getIndex()));
+
+  // back in origin1
+  EXPECT_TRUE(origin1.hasFile(f->getIndex()));
+  EXPECT_EQ(f->getOrigin(), origin1.getID());
 }
 
 } // namespace tests

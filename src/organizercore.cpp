@@ -1590,6 +1590,7 @@ void OrganizerCore::fileMoved(
   const QString &filePath,
   const QString &oldOriginName, const QString &newOriginName)
 {
+  // getting from origin
   auto* from = m_DirectoryStructure->findOriginByName(
     oldOriginName.toStdWString());
 
@@ -1598,6 +1599,7 @@ void OrganizerCore::fileMoved(
     return;
   }
 
+  // getting to origin
   auto* to = m_DirectoryStructure->findOriginByName(
     newOriginName.toStdWString());
 
@@ -1606,8 +1608,22 @@ void OrganizerCore::fileMoved(
     return;
   }
 
-  m_DirectoryStructure->getFileRegister()->changeFileOrigin(
-    *m_DirectoryStructure->root(), filePath.toStdWString(), *from, *to);
+  // getting file
+  const auto file = m_DirectoryStructure->root()
+    ->findFileRecursive(filePath.toStdWString());
+
+  if (!file) {
+    log::error(
+      "fileMoved(): cannot change origin for file '{}' from {} to {}, "
+      "file was not found in the directories",
+      filePath, from->debugName(), to->debugName());
+
+    return;
+  }
+
+  // moving
+  m_DirectoryStructure->getFileRegister()
+    ->changeFileOrigin(*file, *from, *to);
 }
 
 void OrganizerCore::loginSuccessful(bool necessary)

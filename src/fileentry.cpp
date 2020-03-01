@@ -188,7 +188,7 @@ void FileEntry::sortOrigins()
 
 std::wstring FileEntry::debugName() const
 {
-  return fmt::format(L"{}:{}", m_name, m_index);
+  return fmt::format(L"{}:{}", getRelativePath().generic_wstring(), m_index);
 }
 
 bool FileEntry::shouldReplacePrimaryOrigin(const OriginInfo& newOrigin) const

@@ -370,10 +370,22 @@ void DirectoryStructure::addAssociatedFiles(
       continue;
     }
 
+    // getting file
     const QFileInfo fi(path);
     const auto filename = fi.fileName().toStdWString();
+    const auto file = root->findFile(filename);
 
-    root->getFileRegister()->changeFileOrigin(*root, filename, from, to);
+    if (!file) {
+      log::error(
+        "while adding associated files for mod '{}', "
+        "file '{}' doesn't exist in the directories",
+        m.mod->internalName(), filename);
+
+      continue;
+    }
+
+    // changing origin
+    root->getFileRegister()->changeFileOrigin(*file, from, to);
   }
 }
 

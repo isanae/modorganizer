@@ -71,6 +71,13 @@ public:
     return m_files;
   }
 
+  // returns whether the given index is in this origin
+  //
+  bool hasFile(FileIndex index) const
+  {
+    return m_files.contains(index);
+  }
+
   // removes all of this origin's files from the register and marks the origin
   // as being disabled
   //

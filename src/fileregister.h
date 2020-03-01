@@ -67,9 +67,7 @@ public:
   // 1) removes the file from the old origin and vice-versa, and
   // 2) adds the file to the old origin and vice-versa
   //
-  void changeFileOrigin(
-    DirectoryEntry& root, std::wstring_view name,
-    FilesOrigin& from, FilesOrigin& to);
+  void changeFileOrigin(FileEntry& file, FilesOrigin& from, FilesOrigin& to);
 
   // for each file in the given origin:
   //  1) removes the given origin from the file,
