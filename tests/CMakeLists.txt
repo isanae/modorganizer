@@ -72,6 +72,7 @@ AddMOSource(util)
 
 AddTestSource(main)
 AddTestSource(fileentry)
+AddTestSource(fileregister)
 AddTestSource(filesorigin)
 AddTestSource(originconnection)
 

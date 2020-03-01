@@ -46,7 +46,8 @@ public:
 
   // creates a new FileEntry, adds it to the register and returns it
   //
-  FileEntryPtr createFile(std::wstring name, DirectoryEntry* parent);
+  FileEntryPtr createFileInternal(
+    std::wstring name, DirectoryEntry* parent);
 
   // 1) creates the given file if it doesn't exist,
   // 2) adds it to `parent`,
@@ -61,7 +62,7 @@ public:
   // 2) removes the file from all of its origins, and
   // 3) removes the file from its parent directory
   //
-  bool removeFile(FileIndex index);
+  void removeFile(FileIndex index);
 
   // 1) removes the file from the old origin and vice-versa, and
   // 2) adds the file to the old origin and vice-versa

@@ -156,6 +156,13 @@ bool FileEntry::removeOriginInternal(OriginID removeOriginID)
   return false;
 }
 
+void FileEntry::removeAllOriginsInternal()
+{
+  std::scoped_lock lock(m_originsMutex);
+  m_origin = {};
+  m_alternatives = {};
+}
+
 void FileEntry::sortOrigins()
 {
   std::vector<OriginInfo> v;

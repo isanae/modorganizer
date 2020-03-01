@@ -492,7 +492,7 @@ FileEntryPtr DirectoryEntry::addFileInternal(std::wstring_view name)
     return fr->getFile(itor->second);
   } else {
     // file not found, create it
-    auto fe = fr->createFile(
+    auto fe = fr->createFileInternal(
       std::wstring(name.begin(), name.end()), this);
 
     m_filesLookup.emplace(key.value, fe->getIndex());

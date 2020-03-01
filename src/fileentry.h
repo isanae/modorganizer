@@ -102,6 +102,15 @@ public:
   //
   bool removeOriginInternal(OriginID origin);
 
+  // removes all the origins from this file; this is used by the register when
+  // a file is removed directly from it
+  //
+  // although the FileEntry is typically deleted right after, it's a
+  // shared_ptr so it could stay alive longer;  this makes sure it doesn't keep
+  // incorrect data
+  //
+  void removeAllOriginsInternal();
+
   // sorts this file's origins by priority and makes the origin with the
   // highest priority the primary one
   //

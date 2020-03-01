@@ -89,6 +89,10 @@ private:
   //
   OriginConnection(std::shared_ptr<FileRegister> r);
 
+  // creates the Data origin
+  //
+  FilesOrigin& createDataOriginNoLock();
+
   // creates a new origin id
   //
   OriginID createID();
@@ -97,6 +101,9 @@ private:
   //
   FilesOrigin& createOriginNoLock(const OriginData& data);
 
+  // fixes problems when changeNameLookupInternal() is called and its target
+  // already exists
+  //
   void handleRenameDiscrepancies(
     std::wstring_view oldName, std::wstring_view newName,
     FileIndex index, NamesMap::iterator newItor);

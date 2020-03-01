@@ -44,7 +44,7 @@ FileEntryPtr FileRegister::getFile(FileIndex index) const
   return m_files[index];
 }
 
-FileEntryPtr FileRegister::createFile(
+FileEntryPtr FileRegister::createFileInternal(
   std::wstring name, DirectoryEntry* parent)
 {
   FileMap::iterator itor;
@@ -83,7 +83,7 @@ FileEntryPtr FileRegister::addFile(
   return fe;
 }
 
-bool FileRegister::removeFile(FileIndex index)
+void FileRegister::removeFile(FileIndex index)
 {
   std::scoped_lock lock(m_mutex);
 
@@ -92,7 +92,7 @@ bool FileRegister::removeFile(FileIndex index)
       "FileRegister::removeFile(): index {} out of range, size is {}",
       index, m_files.size());
 
-    return false;
+    return;
   }
 
   FileEntryPtr file;
@@ -102,7 +102,7 @@ bool FileRegister::removeFile(FileIndex index)
 
   if (!file) {
     log::error("FileRegister::removeFile(): index {} is empty", index);
-    return false;
+    return;
   }
 
   --m_fileCount;
@@ -124,7 +124,8 @@ bool FileRegister::removeFile(FileIndex index)
     dir->removeFileInternal(file->getName());
   }
 
-  return true;
+  // remove all of the file's origins
+  file->removeAllOriginsInternal();
 }
 
 void FileRegister::changeFileOrigin(

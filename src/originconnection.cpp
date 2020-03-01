@@ -7,8 +7,11 @@
 using namespace MOBase;
 
 OriginConnection::OriginConnection(std::shared_ptr<FileRegister> r)
-  : m_nextID(0), m_register(r)
+  : m_nextID(1), m_register(r)
 {
+  // make sure ID 0 is reserved for the Data origin, but also make sure
+  // that's the correct ID
+  Q_ASSERT(DataOriginID == 0);
 }
 
 std::shared_ptr<OriginConnection> OriginConnection::create(
@@ -49,13 +52,12 @@ FilesOrigin& OriginConnection::createOrigin(const OriginData& data)
   return createOriginNoLock(data);
 }
 
-FilesOrigin& OriginConnection::getDataOrigin()
+FilesOrigin& OriginConnection::createDataOriginNoLock()
 {
-  std::scoped_lock lock(m_mutex);
-
   auto itor = m_origins.find(DataOriginID);
-
   if (itor != m_origins.end()) {
+    DebugBreak();
+    log::error("OriginConnection::createDataOrigin() called twice");
     return itor->second;
   }
 
@@ -63,7 +65,19 @@ FilesOrigin& OriginConnection::getDataOrigin()
   const auto dir = game->dataDirectory().absolutePath();
   const auto dirW = QDir::toNativeSeparators(dir).toStdWString();
 
-  return createOriginNoLock({L"data", dirW, DataOriginID});
+  return createOriginNoLock({L"data", dirW, 0});
+}
+
+FilesOrigin& OriginConnection::getDataOrigin()
+{
+  std::scoped_lock lock(m_mutex);
+
+  auto itor = m_origins.find(DataOriginID);
+  if (itor == m_origins.end()) {
+    return createDataOriginNoLock();
+  }
+
+  return itor->second;
 }
 
 bool OriginConnection::exists(std::wstring_view name)
