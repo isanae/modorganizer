@@ -161,8 +161,6 @@ SET(organizer_SRCS
     shared/error_report.cpp
     shared/util.cpp
     shared/appconfig.cpp
-    shared/leaktrace.cpp
-    shared/stackdata.cpp
   )
 
 SET(organizer_HDRS
@@ -298,8 +296,6 @@ SET(organizer_HDRS
     shared/util.h
     shared/appconfig.h
     shared/appconfig.inc
-    shared/leaktrace.h
-    shared/stackdata.h
   )
 
 SET(organizer_UIS
@@ -508,11 +504,9 @@ set(utilities
 	bbcode
 	csvbuilder
 	shared/error_report
-	shared/leaktrace
 	persistentcookiejar
 	serverinfo
 	spawn
-	shared/stackdata
 	shared/util
 	usvfsconnector
 	shared/windows_error

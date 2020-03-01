@@ -20,7 +20,6 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "editexecutablesdialog.h"
 #include "ui_editexecutablesdialog.h"
 #include "filedialogmemory.h"
-#include "stackdata.h"
 #include "modlist.h"
 #include "forcedloaddialog.h"
 #include "organizercore.h"
