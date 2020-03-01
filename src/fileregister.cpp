@@ -164,6 +164,8 @@ void FileRegister::changeFileOrigin(
 
 void FileRegister::disableOrigin(FilesOrigin& o)
 {
+  std::scoped_lock lock(m_mutex);
+
   for (auto& index : o.getFileIndices()) {
     if (index >= m_files.size()) {
       log::error(

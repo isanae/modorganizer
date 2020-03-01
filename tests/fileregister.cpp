@@ -167,4 +167,142 @@ TEST_F(FileRegisterTests, changeFileOrigin)
   EXPECT_EQ(f->getOrigin(), origin1.getID());
 }
 
+TEST_F(FileRegisterTests, disableOrigin)
+{
+  using Files = std::vector<FileEntryPtr>;
+
+  // builds a vector of the given origins in order of priority, assumes the
+  // last is the primary, and checks that `f` has the correct primary and
+  // alternatives
+  //
+  auto checkOrigins = [](FileEntryPtr f, auto&&... origins) {
+    std::vector<OriginID> ids = {origins.getID()...};
+    if (ids.empty()) {
+      ids.push_back(InvalidOriginID);
+    }
+
+    // last item is the primary, rest are alternatives
+    EXPECT_EQ(f->getOrigin(), ids.back());
+    ids.pop_back();
+
+    std::vector<OriginID> altIds;
+    for (auto&& alt : f->getAlternatives()) {
+      altIds.push_back(alt.originID);
+    }
+
+    EXPECT_EQ(altIds, ids);
+  };
+
+#define CHECK_ORIGINS(f, ...) \
+  { \
+    SCOPED_TRACE(f->getName()); \
+    checkOrigins(f, __VA_ARGS__); \
+  }
+
+
+  // adding three origins, note the reverse order of priority so origin1 is
+  // the highest
+  auto& origin1 = fr->getOriginConnection()->createOrigin({
+    L"origin one", L"c:\\origin one path", 3});
+
+  auto& origin2 = fr->getOriginConnection()->createOrigin({
+    L"origin two", L"c:\\origin two path", 2});
+
+  auto& origin3 = fr->getOriginConnection()->createOrigin({
+    L"origin three", L"c:\\origin three path", 1});
+
+
+  //      origin1     origin2     origin3
+  // f1      x
+  // f2      x           x
+  // f3      x           x           x
+  // f4                  x           x
+  // f5                              x
+
+
+  // f1: origin1
+  auto f1 = fr->addFile(*root, L"file1", origin1, {}, {});
+
+  // f2: origin1, origin2
+  auto f2 = fr->addFile(*root, L"file2", origin1, {}, {});
+  fr->addFile(*root, f2->getName(), origin2, {}, {});
+
+  // f3: origin1, origin2, origin3
+  auto f3 = fr->addFile(*root, L"file3", origin1, {}, {});
+  fr->addFile(*root, f3->getName(), origin2, {}, {});
+  fr->addFile(*root, f3->getName(), origin3, {}, {});
+
+  // f4: origin2, origin3
+  auto f4 = fr->addFile(*root, L"file4", origin2, {}, {});
+  fr->addFile(*root, f4->getName(), origin3, {}, {});
+
+  // f5: origin3
+  auto f5 = fr->addFile(*root, L"file5", origin3, {}, {});
+
+
+  // making sure files are where they should
+  EXPECT_EQ(fr->fileCount(), 5);
+  EXPECT_EQ(origin1.getFiles(), Files({f1, f2, f3}));
+  EXPECT_EQ(origin2.getFiles(), Files({f2, f3, f4}));
+  EXPECT_EQ(origin3.getFiles(), Files({f3, f4, f5}));
+
+  // making sure origins are correctly set in files; note that primary is last
+  CHECK_ORIGINS(f1, origin1);
+  CHECK_ORIGINS(f2, origin2, origin1);
+  CHECK_ORIGINS(f3, origin3, origin2, origin1);
+  CHECK_ORIGINS(f4, origin3, origin2);
+  CHECK_ORIGINS(f5, origin3);
+
+
+  // disable origin1
+  fr->disableOrigin(origin1);
+
+  // f1 is gone, rest are still there
+  EXPECT_EQ(fr->fileCount(), 4);
+  EXPECT_EQ(origin1.getFiles(), Files());
+  EXPECT_EQ(origin2.getFiles(), Files({f2, f3, f4}));
+  EXPECT_EQ(origin3.getFiles(), Files({f3, f4, f5}));
+
+  // f1 has no origin, no files have origin1
+  CHECK_ORIGINS(f1);
+  CHECK_ORIGINS(f2, origin2);
+  CHECK_ORIGINS(f3, origin3, origin2);
+  CHECK_ORIGINS(f4, origin3, origin2);
+  CHECK_ORIGINS(f5, origin3);
+
+
+  // disable origin3
+  fr->disableOrigin(origin3);
+
+  // f5 is gone, f2, f3, and f4 are still there
+  EXPECT_EQ(fr->fileCount(), 3);
+  EXPECT_EQ(origin1.getFiles(), Files());
+  EXPECT_EQ(origin2.getFiles(), Files({f2, f3, f4}));
+  EXPECT_EQ(origin3.getFiles(), Files());
+
+  // f1 and f5 have no origin, rest are all from origin2
+  CHECK_ORIGINS(f1);
+  CHECK_ORIGINS(f2, origin2);
+  CHECK_ORIGINS(f3, origin2);
+  CHECK_ORIGINS(f4, origin2);
+  CHECK_ORIGINS(f5);
+
+
+  // disable origin2
+  fr->disableOrigin(origin2);
+
+  // all files gone
+  EXPECT_EQ(fr->fileCount(), 0);
+  EXPECT_EQ(origin1.getFiles(), Files());
+  EXPECT_EQ(origin2.getFiles(), Files());
+  EXPECT_EQ(origin3.getFiles(), Files());
+
+  // none of the files have any origin
+  CHECK_ORIGINS(f1);
+  CHECK_ORIGINS(f2);
+  CHECK_ORIGINS(f3);
+  CHECK_ORIGINS(f4);
+  CHECK_ORIGINS(f5);
+}
+
 } // namespace tests
