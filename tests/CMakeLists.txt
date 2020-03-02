@@ -72,6 +72,7 @@ AddMOSource(fileregisterfwd)
 AddMOSource(util)
 
 AddTestSource(main)
+AddTestSource(directoryentry)
 AddTestSource(fileentry)
 AddTestSource(fileregister)
 AddTestSource(filesorigin)
