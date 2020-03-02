@@ -180,4 +180,61 @@ TEST_F(DirectoryEntryTests, getOriginConnection)
   EXPECT_EQ(root->getOriginConnection(), fr->getOriginConnection());
 }
 
+TEST_F(DirectoryEntryTests, anyOrigin)
+{
+  auto oc = fr->getOriginConnection();
+
+  // anyOrigin() will return in order:
+  //  1) the origin of the first file that's not an archive
+  //  2) the origin of a subdirectory
+  //  3) the origin of this directory
+  //  4) InvalidOriginID
+  //
+  // in this test, origins are added in reverse order to make sure they
+  // override what was previously returned
+
+  // origins must exist for comparison to work
+  std::vector<OriginID> o;
+  for (int i=0; i<7; ++i) {
+    const auto name = L"origin" + std::to_wstring(i);
+    FilesOrigin& fo = oc->createOrigin({name, L"C:\\" + name, i});
+    o.push_back(fo.getID());
+  }
+
+  // root starts with DataOriginID
+  EXPECT_EQ(root->anyOrigin(), DataOriginID);
+
+  // add a dir from origin 0
+  auto* d = root->addSubDirectory(L"d", L"d", o[0]);
+  EXPECT_EQ(d->anyOrigin(), o[0]);
+
+    // add a subdir from origin 1, picked up
+    auto* sub1 = d->addSubDirectory(L"sub1", L"sub1", o[1]);
+    EXPECT_EQ(d->anyOrigin(), o[1]);
+
+    // add a file from origin 2, but from an archive; not picked up
+    auto f = d->addFileInternal(L"file");
+    f->addOriginInternal({o[2], {L"archive", 1}}, {});
+    EXPECT_EQ(d->anyOrigin(), o[1]);
+
+      // add an origin to the file that's not from an archive; picked up
+      f->addOriginInternal({o[3], {}}, {});
+      EXPECT_EQ(d->anyOrigin(), o[3]);
+
+    // remove that file, back to origin 1
+    d->removeFileInternal(f->getName());
+    EXPECT_EQ(d->anyOrigin(), o[1]);
+
+  // remove the subdir, back to origin 0
+  d->removeSubDirectoryInternal(sub1->getName());
+  EXPECT_EQ(d->anyOrigin(), o[0]);
+
+  // root is also from origin  because of `d`
+  EXPECT_EQ(root->anyOrigin(), o[0]);
+
+  // remove `d`, root back to Data origin
+  root->removeSubDirectoryInternal(d->getName());
+  EXPECT_EQ(root->anyOrigin(), DataOriginID);
+}
+
 } // namespace tests

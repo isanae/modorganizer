@@ -267,6 +267,10 @@ public:
   DirectoryEntry* addSubDirectory(
     std::wstring name, std::wstring nameLowercase, OriginID originID);
 
+  // removes the given subdirectory from this directory
+  //
+  void removeSubDirectoryInternal(std::wstring_view name);
+
   // adds the given file this directory
   //
   FileEntryPtr addFileInternal(std::wstring_view name);

@@ -70,7 +70,7 @@ std::unique_ptr<DirectoryEntry> DirectoryEntry::createRoot(
   std::shared_ptr<FileRegister> fr)
 {
   return std::unique_ptr<DirectoryEntry>(
-    new DirectoryEntry(L"data", nullptr, 0, std::move(fr)));
+    new DirectoryEntry(L"data", nullptr, DataOriginID, std::move(fr)));
 }
 
 std::vector<FileEntryPtr> DirectoryEntry::getFiles() const
@@ -469,6 +469,21 @@ DirectoryEntry* DirectoryEntry::addSubDirectory(
   // nameLc is moved from this point
 
   return p;
+}
+
+void DirectoryEntry::removeSubDirectoryInternal(std::wstring_view name)
+{
+  auto itor = m_dirsLookup.find(FileKeyView(ToLowerCopy(name)));
+
+  if (itor == m_dirsLookup.end()) {
+    log::error(
+      "can't remove subdirectory '{}' from '{}', not found",
+      name, debugName());
+
+    return;
+  }
+
+  removeDirectory(itor);
 }
 
 FileEntryPtr DirectoryEntry::addFileInternal(std::wstring_view name)
