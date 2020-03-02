@@ -78,10 +78,10 @@ void DiagnosticsSettingsTab::setCrashDumpTypesBox()
     ui->dumpsTypeBox->addItem(text, static_cast<int>(type));
   };
 
-  add(QObject::tr("None"), CrashDumpsType::None);
-  add(QObject::tr("Mini (recommended)"), CrashDumpsType::Mini);
-  add(QObject::tr("Data"), CrashDumpsType::Data);
-  add(QObject::tr("Full"), CrashDumpsType::Full);
+  add(QObject::tr("None"), CrashDumps::None);
+  add(QObject::tr("Mini (recommended)"), CrashDumps::Mini);
+  add(QObject::tr("Data"), CrashDumps::Data);
+  add(QObject::tr("Full"), CrashDumps::Full);
 
   const auto current = static_cast<int>(
     settings().diagnostics().crashDumpsType());
@@ -100,7 +100,7 @@ void DiagnosticsSettingsTab::update()
     static_cast<log::Levels>(ui->logLevelBox->currentData().toInt()));
 
   settings().diagnostics().setCrashDumpsType(
-    static_cast<CrashDumpsType>(ui->dumpsTypeBox->currentData().toInt()));
+    static_cast<CrashDumps>(ui->dumpsTypeBox->currentData().toInt()));
 
   settings().diagnostics().setCrashDumpsMax(ui->dumpsMaxEdit->value());
 

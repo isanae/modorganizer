@@ -77,13 +77,12 @@ TEST_F(FileRegisterTests, addAndRemoveFile)
   auto& origin = fr->getOriginConnection()->createOrigin({
     L"origin name", L"c:\\origin path", 1});
 
-  const FILETIME ft = {1, 2};
+  const fs::file_time_type ft = fs::file_time_type::clock::now();
 
   // add a file in root associated with the origin, not in an archive
   auto f1 = fr->addFile(*root, L"file1", origin, ft, {});
   ASSERT_TRUE(f1->getFileTime().has_value());
-  EXPECT_EQ(f1->getFileTime()->dwLowDateTime, ft.dwLowDateTime);
-  EXPECT_EQ(f1->getFileTime()->dwHighDateTime, ft.dwHighDateTime);
+  EXPECT_EQ(f1->getFileTime(), ft);
 
   // file must be in directory
   auto f1Again = root->findFile(f1->getName());

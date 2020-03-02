@@ -86,7 +86,7 @@ bool FileEntry::isFromArchive() const
 }
 
 void FileEntry::addOriginInternal(
-  const OriginInfo& newOrigin, std::optional<FILETIME> fileTime)
+  const OriginInfo& newOrigin, std::optional<fs::file_time_type> fileTime)
 {
   std::scoped_lock lock(m_originsMutex);
 
@@ -213,7 +213,7 @@ bool FileEntry::shouldReplacePrimaryOrigin(const OriginInfo& newOrigin) const
 }
 
 void FileEntry::setPrimaryOrigin(
-  const OriginInfo& newOrigin, std::optional<FILETIME> time)
+  const OriginInfo& newOrigin, std::optional<fs::file_time_type> time)
 {
   // the given origin must replace the current one, if any; if there _is_ a
   // current origin, move it to the alternatives

@@ -164,7 +164,7 @@ public:
   void prepareVFS();
 
   void updateVFSParams(
-    MOBase::log::Levels logLevel, CrashDumpsType crashDumpsType,
+    MOBase::log::Levels logLevel, CrashDumps crashDumpsType,
     const QString& crashDumpsPath, std::chrono::seconds spawnDelay,
     QString executableBlacklist);
 
@@ -172,8 +172,8 @@ public:
 
   bool cycleDiagnostics();
 
-  static CrashDumpsType getGlobalCrashDumpsType() { return m_globalCrashDumpsType; }
-  static void setGlobalCrashDumpsType(CrashDumpsType crashDumpsType);
+  static CrashDumps getGlobalCrashDumpsType() { return m_globalCrashDumpsType; }
+  static void setGlobalCrashDumpsType(CrashDumps crashDumpsType);
   static std::wstring crashDumpsPath();
 
 public:
@@ -215,10 +215,7 @@ public:
     return m_ArchiveParsing;
   }
 
-  void setArchiveParsing(bool archiveParsing)
-  {
-    m_ArchiveParsing = archiveParsing;
-  }
+  void setArchiveParsing(bool archiveParsing);
 
 public: // IPluginDiagnose interface
 
@@ -347,7 +344,7 @@ private:
 
   UILocker m_UILocker;
 
-  static CrashDumpsType m_globalCrashDumpsType;
+  static CrashDumps m_globalCrashDumpsType;
 
   void onRefreshProgress(DirectoryRefreshProgress p);
 };

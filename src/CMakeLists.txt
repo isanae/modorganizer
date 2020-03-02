@@ -91,7 +91,6 @@ SET(organizer_SRCS
     downloadlistwidget.cpp
     downloadlistsortproxy.cpp
     downloadlist.cpp
-    directoryrefresher.cpp
     credentialsdialog.cpp
     categoriesdialog.cpp
     categories.cpp
@@ -152,6 +151,7 @@ SET(organizer_SRCS
 	filetreeitem.cpp
 	iconfetcher.cpp
     directoryentry.cpp
+    directorystructure.cpp
 	fileentry.cpp
 	filesorigin.cpp
 	fileregister.cpp
@@ -219,7 +219,6 @@ SET(organizer_HDRS
     downloadlistwidget.h
     downloadlistsortproxy.h
     downloadlist.h
-    directoryrefresher.h
     credentialsdialog.h
     categoriesdialog.h
     categories.h
@@ -281,6 +280,7 @@ SET(organizer_HDRS
 	filetreemodel.h
 	iconfetcher.h
     directoryentry.h
+    directorystructure.h
 	fileentry.h
 	filesorigin.h
 	fileregister.h
@@ -472,7 +472,7 @@ set(register
 	fileregister
 	fileregisterfwd
 	originconnection
-	directoryrefresher
+	directorystructure
 )
 
 set(settings

@@ -4,7 +4,7 @@
 #include "directoryentry.h"
 #include "filesorigin.h"
 #include "fileentry.h"
-#include "directoryrefresher.h"
+#include "directorystructure.h"
 #include <filesystem>
 
 using namespace MOBase;

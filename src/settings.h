@@ -25,7 +25,6 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include <lootcli/lootcli.h>
 #include <questionboxmemory.h>
 #include <log.h>
-#include <usvfsparameters.h>
 
 #ifdef interface
   #undef interface
@@ -42,6 +41,14 @@ class QSplitter;
 class ServerList;
 class Settings;
 
+
+enum class CrashDumps
+{
+  None,
+  Mini,
+  Data,
+  Full
+};
 
 
 // setting for the currently managed game
@@ -642,10 +649,10 @@ public:
 
   // crash dump type for both MO and usvfs
   //
-  CrashDumpsType crashDumpsType() const;
-  void setCrashDumpsType(CrashDumpsType type);
+  CrashDumps crashDumpsType() const;
+  void setCrashDumpsType(CrashDumps type);
 
-  // maximum number of dump files keps, for both MO and usvfs
+  // maximum number of dump files kept, for both MO and usvfs
   //
   int crashDumpsMax() const;
   void setCrashDumpsMax(int n);
@@ -726,7 +733,7 @@ public:
   bool usePrereleases() const;
   void setUsePrereleases(bool b);
 
-  // whether to use spascreen or not
+  // whether to use splash screen or not
   //
   bool useSplash() const;
   void setUseSplash(bool b);

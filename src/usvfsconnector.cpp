@@ -108,14 +108,14 @@ LogLevel toUsvfsLogLevel(log::Levels level)
   }
 }
 
-CrashDumpsType crashDumpsType(int type)
+CrashDumpsType toUsvfsCrashDumpsType(CrashDumps type)
 {
-  switch (static_cast<CrashDumpsType>(type)) {
-  case CrashDumpsType::Mini:
+  switch (type) {
+  case CrashDumps::Mini:
     return CrashDumpsType::Mini;
-  case CrashDumpsType::Data:
+  case CrashDumps::Data:
     return CrashDumpsType::Data;
-  case CrashDumpsType::Full:
+  case CrashDumps::Full:
     return CrashDumpsType::Full;
   default:
     return CrashDumpsType::None;
@@ -129,7 +129,7 @@ UsvfsConnector::UsvfsConnector()
   const auto& s = Settings::instance();
 
   const LogLevel logLevel = toUsvfsLogLevel(s.diagnostics().logLevel());
-  const CrashDumpsType dumpType = s.diagnostics().crashDumpsType();
+  const CrashDumpsType dumpType = toUsvfsCrashDumpsType(s.diagnostics().crashDumpsType());
   const auto delay = duration_cast<milliseconds>(s.diagnostics().spawnDelay());
   std::string dumpPath = ToString(OrganizerCore::crashDumpsPath(), true);
 
@@ -225,7 +225,7 @@ void UsvfsConnector::updateMapping(const MappingType &mapping)
 }
 
 void UsvfsConnector::updateParams(
-  MOBase::log::Levels logLevel, CrashDumpsType crashDumpsType,
+  MOBase::log::Levels logLevel, CrashDumps crashDumpsType,
   const QString& crashDumpsPath, std::chrono::seconds spawnDelay,
   QString executableBlacklist)
 {
@@ -235,7 +235,7 @@ void UsvfsConnector::updateParams(
 
   usvfsSetDebugMode(p, FALSE);
   usvfsSetLogLevel(p, toUsvfsLogLevel(logLevel));
-  usvfsSetCrashDumpType(p, crashDumpsType);
+  usvfsSetCrashDumpType(p, toUsvfsCrashDumpsType(crashDumpsType));
   usvfsSetCrashDumpPath(p, crashDumpsPath.toStdString().c_str());
   usvfsSetProcessDelay(p, duration_cast<milliseconds>(spawnDelay).count());
 

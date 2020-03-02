@@ -31,7 +31,7 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "modinfodialogfiletree.h"
 #include "directoryentry.h"
 #include "filesorigin.h"
-#include "directoryrefresher.h"
+#include "directorystructure.h"
 #include <filesystem>
 
 using namespace MOBase;

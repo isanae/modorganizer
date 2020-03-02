@@ -6,7 +6,7 @@
 #include "fileentry.h"
 #include "directoryentry.h"
 #include "filesorigin.h"
-#include "directoryrefresher.h"
+#include "directorystructure.h"
 #include <log.h>
 #include <widgetutility.h>
 

@@ -22,7 +22,7 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "fileentry.h"
 #include "filesorigin.h"
 #include "originconnection.h"
-#include "directoryrefresher.h"
+#include "directorystructure.h"
 #include "ui_syncoverwritedialog.h"
 
 #include <utility.h>

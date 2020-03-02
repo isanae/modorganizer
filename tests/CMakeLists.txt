@@ -67,6 +67,7 @@ AddMOSource(originconnection)
 AddMOSource(fileregister)
 AddMOSource(filesorigin)
 AddMOSource(directoryentry)
+AddMOSource(directorystructure)
 AddMOSource(fileregisterfwd)
 AddMOSource(util)
 

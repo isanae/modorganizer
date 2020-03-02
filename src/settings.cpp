@@ -2049,13 +2049,13 @@ void DiagnosticsSettings::setLootLogLevel(lootcli::LogLevels level)
   set(m_Settings, "Settings", "loot_log_level", level);
 }
 
-CrashDumpsType DiagnosticsSettings::crashDumpsType() const
+CrashDumps DiagnosticsSettings::crashDumpsType() const
 {
-  return get<CrashDumpsType>(m_Settings,
-    "Settings", "crash_dumps_type", CrashDumpsType::Mini);
+  return get<CrashDumps>(m_Settings,
+    "Settings", "crash_dumps_type", CrashDumps::Mini);
 }
 
-void DiagnosticsSettings::setCrashDumpsType(CrashDumpsType type)
+void DiagnosticsSettings::setCrashDumpsType(CrashDumps type)
 {
   set(m_Settings, "Settings", "crash_dumps_type", type);
 }

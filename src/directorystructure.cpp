@@ -17,7 +17,7 @@ You should have received a copy of the GNU General Public License
 along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "directoryrefresher.h"
+#include "directorystructure.h"
 #include "fileentry.h"
 #include "filesorigin.h"
 #include "directoryentry.h"
@@ -25,9 +25,9 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "iplugingame.h"
 #include "modinfo.h"
-#include "settings.h"
 #include "envfs.h"
 #include "util.h"
+#include "profile.h"
 
 #include <utility.h>
 #include <gameplugins.h>
@@ -129,7 +129,7 @@ DirectoryStructure::ModThread::ModThread() :
 
 void DirectoryStructure::ModThread::set(
   DirectoryStructure* s, DirectoryEntry* root,
-  Profile::ActiveMod m, Progress* p, bool addFiles, bool addBSAs)
+  ProfileActiveMod* m, Progress* p, bool addFiles, bool addBSAs)
 {
   m_structure = s;
   m_root = root;
@@ -150,18 +150,18 @@ void DirectoryStructure::ModThread::run()
   {
       m_waiter.wait();
 
-      SetThisThreadName(m_mod.mod->internalName() + " refresher");
+      SetThisThreadName(m_mod->mod->internalName() + " refresher");
 
       if (m_addFiles) {
-        if (!m_mod.mod->associatedFiles().empty()) {
-          m_structure->addAssociatedFiles(m_root, m_mod);
+        if (!m_mod->mod->associatedFiles().empty()) {
+          m_structure->addAssociatedFiles(m_root, *m_mod);
         } else {
-          m_structure->addFiles(m_root, m_walker, m_mod);
+          m_structure->addFiles(m_root, m_walker, *m_mod);
         }
       }
 
       if (m_addBSAs) {
-        m_structure->addBSAs(m_root, m_mod);
+        m_structure->addBSAs(m_root, *m_mod);
       }
 
       m_progress->addDone();
@@ -172,19 +172,19 @@ void DirectoryStructure::ModThread::run()
   {
     log::error(
       "unhandled exception in ModThread for '{}': {}",
-      m_mod.mod->internalName(), e.what());
+      m_mod->mod->internalName(), e.what());
   }
   catch(...)
   {
     log::error(
       "unhandled unknown exception in ModThread for '{}'",
-      m_mod.mod->internalName());
+      m_mod->mod->internalName());
   }
 }
 
 
 DirectoryStructure::DirectoryStructure(std::size_t threadCount)
-  : m_threadCount(threadCount)
+  : m_threadCount(threadCount), m_archiveParsing(false)
 {
   log::debug("refresher is using {} threads", m_threadCount);
 
@@ -206,6 +206,11 @@ DirectoryStructure::~DirectoryStructure()
 DirectoryEntry* DirectoryStructure::root()
 {
   return m_root.get();
+}
+
+void DirectoryStructure::setArchiveParsing(bool b)
+{
+  m_archiveParsing = b;
 }
 
 bool DirectoryStructure::originExists(std::wstring_view name) const
@@ -239,7 +244,7 @@ std::shared_ptr<FileRegister> DirectoryStructure::getFileRegister() const
   return m_register;
 }
 
-void DirectoryStructure::addMods(const std::vector<Profile::ActiveMod>& mods)
+void DirectoryStructure::addMods(const std::vector<ProfileActiveMod>& mods)
 {
   std::scoped_lock lock(m_rootMutex);
   TimeThis tt("DirectoryStructure::addMods()");
@@ -248,7 +253,7 @@ void DirectoryStructure::addMods(const std::vector<Profile::ActiveMod>& mods)
   addMods(m_root.get(), mods, true, true, p);
 }
 
-void DirectoryStructure::addBSAs(const std::vector<Profile::ActiveMod>& mods)
+void DirectoryStructure::addBSAs(const std::vector<ProfileActiveMod>& mods)
 {
   std::scoped_lock lock(m_rootMutex);
   TimeThis tt("DirectoryStructure::addBSAs()");
@@ -257,7 +262,7 @@ void DirectoryStructure::addBSAs(const std::vector<Profile::ActiveMod>& mods)
   addMods(m_root.get(), mods, false, true, p);
 }
 
-void DirectoryStructure::addFiles(const std::vector<Profile::ActiveMod>& mods)
+void DirectoryStructure::addFiles(const std::vector<ProfileActiveMod>& mods)
 {
   std::scoped_lock lock(m_rootMutex);
   TimeThis tt("DirectoryStructure::addFiles()");
@@ -266,7 +271,7 @@ void DirectoryStructure::addFiles(const std::vector<Profile::ActiveMod>& mods)
   addMods(m_root.get(), mods, true, false, p);
 }
 
-void DirectoryStructure::updateFiles(const std::vector<Profile::ActiveMod>& mods)
+void DirectoryStructure::updateFiles(const std::vector<ProfileActiveMod>& mods)
 {
   TimeThis tt("DirectoryStructure::updateFiles()");
 
@@ -295,7 +300,7 @@ DirectoryRefreshProgress DirectoryStructure::progress() const
 }
 
 void DirectoryStructure::asyncRefresh(
-  const std::vector<Profile::ActiveMod>& mods, ProgressCallback callback)
+  const std::vector<ProfileActiveMod>& mods, ProgressCallback callback)
 {
   // make sure any previous refresh has finished
   if (m_refreshThread.joinable()) {
@@ -311,16 +316,15 @@ void DirectoryStructure::addFromData(DirectoryEntry* root)
 }
 
 void DirectoryStructure::addMods(
-  DirectoryEntry* root,
-  const std::vector<Profile::ActiveMod>& mods, bool addFiles, bool addBSAs,
-  Progress& p)
+  DirectoryEntry* root, std::vector<ProfileActiveMod> mods,
+  bool addFiles, bool addBSAs, Progress& p)
 {
   // creating threads
   m_modThreads.setMax(m_threadCount);
 
   // for each mod
   for (std::size_t i=0; i<mods.size(); ++i) {
-    auto m = mods[i];
+    auto& m = mods[i];
 
     m.priority = static_cast<int>(i + 1);
 
@@ -328,7 +332,7 @@ void DirectoryStructure::addMods(
     auto& mt = m_modThreads.request();
 
     // set it up
-    mt.set(this, root, m, &p, addFiles, addBSAs);
+    mt.set(this, root, &m, &p, addFiles, addBSAs);
 
     // make it run
     mt.wakeup();
@@ -341,7 +345,7 @@ void DirectoryStructure::addMods(
 }
 
 void DirectoryStructure::addAssociatedFiles(
-  DirectoryEntry* root, const Profile::ActiveMod& m)
+  DirectoryEntry* root, const ProfileActiveMod& m)
 {
   // these files are already in the structure because they're actually in the
   // Data directory, and it's been checked at the very beginning
@@ -391,7 +395,7 @@ void DirectoryStructure::addAssociatedFiles(
 
 void DirectoryStructure::addFiles(
   DirectoryEntry* root, env::DirectoryWalker& walker,
-  const Profile::ActiveMod& m)
+  const ProfileActiveMod& m)
 {
   FilesOrigin& origin = root->getOriginConnection()->getOrCreateOrigin({
     m.mod->internalName().toStdWString(),
@@ -403,9 +407,9 @@ void DirectoryStructure::addFiles(
 }
 
 void DirectoryStructure::addBSAs(
-  DirectoryEntry* root, const Profile::ActiveMod& m)
+  DirectoryEntry* root, const ProfileActiveMod& m)
 {
-  if (!Settings::instance().archiveParsing()) {
+  if (!m_archiveParsing) {
     // archive parsing is disabled
     return;
   }
@@ -526,7 +530,7 @@ void DirectoryStructure::setRoot(
 }
 
 void DirectoryStructure::refreshThread(
-  const std::vector<Profile::ActiveMod>& mods,
+  const std::vector<ProfileActiveMod>& mods,
   ProgressCallback callback)
 {
   SetThisThreadName("DirectoryStructure");

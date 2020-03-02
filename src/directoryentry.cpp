@@ -18,7 +18,6 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "directoryentry.h"
-#include "directoryrefresher.h"
 #include "originconnection.h"
 #include "filesorigin.h"
 #include "fileentry.h"
@@ -241,17 +240,14 @@ void DirectoryEntry::addFromBSA(
 
   std::error_code ec;
   const auto lwt = std::filesystem::last_write_time(archive, ec);
-  FILETIME ft = {};
 
   if (ec) {
     log::warn(
       "failed to get last modified date for '{}', {}",
       archive, ec.message());
-  } else {
-    ft = ToFILETIME(lwt);
   }
 
-  addFiles(origin, bsa.getRoot(), ft, {archiveName, order});
+  addFiles(origin, bsa.getRoot(), lwt, {archiveName, order});
 }
 
 void DirectoryEntry::cleanupIrrelevant()
@@ -355,9 +351,9 @@ void DirectoryEntry::addFiles(
       onDirectoryEnd((Context*)pcx, path);
     },
 
-    [](void* pcx, std::wstring_view path, FILETIME ft)
+    [](void* pcx, std::wstring_view path, fs::file_time_type lwt)
     {
-      onFile((Context*)pcx, path, ft);
+      onFile((Context*)pcx, path, lwt);
     }
   );
 
@@ -383,10 +379,11 @@ void DirectoryEntry::onDirectoryEnd(Context* cx, std::wstring_view path)
   cx->current.pop();
 }
 
-void DirectoryEntry::onFile(Context* cx, std::wstring_view path, FILETIME ft)
+void DirectoryEntry::onFile(
+  Context* cx, std::wstring_view path, fs::file_time_type lwt)
 {
   // adds the file to the current directory
-  cx->fr->addFile(*cx->current.top(), path, cx->origin, ft, {});
+  cx->fr->addFile(*cx->current.top(), path, cx->origin, lwt, {});
 }
 
 void DirectoryEntry::sortSubDirectories()
@@ -400,7 +397,7 @@ void DirectoryEntry::sortSubDirectories()
 
 void DirectoryEntry::addFiles(
   FilesOrigin& origin, const BSA::Folder::Ptr& archiveFolder,
-  FILETIME archiveFileTime, const ArchiveInfo& archive)
+  fs::file_time_type archiveFileTime, const ArchiveInfo& archive)
 {
   auto fr = m_register.lock();
   if (!fr) {

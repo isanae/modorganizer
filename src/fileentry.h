@@ -94,7 +94,7 @@ public:
   // adds the given origin to this file
   //
   void addOriginInternal(
-    const OriginInfo& newOrigin, std::optional<FILETIME> time);
+    const OriginInfo& newOrigin, std::optional<fs::file_time_type> time);
 
   // removes the specified origin from the list of origins that contain this
   // file; returns true if that was the last origin, which is used elsewhere
@@ -126,7 +126,7 @@ public:
 
   // sets the last modified time of this file
   //
-  void setFileTime(FILETIME fileTime)
+  void setFileTime(fs::file_time_type fileTime)
   {
     m_fileTime = fileTime;
   }
@@ -135,7 +135,7 @@ public:
   // the last modified time of the archive; may be empty if the file doesn't
   // exist
   //
-  std::optional<FILETIME> getFileTime() const
+  std::optional<fs::file_time_type> getFileTime() const
   {
     return m_fileTime;
   }
@@ -193,7 +193,7 @@ private:
   DirectoryEntry* m_parent;
 
   // last modified time
-  std::optional<FILETIME> m_fileTime;
+  std::optional<fs::file_time_type> m_fileTime;
 
   // sizes
   std::optional<uint64_t> m_fileSize, m_compressedFileSize;
@@ -215,7 +215,7 @@ private:
   // already has a primary origin, it is moved to the alternatives
   //
   void setPrimaryOrigin(
-    const OriginInfo& newOrigin, std::optional<FILETIME> time);
+    const OriginInfo& newOrigin, std::optional<fs::file_time_type> time);
 
   // adds the given origin to the alternatives list
   //

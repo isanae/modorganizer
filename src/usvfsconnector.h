@@ -30,6 +30,7 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include <QList>
 #include <usvfsparameters.h>
 #include <log.h>
+#include "settings.h"
 #include "executableinfo.h"
 
 
@@ -87,7 +88,7 @@ public:
   void updateMapping(const MappingType &mapping);
 
   void updateParams(
-    MOBase::log::Levels logLevel, CrashDumpsType crashDumpsType,
+    MOBase::log::Levels logLevel, CrashDumps crashDumpsType,
     const QString& crashDumpsPath, std::chrono::seconds spawnDelay,
     QString executableBlacklist);
 
@@ -101,7 +102,7 @@ private:
 
 };
 
-CrashDumpsType crashDumpsType(int type);
+CrashDumpsType toUsvfsCrashDumpsType(CrashDumps type);
 
 std::vector<HANDLE> getRunningUSVFSProcesses();
 

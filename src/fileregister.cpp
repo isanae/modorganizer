@@ -68,7 +68,7 @@ FileEntryPtr FileRegister::createFileInternal(
 
 FileEntryPtr FileRegister::addFile(
   DirectoryEntry& parent, std::wstring_view name, FilesOrigin& origin,
-  FILETIME fileTime, const ArchiveInfo& archive)
+  fs::file_time_type fileTime, const ArchiveInfo& archive)
 {
   FileKey key(ToLowerCopy(name));
 
@@ -134,8 +134,7 @@ void FileRegister::changeFileOrigin(
   const fs::path newPath(to.getPath() / file.getRelativePath());
 
   std::error_code ec;
-  const auto lastModified = fs::last_write_time(newPath, ec);
-  FILETIME ft = {};
+  const auto lwt = fs::last_write_time(newPath, ec);
 
   if (ec) {
     log::warn(
@@ -143,8 +142,6 @@ void FileRegister::changeFileOrigin(
       "could not get last modified time from real path {}: {}",
       file.debugName(), from.debugName(), to.debugName(),
       newPath, ec.message());
-  } else {
-    ft = ToFILETIME(lastModified);
   }
 
 
@@ -159,7 +156,7 @@ void FileRegister::changeFileOrigin(
   to.addFileInternal(file.getIndex());
 
   // add origin to file
-  file.addOriginInternal({to.getID(), {}}, ft);
+  file.addOriginInternal({to.getID(), {}}, lwt);
 }
 
 void FileRegister::disableOrigin(FilesOrigin& o)

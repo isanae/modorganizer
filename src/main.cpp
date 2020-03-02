@@ -131,8 +131,11 @@ LPTOP_LEVEL_EXCEPTION_FILTER prevUnhandledExceptionFilter = nullptr;
 static LONG WINAPI MyUnhandledExceptionFilter(struct _EXCEPTION_POINTERS *exceptionPtrs)
 {
   const std::wstring& dumpPath = OrganizerCore::crashDumpsPath();
-  int dumpRes =
-    CreateMiniDump(exceptionPtrs, OrganizerCore::getGlobalCrashDumpsType(), dumpPath.c_str());
+
+  int dumpRes = CreateMiniDump(
+    exceptionPtrs, toUsvfsCrashDumpsType(OrganizerCore::getGlobalCrashDumpsType()),
+    dumpPath.c_str());
+
   if (!dumpRes)
     log::error("ModOrganizer has crashed, crash dump created.");
   else

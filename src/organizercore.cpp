@@ -34,7 +34,7 @@
 #include "env.h"
 #include "envmodule.h"
 #include "envfs.h"
-#include "directoryrefresher.h"
+#include "directorystructure.h"
 #include "directoryentry.h"
 #include "filesorigin.h"
 #include "fileentry.h"
@@ -76,7 +76,7 @@
 using namespace MOBase;
 
 //static
-CrashDumpsType OrganizerCore::m_globalCrashDumpsType = CrashDumpsType::None;
+CrashDumps OrganizerCore::m_globalCrashDumpsType = CrashDumps::None;
 
 template <typename InputIterator>
 QStringList toStringList(InputIterator current, InputIterator end)
@@ -446,7 +446,7 @@ void OrganizerCore::prepareVFS()
 }
 
 void OrganizerCore::updateVFSParams(
-  log::Levels logLevel, CrashDumpsType crashDumpsType,
+  log::Levels logLevel, CrashDumps crashDumpsType,
   const QString& crashDumpsPath,
   std::chrono::seconds spawnDelay, QString executableBlacklist)
 {
@@ -481,7 +481,7 @@ bool OrganizerCore::cycleDiagnostics()
   return true;
 }
 
-void OrganizerCore::setGlobalCrashDumpsType(CrashDumpsType type)
+void OrganizerCore::setGlobalCrashDumpsType(CrashDumps type)
 {
   m_globalCrashDumpsType = type;
 }
@@ -974,6 +974,12 @@ QStringList OrganizerCore::modsSortedByProfilePriority() const
     }
   }
   return res;
+}
+
+void OrganizerCore::setArchiveParsing(bool archiveParsing)
+{
+  m_ArchiveParsing = archiveParsing;
+  m_DirectoryStructure->setArchiveParsing(archiveParsing);
 }
 
 bool OrganizerCore::previewFileWithAlternatives(

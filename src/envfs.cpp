@@ -302,10 +302,7 @@ void forEachEntryImpl(
           forEachEntryImpl(cx, hc, buffers, &oa, depth+1, dirStartF, dirEndF, fileF);
           dirEndF(cx, toStringView(&oa));
         } else {
-          FILETIME ft;
-          ft.dwLowDateTime = DirInfo->LastWriteTime.LowPart;
-          ft.dwHighDateTime = DirInfo->LastWriteTime.HighPart;
-          fileF(cx, toStringView(&oa), ft);
+          fileF(cx, toStringView(&oa), toStdFileTime(DirInfo->LastWriteTime));
         }
       }
 

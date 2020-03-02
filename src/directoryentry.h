@@ -358,7 +358,7 @@ private:
   struct Context;
   static void onDirectoryStart(Context* cx, std::wstring_view path);
   static void onDirectoryEnd(Context* cx, std::wstring_view path);
-  static void onFile(Context* cx, std::wstring_view path, FILETIME ft);
+  static void onFile(Context* cx, std::wstring_view path, fs::file_time_type lwt);
 
   // sorts the subdirectories by name, case insensitive
   //
@@ -368,7 +368,7 @@ private:
   //
   void addFiles(
     FilesOrigin& origin, const BSA::Folder::Ptr& archiveFolder,
-    FILETIME archiveFileTime, const ArchiveInfo& archive);
+    fs::file_time_type archiveFileTime, const ArchiveInfo& archive);
 
   // creates the given subdirectory or returns an existing one
   //

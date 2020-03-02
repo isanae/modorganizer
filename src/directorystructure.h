@@ -17,15 +17,15 @@ You should have received a copy of the GNU General Public License
 along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef MO_REGISTER_DIRECTORYREFRESHER_INCLUDED
-#define MO_REGISTER_DIRECTORYREFRESHER_INCLUDED
+#ifndef MO_REGISTER_DIRECTORYSTRUCTURE_INCLUDED
+#define MO_REGISTER_DIRECTORYSTRUCTURE_INCLUDED
 
 #include "fileregisterfwd.h"
-#include "profile.h"
 #include "envfs.h"
 #include <QObject>
 #include <thread>
 
+struct ProfileActiveMod;
 
 // refresh progress, passed to the main window in the progress event
 //
@@ -94,6 +94,11 @@ public:
   DirectoryEntry* root();
 
 
+  // sets whether archive parsing is enabled; this merely sets a flag, the
+  // structure needs to be refreshed
+  //
+  void setArchiveParsing(bool b);
+
   // convenience: forwards to OriginConnection::exists()
   //
   bool originExists(std::wstring_view name) const;
@@ -116,19 +121,19 @@ public:
   // add files for a mod to the directory structure, including bsas; async,
   // but runs threads in the background
   //
-  void addMods(const std::vector<Profile::ActiveMod>& mods);
+  void addMods(const std::vector<ProfileActiveMod>& mods);
 
   // add only the bsas of a mod to the directory structure; async, but runs
   // threads in the background
   //
-  void addBSAs(const std::vector<Profile::ActiveMod>& mods);
+  void addBSAs(const std::vector<ProfileActiveMod>& mods);
 
   // add only regular files or a mod to the directory structure; async, but
   // runs threads in the background
   //
-  void addFiles(const std::vector<Profile::ActiveMod>& mods);
+  void addFiles(const std::vector<ProfileActiveMod>& mods);
 
-  void updateFiles(const std::vector<Profile::ActiveMod>& mods);
+  void updateFiles(const std::vector<ProfileActiveMod>& mods);
 
   // returns the progress of a current async refresh, finished() is true if
   // there is no refresh running
@@ -139,7 +144,7 @@ public:
   // callback() regularly
   //
   void asyncRefresh(
-    const std::vector<Profile::ActiveMod>& mods,
+    const std::vector<ProfileActiveMod>& mods,
     ProgressCallback callback);
 
 private:
@@ -161,7 +166,7 @@ private:
     //
     void set(
       DirectoryStructure* s, DirectoryEntry* root,
-      Profile::ActiveMod m, Progress* p, bool addFiles, bool addBSAs);
+      ProfileActiveMod* m, Progress* p, bool addFiles, bool addBSAs);
 
     // runs it
     //
@@ -173,7 +178,7 @@ private:
   private:
     DirectoryStructure* m_structure;
     DirectoryEntry* m_root;
-    Profile::ActiveMod m_mod;
+    ProfileActiveMod* m_mod;
     Progress* m_progress;
     bool m_addFiles;
     bool m_addBSAs;
@@ -211,13 +216,16 @@ private:
   // async refresh progress
   Progress m_progress;
 
+  // whether archive parsing is enabled
+  bool m_archiveParsing;
+
 
   // thread function called by asyncRefresh(): creates a new root, adds files
   // from Data and mods, sorts, then swaps m_root and spawns a deleter thread
   // for the old root
   //
   void refreshThread(
-    const std::vector<Profile::ActiveMod>& mods,
+    const std::vector<ProfileActiveMod>& mods,
     ProgressCallback callback);
 
   // adds files from the data directory into the given root
@@ -228,23 +236,23 @@ private:
   // then adds files and bsas from it depending on the two bools
   //
   void addMods(
-    DirectoryEntry* root, const std::vector<Profile::ActiveMod>& mods,
+    DirectoryEntry* root, std::vector<ProfileActiveMod> mods,
     bool addFiles, bool addBSAs, Progress& p);
 
   // adds "associated files", typically files that are from a foreign mod;
   // see ModInfoForeign::associatedFiles() in modinfoforeign.h
   //
-  void addAssociatedFiles(DirectoryEntry* root, const Profile::ActiveMod& m);
+  void addAssociatedFiles(DirectoryEntry* root, const ProfileActiveMod& m);
 
   // adds files from the given mod's directory recursively
   //
   void addFiles(
     DirectoryEntry* root,
-    env::DirectoryWalker& walker, const Profile::ActiveMod& m);
+    env::DirectoryWalker& walker, const ProfileActiveMod& m);
 
   // adds files from all BSAs found in the given mod's directory
   //
-  void addBSAs(DirectoryEntry* root, const Profile::ActiveMod& m);
+  void addBSAs(DirectoryEntry* root, const ProfileActiveMod& m);
 
   // swaps the given register and root with the current ones and schedules root
   // for deletion in m_deleterThread
@@ -265,4 +273,4 @@ private:
     std::wstring_view archiveNameLc, const LoadOrderMap& loadOrderMap) const;
 };
 
-#endif // MO_REGISTER_DIRECTORYREFRESHER_INCLUDED
+#endif // MO_REGISTER_DIRECTORYSTRUCTURE_INCLUDED

@@ -50,13 +50,31 @@ MOBase::VersionInfo createVersionInfo();
 void SetThisThreadName(const QString& s);
 void checkDuplicateShortcuts(const QMenu& m);
 
-inline FILETIME ToFILETIME(std::filesystem::file_time_type t)
+inline FILETIME toFILETIME(std::filesystem::file_time_type t)
 {
   FILETIME ft;
   static_assert(sizeof(t) == sizeof(ft));
 
   std::memcpy(&ft, &t, sizeof(FILETIME));
   return ft;
+}
+
+inline std::filesystem::file_time_type toStdFileTime(LARGE_INTEGER i)
+{
+  std::filesystem::file_time_type ft;
+  static_assert(sizeof(ft) == sizeof(i));
+
+  std::memcpy(&ft, &i, sizeof(LARGE_INTEGER));
+  return ft;
+}
+
+inline std::filesystem::file_time_type toStdFileTime(FILETIME ft)
+{
+  std::filesystem::file_time_type ftt;
+  static_assert(sizeof(ftt) == sizeof(ft));
+
+  std::memcpy(&ftt, &ft, sizeof(FILETIME));
+  return ftt;
 }
 
 int naturalCompare(const QString& a, const QString& b);

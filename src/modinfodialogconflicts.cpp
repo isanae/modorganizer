@@ -4,7 +4,7 @@
 #include "settings.h"
 #include "organizercore.h"
 #include "util.h"
-#include "directoryrefresher.h"
+#include "directorystructure.h"
 #include "directoryentry.h"
 #include "filesorigin.h"
 #include "fileentry.h"

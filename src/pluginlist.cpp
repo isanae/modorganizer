@@ -594,7 +594,9 @@ bool PluginList::saveLoadOrder(DirectoryEntry &directoryStructure)
       newWriteTime.dwLowDateTime  = (DWORD)(temp & 0xFFFFFFFF);
       newWriteTime.dwHighDateTime = (DWORD)(temp >> 32);
       esp.time = newWriteTime;
-      fileEntry->setFileTime(newWriteTime);
+
+      fileEntry->setFileTime(toStdFileTime(newWriteTime));
+
       if (!::SetFileTime(file, nullptr, nullptr, &newWriteTime)) {
         throw windows_error(QObject::tr("failed to set file time %1").arg(fileName).toUtf8().constData());
       }

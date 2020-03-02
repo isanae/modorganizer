@@ -42,6 +42,13 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 
 namespace MOBase { class IPluginGame; }
 
+struct ProfileActiveMod
+{
+  ModInfo::Ptr mod;
+  int priority;
+};
+
+
 /**
  * @brief represents a profile
  **/
@@ -51,16 +58,10 @@ class Profile : public QObject, public MOBase::IProfile
   Q_OBJECT
 
 public:
-
+  using ActiveMod = ProfileActiveMod;
   typedef boost::shared_ptr<Profile> Ptr;
 
 public:
-  struct ActiveMod
-  {
-    ModInfo::Ptr mod;
-    int priority;
-  };
-
   /**
    * @brief constructor
    *

@@ -56,7 +56,7 @@ public:
   //
   FileEntryPtr addFile(
     DirectoryEntry& parent, std::wstring_view name, FilesOrigin& origin,
-    FILETIME fileTime, const ArchiveInfo& archive);
+    fs::file_time_type fileTime, const ArchiveInfo& archive);
 
   // 1) removes the file from the register,
   // 2) removes the file from all of its origins, and

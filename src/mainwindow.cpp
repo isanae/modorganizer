@@ -87,7 +87,7 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "envshortcut.h"
 #include "browserdialog.h"
 
-#include "directoryrefresher.h"
+#include "directorystructure.h"
 #include "directoryentry.h"
 #include "fileentry.h"
 #include "filesorigin.h"
