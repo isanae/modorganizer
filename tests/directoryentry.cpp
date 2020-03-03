@@ -511,8 +511,120 @@ TEST_F(DirectoryEntryTests, forEachPathComponent)
 #undef CHECK
 }
 
+TEST_F(DirectoryEntryTests, forEachPathComponentStop)
+{
+  using details::forEachPathComponent;
+
+  // makes sure forEachPathComponent() stop correctly during iteration
+
+  auto checkStop = [](auto&& path) {
+    // do a first split
+    std::vector<std::wstring> components;
+    forEachPathComponent(path, [&](std::wstring_view c, bool) {
+      components.push_back(std::wstring(c.begin(), c.end()));
+      return true;
+    });
+
+
+    // now that the actual number of components is known, call
+    // forEachPathComponent() repeatedly and stop the iteration one further
+    // each time
+
+    for (std::size_t i=0; i<components.size(); ++i) {
+      // will stop after this number of calls
+      const std::size_t stopAfter = (i + 1);
+
+      SCOPED_TRACE(L"stop after " + std::to_wstring(stopAfter));
+
+      // actual number of calls
+      std::size_t called = 0;
+
+      forEachPathComponent(path, [&](std::wstring_view c, bool) {
+        ++called;
+        return (called < stopAfter);
+      });
+
+      EXPECT_EQ(called, stopAfter);
+    }
+  };
+
+#define CHECK_STOP(PATH) \
+  { \
+    SCOPED_TRACE(PATH); \
+    checkStop(PATH); \
+  }
+
+  CHECK_STOP(L"/");
+  CHECK_STOP(L"//");
+  CHECK_STOP(L"a");
+  CHECK_STOP(L"a/");
+  CHECK_STOP(L"a/b");
+  CHECK_STOP(L"/a/b");
+  CHECK_STOP(L"/a/b/");
+  CHECK_STOP(L"/a/b/c");
+
+#undef CHECK_STOP
+}
+
 TEST_F(DirectoryEntryTests, findSubDirectoryRecursive)
 {
+  auto checkCaseVariations = [&](auto&& from, std::wstring path, auto&& what) {
+    SCOPED_TRACE(path);
+
+    // uppercased path
+    std::wstring uppercased;
+    bool uppercasedEmpty = true;
+
+    for (wchar_t c : path) {
+      if (c != L'\\' && c != L'/') {
+        uppercasedEmpty = false;
+      }
+
+      uppercased += std::toupper(c);
+    }
+
+    // lowercased path
+    std::wstring lowercased = ToLowerCopy(path);
+
+
+    // as-is
+    EXPECT_EQ(from->findSubDirectoryRecursive(path), what);
+
+    // uppercased
+    EXPECT_EQ(from->findSubDirectoryRecursive(uppercased), what);
+
+    // lowercased
+    EXPECT_EQ(from->findSubDirectoryRecursive(lowercased), what);
+
+
+    // lowercased, with the flag saying that it's already lowercase
+    EXPECT_EQ(from->findSubDirectoryRecursive(lowercased, true), what);
+
+    if (uppercasedEmpty) {
+      // if the path is empty, this won't fail
+      EXPECT_EQ(from->findSubDirectoryRecursive(uppercased, true), what);
+    } else {
+      // uppercased, but with the flag that it's actually lowercased; this
+      // should never find anything because this test has fully uppercase
+      // directory names
+      EXPECT_EQ(from->findSubDirectoryRecursive(uppercased, true), nullptr);
+    }
+  };
+
+
+  auto check = [&](auto&& from, std::wstring path, auto&& what) {
+    checkCaseVariations(from, path, what);
+    checkCaseVariations(from, path + L"/", what);
+    checkCaseVariations(from, path + L"\\", what);
+  };
+
+#define CHECK(FROM, PATH, WHAT) \
+  { \
+    SCOPED_TRACE(FROM->debugName() + L" with path '" + PATH + L"'"); \
+    check(FROM, PATH, WHAT); \
+  }
+
+
   // non-existing
   EXPECT_EQ(root->findSubDirectoryRecursive(L"non-existing"), nullptr);
 
@@ -545,48 +657,27 @@ TEST_F(DirectoryEntryTests, findSubDirectoryRecursive)
       auto noise = terrain->addFileInternal(L"noise.dds");
 
   ;
-  auto checkCaseVariations = [&](auto&& from, std::wstring path, auto&& what) {
-    // uppercased path
-    std::wstring uppercased;
-    for (wchar_t c : path) {
-      uppercased += std::toupper(c);
-    }
-
-    // lowercased path
-    std::wstring lowercased = ToLowerCopy(path);
-
-
-    // as-is
-    EXPECT_EQ(from->findSubDirectoryRecursive(path), what);
-
-    // uppercased
-    EXPECT_EQ(from->findSubDirectoryRecursive(uppercased), what);
-
-    // lowercased
-    EXPECT_EQ(from->findSubDirectoryRecursive(lowercased), what);
-
-
-    // lowercased, with the flag saying that it's already lowercase
-    EXPECT_EQ(from->findSubDirectoryRecursive(lowercased, true), what);
-
-    // uppercased, but with the flag that it's actually lowercased; this should
-    // never find anything
-    EXPECT_EQ(from->findSubDirectoryRecursive(uppercased, true), nullptr);
-  };
-
-
-  auto check = [&](auto&& from, std::wstring path, auto&& what) {
-    checkCaseVariations(from, path, what);
-    checkCaseVariations(from, path + L"/", what);
-    checkCaseVariations(from, path + L"\\", what);
-  };
 
   // empty path returns the parent, check a couple of them
-  check(root, L"", root.get());
-  check(meshes, L"", meshes);
-  check(terrain, L"", terrain);
+  CHECK(root,     L"", root.get());
+  CHECK(meshes,   L"", meshes);
+  CHECK(terrain,  L"", terrain);
 
-  check(root, L"meshes", meshes);
+  // from root
+  CHECK(root,     L"meshes",                        meshes);
+  CHECK(root,     L"meshes/non-existing",           nullptr);
+  CHECK(root,     L"meshes/effects",                effects);
+  CHECK(root,     L"meshes/landscape",              landscape);
+  CHECK(root,     L"meshes/landscape/non-existing", nullptr);
+  CHECK(root,     L"meshes/effects/blood.nif",      nullptr); // this is a file
+
+  // from textures
+  CHECK(textures, L"clutter",                       clutter);
+  CHECK(textures, L"clutter/barrel01.dds",          nullptr); // this is a file
+  CHECK(textures, L"terrain",                       terrain);
+  CHECK(textures, L"terrain/noise.dds",             nullptr); // this is a file
+
+#undef CHECK
 }
 
 } // namespace tests

@@ -40,6 +40,8 @@ namespace details
 // `component` is never empty, so "a//b" and "/a/b/" are the same as above; an
 // empty path does not call f() at all
 //
+// return false from `f()` to stop processing early
+//
 template <class F>
 void forEachPathComponent(std::wstring_view path, F&& f)
 {
@@ -136,7 +138,11 @@ void forEachPathComponent(std::wstring_view path, F&& f)
     // so pendingRange must be fired with `last` being false, and lastRange
     // with `last` being true
     //
-    fire(pendingRange, false);
+    if (!fire(pendingRange, false)) {
+      // still have to honour f()'s return value
+      return;
+    }
+
     fire(lastRange, true);
   }
   else if (!pendingRange.empty())
