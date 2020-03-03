@@ -2,6 +2,7 @@
 #include "directoryentry.h"
 #include "originconnection.h"
 #include "filesorigin.h"
+#include "util.h"
 
 namespace tests
 {
@@ -40,7 +41,7 @@ TEST_F(DirectoryEntryTests, createRoot)
 
 TEST_F(DirectoryEntryTests, isTopLevel)
 {
-  auto d = root->addSubDirectory(L"sub", L"sub", 1);
+  auto d = root->addSubDirectory(L"sub", 1);
 
   EXPECT_TRUE(root->isTopLevel());
   EXPECT_FALSE(d->isTopLevel());
@@ -55,9 +56,9 @@ TEST_F(DirectoryEntryTests, isEmpty)
   EXPECT_TRUE(root->isEmpty());
 
   // add 3 dirs in root
-  auto subWithFiles = root->addSubDirectory(L"files", L"files", 1);
-  auto subWithDirs = root->addSubDirectory(L"dirs", L"dirs", 1);
-  auto subWithBoth = root->addSubDirectory(L"both", L"both", 1);
+  auto subWithFiles = root->addSubDirectory(L"files", 1);
+  auto subWithDirs = root->addSubDirectory(L"dirs", 1);
+  auto subWithBoth = root->addSubDirectory(L"both", 1);
 
   // root isn't empty anymore
   EXPECT_FALSE(root->isEmpty());
@@ -74,14 +75,14 @@ TEST_F(DirectoryEntryTests, isEmpty)
   EXPECT_TRUE(subWithBoth->isEmpty());
 
   // add a subdir
-  subWithDirs->addSubDirectory(L"sub", L"sub", 1);
+  subWithDirs->addSubDirectory(L"sub", 1);
   EXPECT_FALSE(subWithFiles->isEmpty());
   EXPECT_FALSE(subWithDirs->isEmpty());
   EXPECT_TRUE(subWithBoth->isEmpty());
 
   // add both
   subWithBoth->addFileInternal(L"file");
-  subWithBoth->addSubDirectory(L"sub", L"sub", 1);
+  subWithBoth->addSubDirectory(L"sub", 1);
   EXPECT_FALSE(subWithFiles->isEmpty());
   EXPECT_FALSE(subWithDirs->isEmpty());
   EXPECT_FALSE(subWithBoth->isEmpty());
@@ -92,7 +93,7 @@ TEST_F(DirectoryEntryTests, hasFiles)
   EXPECT_FALSE(root->hasFiles());
 
   // adding a subdir
-  root->addSubDirectory(L"sub", L"sub", 1);
+  root->addSubDirectory(L"sub", 1);
 
   // no change
   EXPECT_FALSE(root->hasFiles());
@@ -110,11 +111,11 @@ TEST_F(DirectoryEntryTests, getParent)
   EXPECT_EQ(root->getParent(), nullptr);
 
   // add a directory in `root`
-  auto d = root->addSubDirectory(L"sub", L"sub", 1);
+  auto d = root->addSubDirectory(L"sub", 1);
   EXPECT_EQ(d->getParent(), root.get());
 
   // add a directory in `d`
-  auto d2 = d->addSubDirectory(L"sub2", L"sub2", 1);
+  auto d2 = d->addSubDirectory(L"sub2", 1);
   EXPECT_EQ(d2->getParent(), d);
 }
 
@@ -123,7 +124,7 @@ TEST_F(DirectoryEntryTests, getName)
   EXPECT_EQ(root->getName(), L"data");
 
   // the lowercase version is only used for lookups, SubDir is the actual name
-  auto d = root->addSubDirectory(L"SubDir", L"subdir", 1);
+  auto d = root->addSubDirectory(L"SubDir", 1);
   EXPECT_EQ(d->getName(), L"SubDir");
 }
 
@@ -155,14 +156,14 @@ TEST_F(DirectoryEntryTests, getSubDirectories)
   EXPECT_EQ(root->getSubDirectories().size(), 0);
 
   // adding one dir
-  auto* d1 = root->addSubDirectory(L"sub1", L"sub1", 1);
+  auto* d1 = root->addSubDirectory(L"sub1", 1);
 
   // dir is in root
   ASSERT_EQ(root->getSubDirectories().size(), 1);
   EXPECT_EQ(root->getSubDirectories()[0].get(), d1);
 
   // adding another
-  auto* d2 = root->addSubDirectory(L"sub2", L"sub2", 1);
+  auto* d2 = root->addSubDirectory(L"sub2", 1);
 
   // both dirs are in root
   ASSERT_EQ(root->getSubDirectories().size(), 2);
@@ -205,11 +206,11 @@ TEST_F(DirectoryEntryTests, anyOrigin)
   EXPECT_EQ(root->anyOrigin(), DataOriginID);
 
   // add a dir from origin 0
-  auto* d = root->addSubDirectory(L"d", L"d", o[0]);
+  auto* d = root->addSubDirectory(L"d", o[0]);
   EXPECT_EQ(d->anyOrigin(), o[0]);
 
     // add a subdir from origin 1, picked up
-    auto* sub1 = d->addSubDirectory(L"sub1", L"sub1", o[1]);
+    auto* sub1 = d->addSubDirectory(L"sub1", o[1]);
     EXPECT_EQ(d->anyOrigin(), o[1]);
 
     // add a file from origin 2, but from an archive; not picked up
@@ -235,6 +236,357 @@ TEST_F(DirectoryEntryTests, anyOrigin)
   // remove `d`, root back to Data origin
   root->removeSubDirectoryInternal(d->getName());
   EXPECT_EQ(root->anyOrigin(), DataOriginID);
+}
+
+TEST_F(DirectoryEntryTests, forEachDirectory)
+{
+  // check that the callback isn't executed at all when there are no
+  // directories
+  bool executed = false;
+  root->forEachDirectory([&](auto&) {
+    executed = true;
+    return true;
+  });
+
+  EXPECT_FALSE(executed);
+
+  // create 5 directories in root, use names that are not in alphabetical order
+  const std::vector<DirectoryEntry*> dirs = {
+    root->addSubDirectory(L"d3", 1),
+    root->addSubDirectory(L"d2", 1),
+    root->addSubDirectory(L"d1", 1),
+    root->addSubDirectory(L"d4", 1),
+    root->addSubDirectory(L"d5", 1)
+  };
+
+  // make sure all 5 directories were given and in that they were ordered
+  // correctly
+  std::vector<DirectoryEntry*> seen;
+  root->forEachDirectory([&](auto& d) {
+    seen.push_back(&d);
+    return true;
+  });
+
+  EXPECT_EQ(seen, dirs);
+
+  // check that early stop works
+  std::size_t i = 0;
+  root->forEachDirectory([&](auto&) {
+    ++i;
+
+    if (i == 3) {
+      return false;
+    } else {
+      return true;
+    }
+  });
+
+  EXPECT_EQ(i, 3);
+}
+
+TEST_F(DirectoryEntryTests, forEachFile)
+{
+  // check that the callback isn't executed at all when there are no
+  // files
+  bool executed = false;
+  root->forEachFile([&](auto&) {
+    executed = true;
+    return true;
+  });
+
+  EXPECT_FALSE(executed);
+
+  // origin for the files
+  auto& o = fr->getOriginConnection()->createOrigin({L"o", L"c:\\o", 1});
+
+  // create 5 files in root, use names that are not in alphabetical order
+  const std::vector<FileEntryPtr> files = {
+    fr->addFile(*root, L"f3", o, {}, {}),
+    fr->addFile(*root, L"f2", o, {}, {}),
+    fr->addFile(*root, L"f1", o, {}, {}),
+    fr->addFile(*root, L"f4", o, {}, {}),
+    fr->addFile(*root, L"f5", o, {}, {})
+  };
+
+  // order them alphabetically
+  const std::vector<FileIndex> indices = {
+    files[2]->getIndex(),
+    files[1]->getIndex(),
+    files[0]->getIndex(),
+    files[3]->getIndex(),
+    files[4]->getIndex(),
+  };
+
+  // make sure all 5 files were given and in that they were ordered correctly
+  std::vector<FileIndex> seen;
+  root->forEachFile([&](auto& f) {
+    seen.push_back(f.getIndex());
+    return true;
+  });
+
+  EXPECT_EQ(seen, indices);
+
+  // check that early stop works
+  std::size_t i = 0;
+  root->forEachFile([&](auto&) {
+    ++i;
+
+    if (i == 3) {
+      return false;
+    } else {
+      return true;
+    }
+  });
+
+  EXPECT_EQ(i, 3);
+}
+
+TEST_F(DirectoryEntryTests, forEachFileIndex)
+{
+  // check that the callback isn't executed at all when there are no
+  // files
+  bool executed = false;
+  root->forEachFileIndex([&](auto&) {
+    executed = true;
+    return true;
+  });
+
+  EXPECT_FALSE(executed);
+
+  // origin for the files
+  auto& o = fr->getOriginConnection()->createOrigin({L"o", L"c:\\o", 1});
+
+  // create 5 files in root, use names that are not in alphabetical order
+  const std::vector<FileEntryPtr> files = {
+    fr->addFile(*root, L"f3", o, {}, {}),
+    fr->addFile(*root, L"f2", o, {}, {}),
+    fr->addFile(*root, L"f1", o, {}, {}),
+    fr->addFile(*root, L"f4", o, {}, {}),
+    fr->addFile(*root, L"f5", o, {}, {})
+  };
+
+  // order them alphabetically
+  const std::vector<FileIndex> indices = {
+    files[2]->getIndex(),
+    files[1]->getIndex(),
+    files[0]->getIndex(),
+    files[3]->getIndex(),
+    files[4]->getIndex(),
+  };
+
+  // make sure all 5 files were given and in that they were ordered correctly
+  std::vector<FileIndex> seen;
+  root->forEachFileIndex([&](auto i) {
+    seen.push_back(i);
+    return true;
+  });
+
+  EXPECT_EQ(seen, indices);
+
+  // check that early stop works
+  std::size_t i = 0;
+  root->forEachFileIndex([&](auto&) {
+    ++i;
+
+    if (i == 3) {
+      return false;
+    } else {
+      return true;
+    }
+  });
+
+  EXPECT_EQ(i, 3);
+}
+
+TEST_F(DirectoryEntryTests, findSubDirectoryName)
+{
+  // non-existing
+  EXPECT_EQ(root->findSubDirectory(L"non-existing"), nullptr);
+
+  // add one
+  auto* d = root->addSubDirectory(L"SubDir", 1);
+
+  // make sure it's there, case insensitive
+  EXPECT_EQ(root->findSubDirectory(L"SubDir"), d);
+  EXPECT_EQ(root->findSubDirectory(L"SUBDIR"), d);
+  EXPECT_EQ(root->findSubDirectory(L"subdir"), d);
+  EXPECT_EQ(root->findSubDirectory(L"non-existing"), nullptr);
+
+  // remove it
+  root->removeSubDirectoryInternal(d->getName());
+
+  // make sure it's gone
+  EXPECT_EQ(root->findSubDirectory(L"SubDir"), nullptr);
+  EXPECT_EQ(root->findSubDirectory(L"SUBDIR"), nullptr);
+  EXPECT_EQ(root->findSubDirectory(L"subdir"), nullptr);
+  EXPECT_EQ(root->findSubDirectory(L"non-existing"), nullptr);
+}
+
+TEST_F(DirectoryEntryTests, findSubDirectoryKey)
+{
+  // non-existing
+  EXPECT_EQ(root->findSubDirectory(FileKey(L"non-existing")), nullptr);
+
+  // add one
+  auto* d = root->addSubDirectory(L"SubDir", 1);
+
+  // make sure it's there; FileKey assumes the value is lowercase, so this
+  // is case sensitive
+  EXPECT_EQ(root->findSubDirectory(FileKey(L"subdir")), d);
+  EXPECT_EQ(root->findSubDirectory(FileKey(L"SubDir")), nullptr);
+  EXPECT_EQ(root->findSubDirectory(FileKey(L"SUBDIR")), nullptr);
+  EXPECT_EQ(root->findSubDirectory(FileKey(L"non-existing")), nullptr);
+
+  // remove it
+  root->removeSubDirectoryInternal(d->getName());
+
+  // make sure it's gone
+  EXPECT_EQ(root->findSubDirectory(FileKey(L"subdir")), nullptr);
+  EXPECT_EQ(root->findSubDirectory(FileKey(L"SubDir")), nullptr);
+  EXPECT_EQ(root->findSubDirectory(FileKey(L"SUBDIR")), nullptr);
+  EXPECT_EQ(root->findSubDirectory(FileKey(L"non-existing")), nullptr);
+}
+
+TEST_F(DirectoryEntryTests, forEachPathComponent)
+{
+  using details::forEachPathComponent;
+
+  auto check = [](std::wstring path, std::vector<std::wstring> split) {
+    std::vector<std::wstring> components;
+
+    forEachPathComponent(path, [&](auto&& c, bool last) {
+      components.push_back(std::wstring(c.begin(), c.end()));
+
+      if (last) {
+        components.push_back(L"LAST");
+      }
+
+      return true;
+    });
+
+    if (!split.empty()) {
+      split.push_back(L"LAST");
+    }
+
+    EXPECT_EQ(components, split);
+  };
+
+#define CHECK(PATH, SPLIT) \
+  { \
+    SCOPED_TRACE(PATH); \
+    check(PATH, SPLIT); \
+  }
+
+  using V = std::vector<std::wstring>;
+
+  CHECK(LR"()",            V());
+  CHECK(LR"(/)",           V());
+  CHECK(LR"(//)",          V());
+  CHECK(LR"(\)",           V());
+  CHECK(LR"(\\)",          V());
+
+  CHECK(LR"(a)",           V({L"a"}));
+  CHECK(LR"(a/)",          V({L"a"}));
+  CHECK(LR"(a\)",          V({L"a"}));
+
+  CHECK(LR"(/a)",          V({L"a"}));
+  CHECK(LR"(//a/)",        V({L"a"}));
+  CHECK(LR"(\//a\)",       V({L"a"}));
+
+  CHECK(LR"(a/b)",         V({L"a", L"b"}));
+  CHECK(LR"(a/b/)",        V({L"a", L"b"}));
+
+  CHECK(LR"(a/b/c)",       V({L"a", L"b", L"c"}));
+  CHECK(LR"(a//b//c)",     V({L"a", L"b", L"c"}));
+  CHECK(LR"(a\b/c)",       V({L"a", L"b", L"c"}));
+  CHECK(LR"(a\b//c)",      V({L"a", L"b", L"c"}));
+  CHECK(LR"(a\b//\c)",     V({L"a", L"b", L"c"}));
+
+  CHECK(LR"(/a/b/c)",      V({L"a", L"b", L"c"}));
+  CHECK(LR"(//a//b//c)",   V({L"a", L"b", L"c"}));
+  CHECK(LR"(\a\b/c)",      V({L"a", L"b", L"c"}));
+  CHECK(LR"(\\a\b//c)",    V({L"a", L"b", L"c"}));
+  CHECK(LR"(\/\a\b//\c)",  V({L"a", L"b", L"c"}));
+
+#undef CHECK
+}
+
+TEST_F(DirectoryEntryTests, findSubDirectoryRecursive)
+{
+  // non-existing
+  EXPECT_EQ(root->findSubDirectoryRecursive(L"non-existing"), nullptr);
+
+  // creates the following hierarchy
+  //  +- root
+  //     +- meshes
+  //     |   +- effects
+  //     |   |   +- blood.nif
+  //     |   +- landscape
+  //     |       +- tree
+  //     |           +- treeaspen01.nif
+  //     |           +- treeaspen02.nif
+  //     +- textures
+  //         +- clutter
+  //         |   +- barrel01.dds
+  //         +- terrain
+  //             +- noise.dds
+
+  auto meshes = root->addSubDirectory(L"meshes", 1);
+    auto effects = meshes->addSubDirectory(L"effects", 1);
+      auto blood = effects->addFileInternal(L"blood.nif");
+    auto landscape = meshes->addSubDirectory(L"landscape", 1);
+      auto tree = landscape->addSubDirectory(L"tree", 1);
+        auto treeaspen01 = tree->addFileInternal(L"treeaspen01.nif");
+        auto treeaspen02 = tree->addFileInternal(L"treeaspen02.nif");
+  auto textures = root->addSubDirectory(L"textures", 1);
+    auto clutter = textures->addSubDirectory(L"clutter", 1);
+      auto barrel01 = clutter->addFileInternal(L"barrel01.dds");
+    auto terrain = textures->addSubDirectory(L"terrain", 1);
+      auto noise = terrain->addFileInternal(L"noise.dds");
+
+  ;
+  auto checkCaseVariations = [&](auto&& from, std::wstring path, auto&& what) {
+    // uppercased path
+    std::wstring uppercased;
+    for (wchar_t c : path) {
+      uppercased += std::toupper(c);
+    }
+
+    // lowercased path
+    std::wstring lowercased = ToLowerCopy(path);
+
+
+    // as-is
+    EXPECT_EQ(from->findSubDirectoryRecursive(path), what);
+
+    // uppercased
+    EXPECT_EQ(from->findSubDirectoryRecursive(uppercased), what);
+
+    // lowercased
+    EXPECT_EQ(from->findSubDirectoryRecursive(lowercased), what);
+
+
+    // lowercased, with the flag saying that it's already lowercase
+    EXPECT_EQ(from->findSubDirectoryRecursive(lowercased, true), what);
+
+    // uppercased, but with the flag that it's actually lowercased; this should
+    // never find anything
+    EXPECT_EQ(from->findSubDirectoryRecursive(uppercased, true), nullptr);
+  };
+
+
+  auto check = [&](auto&& from, std::wstring path, auto&& what) {
+    checkCaseVariations(from, path, what);
+    checkCaseVariations(from, path + L"/", what);
+    checkCaseVariations(from, path + L"\\", what);
+  };
+
+  // empty path returns the parent, check a couple of them
+  check(root, L"", root.get());
+  check(meshes, L"", meshes);
+  check(terrain, L"", terrain);
+
+  check(root, L"meshes", meshes);
 }
 
 } // namespace tests

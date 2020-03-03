@@ -80,7 +80,7 @@ TEST_F(FileEntryTests, CreateInRoot)
 TEST_F(FileEntryTests, CreateInDirectory)
 {
   // creating a sub directory with no origin
-  auto d = root->addSubDirectory(L"SubDir", L"subdir", InvalidOriginID);
+  auto d = root->addSubDirectory(L"SubDir", InvalidOriginID);
 
   // creating a file inside that directory
   auto e = FileEntry::create(3, L"name.ext", d);
@@ -119,7 +119,7 @@ TEST_F(FileEntryTests, SingleOrigin)
     {L"origin one", "c:\\origin one path", 0});
 
   // creating a sub directory from this origin
-  auto d = root->addSubDirectory(L"SubDir", L"subdir", origin.getID());
+  auto d = root->addSubDirectory(L"SubDir", origin.getID());
 
   // creating a file inside that directory
   auto e = FileEntry::create(4, L"name.ext", d);
@@ -183,7 +183,7 @@ TEST_F(FileEntryTests, OriginManipulation)
   const ArchiveInfo origin4Archive(L"origin four archive", 2);
 
   // creating a sub directory from origin 2
-  auto d = root->addSubDirectory(L"SubDir", L"subdir", origins[2]->getID());
+  auto d = root->addSubDirectory(L"SubDir", origins[2]->getID());
 
   // creating a file inside that directory
   auto e = FileEntry::create(5, L"name.ext", d);

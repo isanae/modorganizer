@@ -302,6 +302,8 @@ TEST_F(FileRegisterTests, disableOrigin)
   CHECK_ORIGINS(f3);
   CHECK_ORIGINS(f4);
   CHECK_ORIGINS(f5);
+
+#undef CHECK_ORIGINS
 }
 
 } // namespace tests

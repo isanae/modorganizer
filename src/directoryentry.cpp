@@ -27,36 +27,7 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include <utility.h>
 
 using namespace MOBase;
-
-// calls f(c, last) on each component, where `c` is the name and `last` is
-// true only for the last component; if f() returns false, stops the iteration
-//
-template <class F>
-void forEachPathComponent(std::wstring_view path, F&& f)
-{
-  if (path.empty()) {
-    return;
-  }
-
-  std::size_t start = 0;
-
-  for (;;) {
-    const std::size_t sep = path.find_first_of(L"\\/", start);
-
-    if (sep == std::string::npos) {
-      // last component
-      f(path.substr(start), true);
-      break;
-    }
-
-    if (!f(path.substr(start, sep - start), false)) {
-      break;
-    }
-
-    start = sep + 1;
-  }
-}
-
+using details::forEachPathComponent;
 
 DirectoryEntry::DirectoryEntry(
   std::wstring name, DirectoryEntry* parent, OriginID originID,
@@ -469,6 +440,12 @@ DirectoryEntry* DirectoryEntry::addSubDirectory(
   // nameLc is moved from this point
 
   return p;
+}
+
+DirectoryEntry* DirectoryEntry::addSubDirectory(std::wstring name, OriginID o)
+{
+  std::wstring lc = ToLowerCopy(name);
+  return addSubDirectory(std::move(name), std::move(lc), o);
 }
 
 void DirectoryEntry::removeSubDirectoryInternal(std::wstring_view name)

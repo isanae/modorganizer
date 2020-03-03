@@ -29,6 +29,144 @@ namespace env
 }
 
 
+namespace details
+{
+
+// calls f(component, last) for every path component, where `last` is true
+// if it's the last component
+//
+// for example, "a/b" will call f("a", false) and f("b", true)
+//
+// `component` is never empty, so "a//b" and "/a/b/" are the same as above; an
+// empty path does not call f() at all
+//
+template <class F>
+void forEachPathComponent(std::wstring_view path, F&& f)
+{
+  // what complicates things a bit is that firing f() for the last component
+  // must pass `true`, which means that when a valid range is found, it must be
+  // put on hold until an additional valid range has been found, at which point
+  // the first range can be fired safely with `last` being `false`
+  //
+  // it'd be easy to just allocate a vector and split the path, but this is
+  // called pretty often, so avoiding memory allocation is worth it
+  //
+  // cleanup is done at the end after the whole path has been processed to
+  // make sure pending ranges are fired correctly
+
+
+  // a [begin, end[ range in `path`
+  //
+  struct Range
+  {
+    std::size_t begin, end;
+    bool empty() const { return (begin == end); }
+  };
+
+
+  // this is set when a range has been found but the path hasn't been
+  // completely processed yet, so it's unknown whether it's the last range
+  Range pendingRange = {0, 0};
+
+  // start of the current range
+  std::size_t start = 0;
+
+
+  // fires f() with the given range
+  auto fire = [&](Range r, bool last) {
+    auto sub = path.substr(r.begin, r.end - r.begin);
+    return f(sub, last);
+  };
+
+
+  // called every time a separator is found in `path`; fires f() for the
+  // range on hold, if any, while making sure empty ranges are ignored
+  auto addRange = [&](Range newRange) {
+    // the callback can return false to stop the iteration immediately
+    bool b = true;
+
+    // newRange is empty when two separators are contiguous or when the first
+    // character in the path is a separator; ignore that
+    if (!newRange.empty()) {
+      // pendingRange is empty for the first range
+      if (!pendingRange.empty()) {
+        // there is a pendingRange, and newRange has been confirmed as valid;
+        // so pendingRange can be safely fired because it is confirmed that it
+        // is not the last one
+        b = fire(pendingRange, false);
+      }
+
+      // the new range is now pending because it's unknown whether it's the
+      // last one
+      pendingRange = newRange;
+    }
+
+    // newRange.end is the separator, so one past it is now the beginning of a
+    // potential range
+    start = newRange.end + 1;
+
+    // forward what f() returned, if it was called
+    return b;
+  };
+
+
+  // for each character in the path
+  for (std::size_t i=0; i<path.size(); ++i) {
+    const wchar_t& c = path[i];
+
+    // if the character is a separator, create a new range
+    if (c == L'/' || c == L'\\') {
+      if (!addRange({start, i})) {
+        return;
+      }
+    }
+  }
+
+
+  // a range that extends to the end of the path
+  Range lastRange = {start, path.size()};
+
+  // at this point, there are four possible situations:
+
+  if (!pendingRange.empty() && !lastRange.empty())
+  {
+    // both pendingRange and lastRange are valid ranges; for example, with
+    // "a/b", pendingRange is "a" and lastRange is "b"
+    //
+    // so pendingRange must be fired with `last` being false, and lastRange
+    // with `last` being true
+    //
+    fire(pendingRange, false);
+    fire(lastRange, true);
+  }
+  else if (!pendingRange.empty())
+  {
+    // there is a pendingRange, but lastRange is empty; for example, with
+    // "a/", pendingRange is "a", but lastRange is empty
+    //
+    // so pendingRange must be fired with `last` being true and lastRange is
+    // ignored
+    fire(pendingRange, true);
+  }
+  else if (!lastRange.empty())
+  {
+    // there is a lastRange, but no pendingRange; for example, with "a",
+    // pendingRange is empty, but lastRange is "a"
+    //
+    // so pendingRange is ignored and lastRange is fired with `last` being
+    // true
+    fire(lastRange, true);
+  }
+  else
+  {
+    // both ranges are empty, which happens for an empty path; both are
+    // ignored
+  }
+}
+
+} // namespace details
+
+
 // a directory has files, subdirectories and a list of origins having the
 // directory
 //
@@ -262,10 +400,14 @@ public:
   //
   void addFromBSA(FilesOrigin& origin, const fs::path& archive, int order);
 
-  // manually adds a subdirectory to this one, mostly for tests
+  // manually adds a subdirectory to this one
   //
   DirectoryEntry* addSubDirectory(
     std::wstring name, std::wstring nameLowercase, OriginID originID);
+
+  // convenience: same as above but has to create a lowercase copy of `name`
+  //
+  DirectoryEntry* addSubDirectory(std::wstring name, OriginID originID);
 
   // removes the given subdirectory from this directory
   //
