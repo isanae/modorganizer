@@ -12,11 +12,129 @@ struct DirectoryEntryTests : public ::testing::Test
   std::shared_ptr<FileRegister> fr;
   std::unique_ptr<DirectoryEntry> root;
 
+  DirectoryEntry* meshes = nullptr;
+  DirectoryEntry* effects = nullptr;
+  FileEntryPtr blood_nif;
+  DirectoryEntry* landscape = nullptr;
+  DirectoryEntry* tree = nullptr;
+  FileEntryPtr tree01_nif;
+  FileEntryPtr tree02_nif;
+  DirectoryEntry* textures = nullptr;
+  DirectoryEntry* clutter = nullptr;
+  FileEntryPtr barrel01_dds;
+  DirectoryEntry* terrain = nullptr;
+  FileEntryPtr noise_dds;
+
   DirectoryEntryTests()
   {
     fr = FileRegister::create();
     root = DirectoryEntry::createRoot(fr);
   }
+
+  void createHierarchy()
+  {
+    // creates the following hierarchy
+    //  +- root
+    //     +- meshes
+    //     |   +- effects
+    //     |   |   +- blood.nif
+    //     |   +- landscape
+    //     |       +- tree
+    //     |           +- tree01.nif
+    //     |           +- tree02.nif
+    //     +- textures
+    //         +- clutter
+    //         |   +- barrel01.dds
+    //         +- terrain
+    //             +- noise.dds
+
+    meshes = root->addSubDirectory(L"meshes", 1);
+    effects = meshes->addSubDirectory(L"effects", 1);
+    blood_nif = effects->addFileInternal(L"blood.nif");
+    landscape = meshes->addSubDirectory(L"landscape", 1);
+    tree = landscape->addSubDirectory(L"tree", 1);
+    tree01_nif = tree->addFileInternal(L"tree01.nif");
+    tree02_nif = tree->addFileInternal(L"tree02.nif");
+    textures = root->addSubDirectory(L"textures", 1);
+    clutter = textures->addSubDirectory(L"clutter", 1);
+    barrel01_dds = clutter->addFileInternal(L"barrel01.dds");
+    terrain = textures->addSubDirectory(L"terrain", 1);
+    noise_dds = terrain->addFileInternal(L"noise.dds");
+  }
+
+  // tests multiple case variations of `path`, make sure they all find `what`
+  //
+  void checkCaseVariations(
+    DirectoryEntry* from, std::wstring path, FileEntryPtr what)
+  {
+    checkCaseVariationsImpl(
+      from, path, what, &DirectoryEntry::findFileRecursive);
+  }
+
+  // tests multiple case variations of `path`, make sure they all find `what`
+  //
+  void checkCaseVariations(
+    DirectoryEntry* from, std::wstring path, DirectoryEntry* what)
+  {
+    using MF = DirectoryEntry* (DirectoryEntry::*)(
+      std::wstring_view path, bool alreadyLowerCase);
+
+    checkCaseVariationsImpl(
+      from, path, what,
+      static_cast<MF>(&DirectoryEntry::findSubDirectoryRecursive));
+  }
+
+  // tests multiple case variations of `path`, make sure they all find `what`;
+  // this is used by both findSubDirectoryRecursive() and findFileRecursive()
+  // tests, and so the actual member function `mf` is a template parameter
+  // pointing to either
+  //
+  template <class What, class MF>
+  void checkCaseVariationsImpl(
+    DirectoryEntry* from, std::wstring path, What what, MF mf)
+  {
+    SCOPED_TRACE(path);
+
+    // uppercased path
+    std::wstring uppercased;
+
+    // whether the uppercased path has any character that's not a separator
+    bool uppercasedEmpty = true;
+
+    for (wchar_t c : path) {
+      if (c != L'\\' && c != L'/') {
+        uppercasedEmpty = false;
+      }
+
+      uppercased += std::toupper(c);
+    }
+
+    // lowercased path
+    std::wstring lowercased = ToLowerCopy(path);
+
+
+    // as-is
+    EXPECT_EQ((from->*mf)(path, false), what);
+
+    // uppercased
+    EXPECT_EQ((from->*mf)(uppercased, false), what);
+
+    // lowercased
+    EXPECT_EQ((from->*mf)(lowercased, false), what);
+
+    // lowercased, with the flag saying that it's already lowercase
+    EXPECT_EQ((from->*mf)(lowercased, true), what);
+
+    if (uppercasedEmpty) {
+      // if the path is empty, this won't fail
+      EXPECT_EQ((from->*mf)(uppercased, true), what);
+    } else {
+      // uppercased, but with the flag that it's actually lowercased; this
+      // should never find anything because this test has fully uppercase
+      // directory names
+      EXPECT_EQ((from->*mf)(uppercased, true), nullptr);
+    }
+  };
 };
 
 using Files = std::vector<FileEntryPtr>;
@@ -568,54 +686,14 @@ TEST_F(DirectoryEntryTests, forEachPathComponentStop)
 
 TEST_F(DirectoryEntryTests, findSubDirectoryRecursive)
 {
-  auto checkCaseVariations = [&](auto&& from, std::wstring path, auto&& what) {
-    SCOPED_TRACE(path);
+  createHierarchy();
 
-    // uppercased path
-    std::wstring uppercased;
-    bool uppercasedEmpty = true;
-
-    for (wchar_t c : path) {
-      if (c != L'\\' && c != L'/') {
-        uppercasedEmpty = false;
-      }
-
-      uppercased += std::toupper(c);
-    }
-
-    // lowercased path
-    std::wstring lowercased = ToLowerCopy(path);
-
-
-    // as-is
-    EXPECT_EQ(from->findSubDirectoryRecursive(path), what);
-
-    // uppercased
-    EXPECT_EQ(from->findSubDirectoryRecursive(uppercased), what);
-
-    // lowercased
-    EXPECT_EQ(from->findSubDirectoryRecursive(lowercased), what);
-
-
-    // lowercased, with the flag saying that it's already lowercase
-    EXPECT_EQ(from->findSubDirectoryRecursive(lowercased, true), what);
-
-    if (uppercasedEmpty) {
-      // if the path is empty, this won't fail
-      EXPECT_EQ(from->findSubDirectoryRecursive(uppercased, true), what);
-    } else {
-      // uppercased, but with the flag that it's actually lowercased; this
-      // should never find anything because this test has fully uppercase
-      // directory names
-      EXPECT_EQ(from->findSubDirectoryRecursive(uppercased, true), nullptr);
-    }
-  };
-
-
+  // tests path, path\ and path/
+  //
   auto check = [&](auto&& from, std::wstring path, auto&& what) {
     checkCaseVariations(from, path, what);
-    checkCaseVariations(from, path + L"/", what);
     checkCaseVariations(from, path + L"\\", what);
+    checkCaseVariations(from, path + L"/", what);
   };
 
 #define CHECK(FROM, PATH, WHAT) \
@@ -628,48 +706,18 @@ TEST_F(DirectoryEntryTests, findSubDirectoryRecursive)
   // non-existing
   EXPECT_EQ(root->findSubDirectoryRecursive(L"non-existing"), nullptr);
 
-  // creates the following hierarchy
-  //  +- root
-  //     +- meshes
-  //     |   +- effects
-  //     |   |   +- blood.nif
-  //     |   +- landscape
-  //     |       +- tree
-  //     |           +- treeaspen01.nif
-  //     |           +- treeaspen02.nif
-  //     +- textures
-  //         +- clutter
-  //         |   +- barrel01.dds
-  //         +- terrain
-  //             +- noise.dds
-
-  auto meshes = root->addSubDirectory(L"meshes", 1);
-    auto effects = meshes->addSubDirectory(L"effects", 1);
-      auto blood = effects->addFileInternal(L"blood.nif");
-    auto landscape = meshes->addSubDirectory(L"landscape", 1);
-      auto tree = landscape->addSubDirectory(L"tree", 1);
-        auto treeaspen01 = tree->addFileInternal(L"treeaspen01.nif");
-        auto treeaspen02 = tree->addFileInternal(L"treeaspen02.nif");
-  auto textures = root->addSubDirectory(L"textures", 1);
-    auto clutter = textures->addSubDirectory(L"clutter", 1);
-      auto barrel01 = clutter->addFileInternal(L"barrel01.dds");
-    auto terrain = textures->addSubDirectory(L"terrain", 1);
-      auto noise = terrain->addFileInternal(L"noise.dds");
-
-  ;
-
   // empty path returns the parent, check a couple of them
-  CHECK(root,     L"", root.get());
-  CHECK(meshes,   L"", meshes);
-  CHECK(terrain,  L"", terrain);
+  CHECK(root.get(), L"", root.get());
+  CHECK(meshes,     L"", meshes);
+  CHECK(terrain,    L"", terrain);
 
   // from root
-  CHECK(root,     L"meshes",                        meshes);
-  CHECK(root,     L"meshes/non-existing",           nullptr);
-  CHECK(root,     L"meshes/effects",                effects);
-  CHECK(root,     L"meshes/landscape",              landscape);
-  CHECK(root,     L"meshes/landscape/non-existing", nullptr);
-  CHECK(root,     L"meshes/effects/blood.nif",      nullptr); // this is a file
+  CHECK(root.get(), L"meshes",                        meshes);
+  CHECK(root.get(), L"meshes/non-existing",           nullptr);
+  CHECK(root.get(), L"meshes/effects",                effects);
+  CHECK(root.get(), L"meshes/landscape",              landscape);
+  CHECK(root.get(), L"meshes/landscape/non-existing", nullptr);
+  CHECK(root.get(), L"meshes/effects/blood.nif",      nullptr); // this is a file
 
   // from textures
   CHECK(textures, L"clutter",                       clutter);
@@ -680,4 +728,52 @@ TEST_F(DirectoryEntryTests, findSubDirectoryRecursive)
 #undef CHECK
 }
 
+TEST_F(DirectoryEntryTests, findFileRecursive)
+{
+  createHierarchy();
+
+  // tests path, path\ and path/
+  //
+  auto check = [&](auto&& from, std::wstring path, auto&& what) {
+    checkCaseVariations(from, path, FileEntryPtr(what));
+
+    // trailing separator won't find anything
+    checkCaseVariations(from, path + L"\\", FileEntryPtr());
+    checkCaseVariations(from, path + L"/", FileEntryPtr());
+  };
+
+#define CHECK(FROM, PATH, WHAT) \
+  { \
+    SCOPED_TRACE(FROM->debugName() + L" with path '" + PATH + L"'"); \
+    check(FROM, PATH, WHAT); \
+  }
+
+
+  // non-existing
+  EXPECT_EQ(root->findFileRecursive(L"non-existing"), nullptr);
+
+  // empty path won't find anything, check a couple
+  CHECK(root.get(), L"", nullptr);
+  CHECK(meshes,     L"", nullptr);
+  CHECK(terrain,    L"", nullptr);
+
+  // from root
+  CHECK(root.get(), L"meshes",                    nullptr);    // this is a dir
+  CHECK(root.get(), L"meshes/non-existing",       nullptr);    // this is a dir
+  CHECK(root.get(), L"meshes/landscape",          nullptr);    // this is a dir
+  CHECK(root.get(), L"meshes/landscape/tree",     nullptr);    // this is a dir
+  CHECK(root.get(), L"meshes/landscape/tree/tree01.nif", tree01_nif);
+  CHECK(root.get(), L"meshes/landscape/tree/tree02.nif", tree02_nif);
+
+  // from textures
+  CHECK(textures, L"clutter",                     nullptr);
+  CHECK(textures, L"clutter/barrel01.dds",        barrel01_dds);
+  CHECK(textures, L"terrain",                     nullptr);
+  CHECK(textures, L"terrain/noise.dds",           noise_dds);
+
+  // from terrain
+  CHECK(terrain, L"noise.dds",                    noise_dds);
+
+#undef CHECK
+}
 } // namespace tests

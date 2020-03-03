@@ -152,6 +152,16 @@ FileEntryPtr DirectoryEntry::findFile(FileKeyView key) const
 FileEntryPtr DirectoryEntry::findFileRecursive(
   std::wstring_view path, bool alreadyLowerCase) const
 {
+  if (path.empty()) {
+    return {};
+  }
+
+  const auto lastChar = path[path.size() - 1];
+  if (lastChar == L'/' || lastChar == L'\\') {
+    return {};
+  }
+
+
   if (alreadyLowerCase) {
     return findFileRecursiveImpl(path);
   } else {
@@ -166,12 +176,8 @@ FileEntryPtr DirectoryEntry::findFileRecursiveImpl(std::wstring_view path) const
 
   forEachPathComponent(path, [&](std::wstring_view name, bool last) {
     if (last) {
-      // last component, this must be a file; an empty name means the path
-      // ended with a separator and so cannot represent a valid file
-      if (!name.empty()) {
-        file = cwd->findFile(FileKeyView(name));
-      }
-
+      // last component, this must be a file
+      file = cwd->findFile(FileKeyView(name));
       return true;
     } else {
       // this component is a subdirectory
