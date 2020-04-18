@@ -1,5 +1,6 @@
 #include "modinfodialogfwd.h"
 #include "modinfo.h"
+#include "filetreefwd.h"
 #include <filterwidget.h>
 #include <QPushButton>
 #include <QTreeWidget>
@@ -9,7 +10,6 @@ namespace Ui { class MainWindow; }
 class OrganizerCore;
 class Settings;
 class PluginContainer;
-class FileTree;
 
 namespace MOShared { class DirectoryEntry; }
 
@@ -43,7 +43,7 @@ private:
   OrganizerCore& m_core;
   QWidget* m_parent;
   DataTabUi ui;
-  std::unique_ptr<FileTree> m_filetree;
+  std::unique_ptr<filetree::Tree> m_filetree;
   std::vector<QTreeWidgetItem*> m_removeLater;
   MOBase::FilterWidget m_filter;
   bool m_firstActivation;

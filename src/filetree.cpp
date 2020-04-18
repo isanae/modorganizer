@@ -9,6 +9,9 @@
 #include <log.h>
 #include <widgetutility.h>
 
+namespace filetree
+{
+
 using namespace MOShared;
 using namespace MOBase;
 
@@ -126,8 +129,8 @@ private:
 };
 
 
-FileTree::FileTree(OrganizerCore& core, QTreeView* tree)
-  : m_core(core), m_tree(tree), m_model(new FileTreeModel(core))
+Tree::Tree(OrganizerCore& core, QTreeView* tree)
+  : m_core(core), m_tree(tree), m_model(new Model(core))
 {
   m_tree->sortByColumn(0, Qt::AscendingOrder);
   m_tree->setModel(m_model);
@@ -152,32 +155,32 @@ FileTree::FileTree(OrganizerCore& core, QTreeView* tree)
     [&](auto&& index){ onItemActivated(index); });
 }
 
-FileTreeModel* FileTree::model()
+Model* Tree::model()
 {
   return m_model;
 }
 
-void FileTree::refresh()
+void Tree::refresh()
 {
   m_model->refresh();
 }
 
-void FileTree::clear()
+void Tree::clear()
 {
   m_model->clear();
 }
 
-bool FileTree::fullyLoaded() const
+bool Tree::fullyLoaded() const
 {
   return m_model->fullyLoaded();
 }
 
-void FileTree::ensureFullyLoaded()
+void Tree::ensureFullyLoaded()
 {
   m_model->ensureFullyLoaded();
 }
 
-FileTreeItem* FileTree::singleSelection()
+Item* Tree::singleSelection()
 {
   const auto sel = m_tree->selectionModel()->selectedRows();
   if (sel.size() == 1) {
@@ -187,7 +190,7 @@ FileTreeItem* FileTree::singleSelection()
   return nullptr;
 }
 
-void FileTree::open(FileTreeItem* item)
+void Tree::open(Item* item)
 {
   if (!item) {
     item = singleSelection();
@@ -211,7 +214,7 @@ void FileTree::open(FileTreeItem* item)
     .run();
 }
 
-void FileTree::openHooked(FileTreeItem* item)
+void Tree::openHooked(Item* item)
 {
   if (!item) {
     item = singleSelection();
@@ -235,7 +238,7 @@ void FileTree::openHooked(FileTreeItem* item)
     .run();
 }
 
-void FileTree::preview(FileTreeItem* item)
+void Tree::preview(Item* item)
 {
   if (!item) {
     item = singleSelection();
@@ -249,7 +252,7 @@ void FileTree::preview(FileTreeItem* item)
   m_core.previewFileWithAlternatives(m_tree->window(), path);
 }
 
-void FileTree::activate(FileTreeItem* item)
+void Tree::activate(Item* item)
 {
   if (item->isDirectory()) {
     // activating a directory should just toggle expansion
@@ -276,7 +279,7 @@ void FileTree::activate(FileTreeItem* item)
   open(item);
 }
 
-void FileTree::addAsExecutable(FileTreeItem* item)
+void Tree::addAsExecutable(Item* item)
 {
   if (!item) {
     item = singleSelection();
@@ -325,7 +328,7 @@ void FileTree::addAsExecutable(FileTreeItem* item)
   }
 }
 
-void FileTree::exploreOrigin(FileTreeItem* item)
+void Tree::exploreOrigin(Item* item)
 {
   if (!item) {
     item = singleSelection();
@@ -345,7 +348,7 @@ void FileTree::exploreOrigin(FileTreeItem* item)
   shell::Explore(path);
 }
 
-void FileTree::openModInfo(FileTreeItem* item)
+void Tree::openModInfo(Item* item)
 {
   if (!item) {
     item = singleSelection();
@@ -377,7 +380,7 @@ void FileTree::openModInfo(FileTreeItem* item)
   }
 }
 
-void FileTree::toggleVisibility(bool visible, FileTreeItem* item)
+void Tree::toggleVisibility(bool visible, Item* item)
 {
   if (!item) {
     item = singleSelection();
@@ -424,19 +427,19 @@ void FileTree::toggleVisibility(bool visible, FileTreeItem* item)
   }
 }
 
-void FileTree::hide(FileTreeItem* item)
+void Tree::hide(Item* item)
 {
   toggleVisibility(false, item);
 }
 
-void FileTree::unhide(FileTreeItem* item)
+void Tree::unhide(Item* item)
 {
   toggleVisibility(true, item);
 }
 
 class DumpFailed {};
 
-void FileTree::dumpToFile() const
+void Tree::dumpToFile() const
 {
   log::debug("dumping filetree to file");
 
@@ -449,14 +452,14 @@ void FileTree::dumpToFile() const
   m_core.directoryStructure()->dump(file.toStdWString());
 }
 
-void FileTree::onExpandedChanged(const QModelIndex& index, bool expanded)
+void Tree::onExpandedChanged(const QModelIndex& index, bool expanded)
 {
   if (auto* item=m_model->itemFromIndex(proxiedIndex(index))) {
     item->setExpanded(expanded);
   }
 }
 
-void FileTree::onItemActivated(const QModelIndex& index)
+void Tree::onItemActivated(const QModelIndex& index)
 {
   auto* item = m_model->itemFromIndex(proxiedIndex(index));
   if (!item) {
@@ -466,7 +469,7 @@ void FileTree::onItemActivated(const QModelIndex& index)
   activate(item);
 }
 
-void FileTree::onContextMenu(const QPoint &pos)
+void Tree::onContextMenu(const QPoint &pos)
 {
   const auto m = QApplication::keyboardModifiers();
 
@@ -528,7 +531,7 @@ QMainWindow* getMainWindow(QWidget* w)
   return nullptr;
 }
 
-bool FileTree::showShellMenu(QPoint pos)
+bool Tree::showShellMenu(QPoint pos)
 {
   auto* mw = getMainWindow(m_tree);
 
@@ -665,12 +668,12 @@ bool FileTree::showShellMenu(QPoint pos)
   return true;
 }
 
-void FileTree::addDirectoryMenus(QMenu&, FileTreeItem&)
+void Tree::addDirectoryMenus(QMenu&, Item&)
 {
   // noop
 }
 
-void FileTree::addFileMenus(QMenu& menu, const FileEntry& file, int originID)
+void Tree::addFileMenus(QMenu& menu, const FileEntry& file, int originID)
 {
   using namespace spawn;
 
@@ -719,7 +722,7 @@ void FileTree::addFileMenus(QMenu& menu, const FileEntry& file, int originID)
   }
 }
 
-void FileTree::addOpenMenus(QMenu& menu, const MOShared::FileEntry& file)
+void Tree::addOpenMenus(QMenu& menu, const MOShared::FileEntry& file)
 {
   using namespace spawn;
 
@@ -793,7 +796,7 @@ void FileTree::addOpenMenus(QMenu& menu, const MOShared::FileEntry& file)
   }
 }
 
-void FileTree::addCommonMenus(QMenu& menu)
+void Tree::addCommonMenus(QMenu& menu)
 {
   menu.addSeparator();
 
@@ -816,7 +819,7 @@ void FileTree::addCommonMenus(QMenu& menu)
     .addTo(menu);
 }
 
-QModelIndex FileTree::proxiedIndex(const QModelIndex& index)
+QModelIndex Tree::proxiedIndex(const QModelIndex& index)
 {
   auto* model = m_tree->model();
 
@@ -826,3 +829,5 @@ QModelIndex FileTree::proxiedIndex(const QModelIndex& index)
     return index;
   }
 }
+
+} // namespace

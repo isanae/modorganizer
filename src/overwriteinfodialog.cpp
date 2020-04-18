@@ -34,7 +34,7 @@ OverwriteInfoDialog::OverwriteInfoDialog(OrganizerCore& core, QWidget *parent)
   ui->setupUi(this);
 
   this->setWindowModality(Qt::NonModal);
-  m_filetree.reset(new FileTree(core, ui->filesView));
+  m_filetree.reset(new filetree::Tree(core, ui->filesView));
 
   //m_FileSystemModel = new OverwriteFileSystemModel(this);
   //m_FileSystemModel->setReadOnly(false);

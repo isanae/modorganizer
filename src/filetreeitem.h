@@ -1,17 +1,20 @@
-#ifndef MODORGANIZER_FILETREEITEM_INCLUDED
-#define MODORGANIZER_FILETREEITEM_INCLUDED
+#ifndef MODORGANIZER_Item_INCLUDED
+#define MODORGANIZER_Item_INCLUDED
 
 #include "shared/fileregisterfwd.h"
 #include <QFileIconProvider>
 
-class FileTreeModel;
+namespace filetree
+{
 
-class FileTreeItem
+class Model;
+
+class Item
 {
   class Sorter;
 
 public:
-  using Ptr = std::unique_ptr<FileTreeItem>;
+  using Ptr = std::unique_ptr<Item>;
   using Children = std::vector<Ptr>;
 
   enum Flag
@@ -25,17 +28,17 @@ public:
   Q_DECLARE_FLAGS(Flags, Flag);
 
   static Ptr createFile(
-    FileTreeModel* model, FileTreeItem* parent,
+    Model* model, Item* parent,
     std::wstring dataRelativeParentPath, std::wstring file);
 
   static Ptr createDirectory(
-    FileTreeModel* model, FileTreeItem* parent,
+    Model* model, Item* parent,
     std::wstring dataRelativeParentPath, std::wstring file);
 
-  FileTreeItem(const FileTreeItem&) = delete;
-  FileTreeItem& operator=(const FileTreeItem&) = delete;
-  FileTreeItem(FileTreeItem&&) = default;
-  FileTreeItem& operator=(FileTreeItem&&) = default;
+  Item(const Item&) = delete;
+  Item& operator=(const Item&) = delete;
+  Item(Item&&) = default;
+  Item& operator=(Item&&) = default;
 
   void setOrigin(
     int originID, const std::wstring& realPath,
@@ -74,7 +77,7 @@ public:
     return m_children;
   }
 
-  int childIndex(const FileTreeItem& item) const
+  int childIndex(const Item& item) const
   {
     if (item.m_indexGuess < m_children.size()) {
       if (m_children[item.m_indexGuess].get() == &item) {
@@ -94,7 +97,7 @@ public:
 
   void sort(int column, Qt::SortOrder order, bool force);
 
-  FileTreeItem* parent()
+  Item* parent()
   {
     return m_parent;
   }
@@ -282,8 +285,8 @@ private:
   static constexpr std::size_t NoIndexGuess =
     std::numeric_limits<std::size_t>::max();
 
-  FileTreeModel* m_model;
-  FileTreeItem* m_parent;
+  Model* m_model;
+  Item* m_parent;
   mutable std::size_t m_indexGuess;
 
   const QString m_virtualParentPath;
@@ -309,12 +312,16 @@ private:
   Children m_children;
 
 
-  FileTreeItem(
-    FileTreeModel* model, FileTreeItem* parent,
+  Item(
+    Model* model, Item* parent,
     std::wstring dataRelativeParentPath, bool isDirectory, std::wstring file);
 
   void getFileType() const;
   void sort();
 };
 
-#endif // MODORGANIZER_FILETREEITEM_INCLUDED
+Q_DECLARE_OPERATORS_FOR_FLAGS(Item::Flags);
+
+} // namespace
+
+#endif // MODORGANIZER_Item_INCLUDED

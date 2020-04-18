@@ -6,8 +6,12 @@
 #include <log.h>
 #include <utility.h>
 
+namespace filetree
+{
+
 using namespace MOBase;
 using namespace MOShared;
+
 namespace fs = std::filesystem;
 
 constexpr bool AlwaysSortDirectoriesFirst = true;
@@ -40,8 +44,8 @@ const QString& directoryFileType()
 }
 
 
-FileTreeItem::FileTreeItem(
-  FileTreeModel* model, FileTreeItem* parent,
+Item::Item(
+  Model* model, Item* parent,
   std::wstring dataRelativeParentPath, bool isDirectory, std::wstring file) :
     m_model(model), m_parent(parent), m_indexGuess(NoIndexGuess),
     m_virtualParentPath(QString::fromStdWString(dataRelativeParentPath)),
@@ -58,23 +62,23 @@ FileTreeItem::FileTreeItem(
 {
 }
 
-FileTreeItem::Ptr FileTreeItem::createFile(
-  FileTreeModel* model, FileTreeItem* parent,
+Item::Ptr Item::createFile(
+  Model* model, Item* parent,
   std::wstring dataRelativeParentPath, std::wstring file)
 {
-  return std::unique_ptr<FileTreeItem>(new FileTreeItem(
+  return std::unique_ptr<Item>(new Item(
     model, parent, std::move(dataRelativeParentPath), false, std::move(file)));
 }
 
-FileTreeItem::Ptr FileTreeItem::createDirectory(
-  FileTreeModel* model, FileTreeItem* parent,
+Item::Ptr Item::createDirectory(
+  Model* model, Item* parent,
   std::wstring dataRelativeParentPath, std::wstring file)
 {
-  return std::unique_ptr<FileTreeItem>(new FileTreeItem(
+  return std::unique_ptr<Item>(new Item(
     model, parent, std::move(dataRelativeParentPath), true, std::move(file)));
 }
 
-void FileTreeItem::setOrigin(
+void Item::setOrigin(
   int originID, const std::wstring& realPath, Flags flags,
   const std::wstring& mod)
 {
@@ -90,7 +94,7 @@ void FileTreeItem::setOrigin(
   m_compressedFileSize.reset();
 }
 
-void FileTreeItem::insert(FileTreeItem::Ptr child, std::size_t at)
+void Item::insert(Item::Ptr child, std::size_t at)
 {
   if (at > m_children.size()) {
     log::error(
@@ -104,7 +108,7 @@ void FileTreeItem::insert(FileTreeItem::Ptr child, std::size_t at)
   m_children.insert(m_children.begin() + at, std::move(child));
 }
 
-void FileTreeItem::remove(std::size_t i)
+void Item::remove(std::size_t i)
 {
   if (i >= m_children.size()) {
     log::error("{}: can't remove child at {}", debugName(), i);
@@ -114,7 +118,7 @@ void FileTreeItem::remove(std::size_t i)
   m_children.erase(m_children.begin() + i);
 }
 
-void FileTreeItem::remove(std::size_t from, std::size_t n)
+void Item::remove(std::size_t from, std::size_t n)
 {
   if ((from + n) > m_children.size()) {
     log::error("{}: can't remove children from {} n={}", debugName(), from, n);
@@ -142,30 +146,30 @@ int threeWayCompare(T&& a, T&& b)
   return 0;
 }
 
-class FileTreeItem::Sorter
+class Item::Sorter
 {
 public:
-  static int compare(int column, const FileTreeItem* a, const FileTreeItem* b)
+  static int compare(int column, const Item* a, const Item* b)
   {
     switch (column)
     {
-      case FileTreeModel::FileName:
+      case Model::FileName:
         return naturalCompare(a->m_file, b->m_file);
 
-      case FileTreeModel::ModName:
+      case Model::ModName:
         return naturalCompare(a->m_mod, b->m_mod);
 
-      case FileTreeModel::FileType:
+      case Model::FileType:
         return naturalCompare(
           a->fileType().value_or(QString()),
           b->fileType().value_or(QString()));
 
-      case FileTreeModel::FileSize:
+      case Model::FileSize:
         return threeWayCompare(
           a->fileSize().value_or(0),
           b->fileSize().value_or(0));
 
-      case FileTreeModel::LastModified:
+      case Model::LastModified:
         return threeWayCompare(
           a->lastModified().value_or(QDateTime()),
           b->lastModified().value_or(QDateTime()));
@@ -176,14 +180,14 @@ public:
   }
 };
 
-void FileTreeItem::sort()
+void Item::sort()
 {
   if (!m_children.empty()) {
     m_model->sortItem(*this, true);
   }
 }
 
-void FileTreeItem::sort(int column, Qt::SortOrder order, bool force)
+void Item::sort(int column, Qt::SortOrder order, bool force)
 {
   if (!force && !m_expanded) {
     m_sortingStale = true;
@@ -211,7 +215,7 @@ void FileTreeItem::sort(int column, Qt::SortOrder order, bool force)
         r = 1;
       }
     } else {
-      r = FileTreeItem::Sorter::compare(column, a.get(), b.get());
+      r = Item::Sorter::compare(column, a.get(), b.get());
     }
 
     if (order == Qt::AscendingOrder) {
@@ -226,7 +230,7 @@ void FileTreeItem::sort(int column, Qt::SortOrder order, bool force)
   }
 }
 
-QString FileTreeItem::virtualPath() const
+QString Item::virtualPath() const
 {
   QString s = "Data\\";
 
@@ -239,7 +243,7 @@ QString FileTreeItem::virtualPath() const
   return s;
 }
 
-QString FileTreeItem::dataRelativeFilePath() const
+QString Item::dataRelativeFilePath() const
 {
   auto path = dataRelativeParentPath();
   if (!path.isEmpty()) {
@@ -249,7 +253,7 @@ QString FileTreeItem::dataRelativeFilePath() const
   return path += m_file;
 }
 
-QFont FileTreeItem::font() const
+QFont Item::font() const
 {
   QFont f;
 
@@ -262,7 +266,7 @@ QFont FileTreeItem::font() const
   return f;
 }
 
-std::optional<uint64_t> FileTreeItem::fileSize() const
+std::optional<uint64_t> Item::fileSize() const
 {
   if (m_fileSize.empty() && !m_isDirectory) {
     std::error_code ec;
@@ -279,7 +283,7 @@ std::optional<uint64_t> FileTreeItem::fileSize() const
   return m_fileSize.value;
 }
 
-std::optional<QDateTime> FileTreeItem::lastModified() const
+std::optional<QDateTime> Item::lastModified() const
 {
   if (m_lastModified.empty()) {
     if (m_realPath.isEmpty()) {
@@ -305,7 +309,7 @@ std::optional<QDateTime> FileTreeItem::lastModified() const
   return m_lastModified.value;
 }
 
-std::optional<QString> FileTreeItem::fileType() const
+std::optional<QString> Item::fileType() const
 {
   if (m_fileType.empty()) {
     getFileType();
@@ -314,7 +318,7 @@ std::optional<QString> FileTreeItem::fileType() const
   return m_fileType.value;
 }
 
-void FileTreeItem::getFileType() const
+void Item::getFileType() const
 {
   if (isDirectory()) {
     m_fileType.set(directoryFileType());
@@ -346,7 +350,7 @@ void FileTreeItem::getFileType() const
   }
 }
 
-QFileIconProvider::IconType FileTreeItem::icon() const
+QFileIconProvider::IconType Item::icon() const
 {
   if (m_isDirectory) {
     return QFileIconProvider::Folder;
@@ -355,12 +359,12 @@ QFileIconProvider::IconType FileTreeItem::icon() const
   }
 }
 
-bool FileTreeItem::isHidden() const
+bool Item::isHidden() const
 {
   return m_file.endsWith(ModInfo::s_HiddenExt, Qt::CaseInsensitive);
 }
 
-void FileTreeItem::unload()
+void Item::unload()
 {
   if (!m_loaded) {
     return;
@@ -369,7 +373,7 @@ void FileTreeItem::unload()
   clear();
 }
 
-bool FileTreeItem::areChildrenVisible() const
+bool Item::areChildrenVisible() const
 {
   if (m_expanded) {
     if (m_parent) {
@@ -382,10 +386,12 @@ bool FileTreeItem::areChildrenVisible() const
   return false;
 }
 
-QString FileTreeItem::debugName() const
+QString Item::debugName() const
 {
   return QString("%1(ld=%2,cs=%3)")
     .arg(virtualPath())
     .arg(m_loaded)
     .arg(m_children.size());
 }
+
+} // namespace

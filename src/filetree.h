@@ -1,40 +1,42 @@
 #ifndef MODORGANIZER_FILETREE_INCLUDED
 #define MODORGANIZER_FILETREE_INCLUDED
 
+#include "filetreefwd.h"
 #include "modinfo.h"
 #include "modinfodialogfwd.h"
 
 namespace MOShared { class FileEntry; }
 
 class OrganizerCore;
-class FileTreeModel;
-class FileTreeItem;
 
-class FileTree : public QObject
+namespace filetree
+{
+
+class Tree : public QObject
 {
   Q_OBJECT;
 
 public:
-  FileTree(OrganizerCore& core, QTreeView* tree);
+  Tree(OrganizerCore& core, QTreeView* tree);
 
-  FileTreeModel* model();
+  Model* model();
   void refresh();
   void clear();
 
   bool fullyLoaded() const;
   void ensureFullyLoaded();
 
-  void open(FileTreeItem* item=nullptr);
-  void openHooked(FileTreeItem* item=nullptr);
-  void preview(FileTreeItem* item=nullptr);
-  void activate(FileTreeItem* item=nullptr);
+  void open(Item* item=nullptr);
+  void openHooked(Item* item=nullptr);
+  void preview(Item* item=nullptr);
+  void activate(Item* item=nullptr);
 
-  void addAsExecutable(FileTreeItem* item=nullptr);
-  void exploreOrigin(FileTreeItem* item=nullptr);
-  void openModInfo(FileTreeItem* item=nullptr);
+  void addAsExecutable(Item* item=nullptr);
+  void exploreOrigin(Item* item=nullptr);
+  void openModInfo(Item* item=nullptr);
 
-  void hide(FileTreeItem* item=nullptr);
-  void unhide(FileTreeItem* item=nullptr);
+  void hide(Item* item=nullptr);
+  void unhide(Item* item=nullptr);
 
   void dumpToFile() const;
 
@@ -46,23 +48,25 @@ signals:
 private:
   OrganizerCore& m_core;
   QTreeView* m_tree;
-  FileTreeModel* m_model;
+  Model* m_model;
 
-  FileTreeItem* singleSelection();
+  Item* singleSelection();
 
   void onExpandedChanged(const QModelIndex& index, bool expanded);
   void onItemActivated(const QModelIndex& index);
   void onContextMenu(const QPoint &pos);
   bool showShellMenu(QPoint pos);
 
-  void addDirectoryMenus(QMenu& menu, FileTreeItem& item);
+  void addDirectoryMenus(QMenu& menu, Item& item);
   void addFileMenus(QMenu& menu, const MOShared::FileEntry& file, int originID);
   void addOpenMenus(QMenu& menu, const MOShared::FileEntry& file);
   void addCommonMenus(QMenu& menu);
 
-  void toggleVisibility(bool b, FileTreeItem* item=nullptr);
+  void toggleVisibility(bool b, Item* item=nullptr);
 
   QModelIndex proxiedIndex(const QModelIndex& index);
 };
+
+} // namespace
 
 #endif // MODORGANIZER_FILETREE_INCLUDED

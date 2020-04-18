@@ -151,6 +151,7 @@ SET(organizer_SRCS
 	filetree.cpp
 	filetreemodel.cpp
 	filetreeitem.cpp
+	filetreeproviders.cpp
 	iconfetcher.cpp
 
     shared/windows_error.cpp
@@ -285,7 +286,9 @@ SET(organizer_HDRS
 	filterlist.h
 	datatab.h
 	filetree.h
+	filetreefwd.h
 	filetreeitem.h
+	filetreeproviders.h
 	filetreemodel.h
 	iconfetcher.h
 
@@ -419,8 +422,10 @@ set(executables
 
 set(filetree
 	filetree
+	filetreefwd
 	filetreeitem
 	filetreemodel
+	filetreeproviders
 )
 
 set(loot

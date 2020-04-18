@@ -22,9 +22,9 @@ DataTab::DataTab(OrganizerCore& core, QWidget* parent, Ui::MainWindow* mwui) :
     mwui->dataTabShowOnlyConflicts, mwui->dataTabShowFromArchives},
   m_firstActivation(true)
 {
-  m_filetree.reset(new FileTree(core, ui.tree));
+  m_filetree.reset(new filetree::Tree(core, ui.tree));
   m_filter.setUseSourceSort(true);
-  m_filter.setFilterColumn(FileTreeModel::FileName);
+  m_filter.setFilterColumn(filetree::Model::FileName);
   m_filter.setEdit(mwui->dataTabFilter);
   m_filter.setList(mwui->dataTree);
   m_filter.setUpdateDelay(true);
@@ -50,15 +50,15 @@ DataTab::DataTab(OrganizerCore& core, QWidget* parent, Ui::MainWindow* mwui) :
     [&]{ onArchives(); });
 
   connect(
-    m_filetree.get(), &FileTree::executablesChanged,
+    m_filetree.get(), &filetree::Tree::executablesChanged,
     this, &DataTab::executablesChanged);
 
   connect(
-    m_filetree.get(), &FileTree::originModified,
+    m_filetree.get(), &filetree::Tree::originModified,
     this, &DataTab::originModified);
 
   connect(
-    m_filetree.get(), &FileTree::displayModInformation,
+    m_filetree.get(), &filetree::Tree::displayModInformation,
     this, &DataTab::displayModInformation);
 }
 
@@ -134,7 +134,7 @@ void DataTab::onArchives()
 
 void DataTab::updateOptions()
 {
-  using M = FileTreeModel;
+  using M = filetree::Model;
 
   M::Flags flags = M::NoFlags;
 

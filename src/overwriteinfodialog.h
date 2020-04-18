@@ -21,6 +21,7 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #define OVERWRITEINFODIALOG_H
 
 #include "modinfo.h"
+#include "filetreefwd.h"
 #include <QDialog>
 #include <QFileSystemModel>
 
@@ -29,7 +30,6 @@ class OverwriteInfoDialog;
 }
 
 class OrganizerCore;
-class FileTree;
 
 class OverwriteFileSystemModel : public QFileSystemModel
 {
@@ -115,7 +115,7 @@ private:
   Ui::OverwriteInfoDialog *ui;
   OrganizerCore& m_core;
   ModInfo::Ptr m_mod;
-  std::unique_ptr<FileTree> m_filetree;
+  std::unique_ptr<filetree::Tree> m_filetree;
 
   //QFileSystemModel *m_FileSystemModel;
   //QModelIndexList m_FileSelection;
