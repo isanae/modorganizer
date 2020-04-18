@@ -5,6 +5,7 @@
 #include "messagedialog.h"
 #include "filetree.h"
 #include "filetreemodel.h"
+#include "filetreeproviders.h"
 #include <log.h>
 #include <report.h>
 
@@ -22,7 +23,9 @@ DataTab::DataTab(OrganizerCore& core, QWidget* parent, Ui::MainWindow* mwui) :
     mwui->dataTabShowOnlyConflicts, mwui->dataTabShowFromArchives},
   m_firstActivation(true)
 {
-  m_filetree.reset(new filetree::Tree(core, ui.tree));
+  m_filetree.reset(new filetree::Tree(
+    core, ui.tree, std::make_unique<filetree::VirtualProvider>(core)));
+
   m_filter.setUseSourceSort(true);
   m_filter.setFilterColumn(filetree::Model::FileName);
   m_filter.setEdit(mwui->dataTabFilter);

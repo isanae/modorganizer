@@ -198,12 +198,12 @@ void* makeInternalPointer(Item* item)
 }
 
 
-Model::Model(OrganizerCore& core, QObject* parent) :
+Model::Model(OrganizerCore& core, std::unique_ptr<Provider> p, QObject* parent) :
   QAbstractItemModel(parent), m_core(core), m_enabled(true),
+  m_provider(std::move(p)),
   m_root(Item::createDirectory(this, nullptr, L"", L"")),
   m_flags(NoFlags), m_fullyLoaded(false)
 {
-  m_provider.reset(new VirtualProvider(m_core));
   m_root->setExpanded(true);
 
   connect(&m_removeTimer, &QTimer::timeout, [&]{ removeItems(); });

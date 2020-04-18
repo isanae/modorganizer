@@ -13,7 +13,7 @@ using ItemPtr = std::unique_ptr<Item>;
 
 class Directory;
 class File;
-using FileIndex = unsigned int;
+using FileIndex = std::size_t;
 
 class Provider;
 class VirtualProvider;

@@ -17,6 +17,10 @@ class Provider
   friend class DirectoryIterator;
 
 public:
+  Provider(const Provider&) = delete;
+  Provider& operator=(const Provider&) = delete;
+  virtual ~Provider() = default;
+
   virtual Directory root() = 0;
   virtual Directory findDirectoryRecursive(const std::wstring& path) = 0;
 
@@ -30,6 +34,8 @@ public:
   virtual std::size_t childFileIndexCount(const Directory& d) = 0;
 
 protected:
+  Provider() = default;
+
   virtual std::wstring_view name(const Directory& d) = 0;
   virtual bool topLevel(const Directory& d) = 0;
   virtual bool hasChildren(const Directory& d) = 0;
@@ -176,8 +182,28 @@ private:
 
 
 
+template <class DirectoryData, class FileData>
+class BasicProvider : public Provider
+{
+protected:
+  DirectoryData* data(const Directory& d) const
+  {
+    MO_ASSERT(d);
+    MO_ASSERT(d.data());
+    return static_cast<DirectoryData*>(d.data());
+  }
 
-class VirtualProvider : public Provider
+  FileData* data(const File& f) const
+  {
+    MO_ASSERT(f);
+    MO_ASSERT(f.data());
+    return static_cast<FileData*>(f.data());
+  }
+};
+
+
+class VirtualProvider : public BasicProvider<
+  MOShared::DirectoryEntry, MOShared::FileEntry>
 {
 public:
   explicit VirtualProvider(OrganizerCore& core);
@@ -196,6 +222,86 @@ public:
 
 private:
   OrganizerCore& m_core;
+
+  std::wstring_view name(const Directory& d) override;
+  bool topLevel(const Directory& d) override;
+  bool hasChildren(const Directory& d) override;
+
+  Directory findDirectoryImmediate(
+    const Directory& d, lowercase_wstring_view path) override;
+
+  File findFileImmediate(
+    const Directory& d, const MOShared::WStringViewKey& key) override;
+
+  File fileByIndex(const Directory& d, FileIndex index) override;
+
+
+  std::wstring_view name(const File& file) override;
+  fs::path path(const File& file) override;
+  std::optional<uint64_t> size(const File& file) override;
+  std::optional<uint64_t> compressedSize(const File& file) override;
+
+  FileIndex index(const File& file) override;
+  int originID(const File& file) override;
+  bool fromArchive(const File& file) override;
+  bool isConflicted(const File& file) override;
+  std::wstring_view archive(const File& file) override;
+};
+
+
+struct FSFile
+{
+  fs::path path;
+  std::wstring name;
+
+  FSFile(fs::path p)
+    : path(std::move(p)), name(path.filename().wstring())
+  {
+  }
+};
+
+struct FSDirectory
+{
+  fs::path path;
+
+  std::wstring name;
+  std::vector<std::unique_ptr<FSDirectory>> dirs;
+  std::vector<std::unique_ptr<FSFile>> files;
+  bool loaded;
+
+  FSDirectory(fs::path p={})
+    : path(std::move(p)), name(path.filename().wstring()), loaded(false)
+  {
+  }
+};
+
+
+class FilesystemProvider : public BasicProvider<FSDirectory, FSFile>
+{
+public:
+  FilesystemProvider();
+  FilesystemProvider(fs::path root, int originID);
+
+  void setRoot(const fs::path& path, int originID);
+
+  Directory root() override;
+  Directory findDirectoryRecursive(const std::wstring& path) override;
+
+  Directory childDirectoryAt(const Directory& d, std::size_t i) override;
+  std::size_t childDirectoryCount(const Directory& d) override;
+
+  File childFileAt(const Directory& d, std::size_t i) override;
+  std::size_t childFileCount(const Directory& d) override;
+
+  FileIndex childFileIndexAt(const Directory& d, std::size_t i) override;
+  std::size_t childFileIndexCount(const Directory& d) override;
+
+private:
+  FSDirectory m_root;
+  int m_origin;
+
+  void load(FSDirectory& d);
+
 
   std::wstring_view name(const Directory& d) override;
   bool topLevel(const Directory& d) override;

@@ -1,6 +1,7 @@
 #include "filetree.h"
 #include "filetreemodel.h"
 #include "filetreeitem.h"
+#include "filetreeproviders.h"
 #include "organizercore.h"
 #include "envshell.h"
 #include "shared/fileentry.h"
@@ -129,8 +130,8 @@ private:
 };
 
 
-Tree::Tree(OrganizerCore& core, QTreeView* tree)
-  : m_core(core), m_tree(tree), m_model(new Model(core))
+Tree::Tree(OrganizerCore& core, QTreeView* tree, std::unique_ptr<Provider> p)
+  : m_core(core), m_tree(tree), m_model(new Model(core, std::move(p)))
 {
   m_tree->sortByColumn(0, Qt::AscendingOrder);
   m_tree->setModel(m_model);

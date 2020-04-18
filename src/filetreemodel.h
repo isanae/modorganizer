@@ -43,12 +43,14 @@ public:
   };
 
 
-  Model(OrganizerCore& core, QObject* parent=nullptr);
+  Model(OrganizerCore& core, std::unique_ptr<Provider> p, QObject* parent=nullptr);
 
   void setFlags(Flags f)
   {
     m_flags = f;
   }
+
+  Provider* provider() { return m_provider.get(); }
 
   void refresh();
   void clear();

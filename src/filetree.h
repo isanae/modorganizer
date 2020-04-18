@@ -17,7 +17,7 @@ class Tree : public QObject
   Q_OBJECT;
 
 public:
-  Tree(OrganizerCore& core, QTreeView* tree);
+  Tree(OrganizerCore& core, QTreeView* tree, std::unique_ptr<Provider> p);
 
   Model* model();
   void refresh();

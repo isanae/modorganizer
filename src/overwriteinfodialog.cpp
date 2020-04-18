@@ -23,6 +23,10 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "utility.h"
 #include "organizercore.h"
 #include "filetree.h"
+#include "filetreemodel.h"
+#include "filetreeproviders.h"
+#include "directoryentry.h"
+#include "filesorigin.h"
 
 using namespace MOBase;
 
@@ -34,7 +38,9 @@ OverwriteInfoDialog::OverwriteInfoDialog(OrganizerCore& core, QWidget *parent)
   ui->setupUi(this);
 
   this->setWindowModality(Qt::NonModal);
-  m_filetree.reset(new filetree::Tree(core, ui->filesView));
+
+  m_filetree.reset(new filetree::Tree(
+    core, ui->filesView, std::make_unique<filetree::FilesystemProvider>()));
 
   //m_FileSystemModel = new OverwriteFileSystemModel(this);
   //m_FileSystemModel->setReadOnly(false);
@@ -96,6 +102,21 @@ void OverwriteInfoDialog::done(int r)
 void OverwriteInfoDialog::setModInfo(ModInfo::Ptr mod)
 {
   m_mod = mod;
+
+  const MOShared::FilesOrigin* o = nullptr;
+
+  if (m_core.directoryStructure()->originExists(m_mod->internalName().toStdWString())) {
+    o = &m_core.directoryStructure()->getOriginByName(m_mod->internalName().toStdWString());
+  }
+
+  static_cast<filetree::FilesystemProvider*>(m_filetree->model()->provider())
+    ->setRoot(
+      m_mod->absolutePath().toStdWString(),
+      o ? o->getID() : MOShared::InvalidOriginID);
+
+  m_filetree->clear();
+  m_filetree->refresh();
+
   /*
   if (QDir(modInfo->absolutePath()).exists()) {
     m_FileSystemModel->setRootPath(modInfo->absolutePath());
