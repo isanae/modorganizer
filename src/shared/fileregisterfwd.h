@@ -6,14 +6,46 @@ class DirectoryRefreshProgress;
 namespace MOShared
 {
 
-struct DirectoryEntryFileKey
+
+struct WStringKey;
+
+struct WStringViewKey
 {
-  DirectoryEntryFileKey(std::wstring v)
+  explicit WStringViewKey(std::wstring_view v)
+    : value(v), hash(getHash(value))
+  {
+  }
+
+  inline WStringViewKey(const WStringKey& k);
+
+  bool operator==(const WStringViewKey& o) const
+  {
+    return (value == o.value);
+  }
+
+  static std::size_t getHash(std::wstring_view value)
+  {
+    return std::hash<std::wstring_view>()(value);
+  }
+
+  std::wstring_view value;
+  const std::size_t hash;
+};
+
+
+struct WStringKey
+{
+  explicit WStringKey(std::wstring v)
     : value(std::move(v)), hash(getHash(value))
   {
   }
 
-  bool operator==(const DirectoryEntryFileKey& o) const
+  bool operator==(const WStringViewKey& o) const
+  {
+    return (value == o.value);
+  }
+
+  bool operator==(const WStringKey& o) const
   {
     return (value == o.value);
   }
@@ -26,6 +58,12 @@ struct DirectoryEntryFileKey
   std::wstring value;
   const std::size_t hash;
 };
+
+
+WStringViewKey::WStringViewKey(const WStringKey& k)
+  : value(k.value), hash(k.hash)
+{
+}
 
 
 class DirectoryEntry;
@@ -92,5 +130,42 @@ struct DirectoryStats
 };
 
 } // namespace
+
+
+namespace std
+{
+
+template <>
+struct hash<MOShared::WStringKey>
+{
+  using argument_type = MOShared::WStringKey;
+  using result_type = std::size_t;
+  using is_transparent = void;
+
+  inline result_type operator()(const MOShared::WStringKey& key) const
+  {
+    return key.hash;
+  }
+
+  inline result_type operator()(const MOShared::WStringViewKey& key) const
+  {
+    return key.hash;
+  }
+};
+
+template <>
+struct hash<MOShared::WStringViewKey>
+{
+  using argument_type = MOShared::WStringViewKey;
+  using result_type = std::size_t;
+  using is_transparent = void;
+
+  inline result_type operator()(const argument_type& key) const
+  {
+    return key.hash;
+  }
+};
+
+} // namespace std
 
 #endif // MO_REGISTER_FILEREGISTERFWD_INCLUDED

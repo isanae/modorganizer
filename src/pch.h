@@ -265,3 +265,5 @@
 #include <QtPlugin>
 #include <QtTest/QtTest>
 #include <QStandardPaths>
+
+namespace fs = std::filesystem;

@@ -79,12 +79,12 @@ Item::Ptr Item::createDirectory(
 }
 
 void Item::setOrigin(
-  int originID, const std::wstring& realPath, Flags flags,
+  int originID, const fs::path& realPath, Flags flags,
   const std::wstring& mod)
 {
   m_originID = originID;
-  m_wsRealPath = realPath;
-  m_realPath = QString::fromStdWString(realPath);
+  m_wsRealPath = realPath.native();
+  m_realPath = QString::fromStdWString(m_wsRealPath);
   m_flags = flags;
   m_mod = QString::fromStdWString(mod);
 

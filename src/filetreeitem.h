@@ -41,7 +41,7 @@ public:
   Item& operator=(Item&&) = default;
 
   void setOrigin(
-    int originID, const std::wstring& realPath,
+    int originID, const fs::path& realPath,
     Flags flags, const std::wstring& mod);
 
   void add(Ptr child)
@@ -129,7 +129,7 @@ public:
     return m_wsLcFile;
   }
 
-  const MOShared::DirectoryEntryFileKey& key() const
+  const MOShared::WStringKey& key() const
   {
     return m_key;
   }
@@ -291,7 +291,7 @@ private:
 
   const QString m_virtualParentPath;
   const std::wstring m_wsFile, m_wsLcFile;
-  const MOShared::DirectoryEntryFileKey m_key;
+  const MOShared::WStringKey m_key;
   const QString m_file;
   const bool m_isDirectory;
 

@@ -1,5 +1,6 @@
 #include "filetreemodel.h"
 #include "filetreeitem.h"
+#include "filetreeproviders.h"
 #include "organizercore.h"
 #include "filesorigin.h"
 #include "util.h"
@@ -202,6 +203,7 @@ Model::Model(OrganizerCore& core, QObject* parent) :
   m_root(Item::createDirectory(this, nullptr, L"", L"")),
   m_flags(NoFlags), m_fullyLoaded(false)
 {
+  m_provider.reset(new VirtualProvider(m_core));
   m_root->setExpanded(true);
 
   connect(&m_removeTimer, &QTimer::timeout, [&]{ removeItems(); });
@@ -215,7 +217,7 @@ void Model::refresh()
   TimeThis tt("Model::refresh()");
 
   m_fullyLoaded = false;
-  update(*m_root, *m_core.directoryStructure(), L"", false);
+  update(*m_root, m_provider->root(), L"", false);
 }
 
 void Model::clear()
@@ -349,8 +351,7 @@ void Model::fetchMore(const QModelIndex& parent)
 
   const auto path = item->dataRelativeFilePath();
 
-  auto* parentEntry = m_core.directoryStructure()
-    ->findSubDirectoryRecursive(path.toStdWString());
+  auto parentEntry = m_provider->findDirectoryRecursive(path.toStdWString());
 
   if (!parentEntry) {
     log::error("Model::fetchMore(): directory '{}' not found", path);
@@ -358,7 +359,7 @@ void Model::fetchMore(const QModelIndex& parent)
   }
 
   const auto parentPath = item->dataRelativeParentPath();
-  update(*item, *parentEntry, parentPath.toStdWString(), true);
+  update(*item, parentEntry, parentPath.toStdWString(), true);
 }
 
 QVariant Model::data(const QModelIndex& index, int role) const
@@ -530,29 +531,29 @@ QModelIndex Model::indexFromItem(Item& item, int col) const
 }
 
 void Model::update(
-  Item& parentItem, const MOShared::DirectoryEntry& parentEntry,
+  Item& parentItem, const Directory& parentDir,
   const std::wstring& parentPath, bool forFetching)
 {
   trace(log::debug("updating {}", parentItem.debugName()));
 
   auto path = parentPath;
-  if (!parentEntry.isTopLevel()) {
+  if (!parentDir.topLevel()) {
     if (!path.empty()) {
       path += L"\\";
     }
 
-    path += parentEntry.getName();
+    path += parentDir.name();
   }
 
   parentItem.setLoaded(true);
 
   bool added = false;
 
-  if (updateDirectories(parentItem, path, parentEntry, forFetching)) {
+  if (updateDirectories(parentItem, path, parentDir, forFetching)) {
     added = true;
   }
 
-  if (updateFiles(parentItem, path, parentEntry)) {
+  if (updateFiles(parentItem, path, parentDir)) {
     added = true;
   }
 
@@ -567,19 +568,19 @@ void Model::update(
 
 bool Model::updateDirectories(
   Item& parentItem, const std::wstring& parentPath,
-  const MOShared::DirectoryEntry& parentEntry, bool forFetching)
+  const Directory& parentDir, bool forFetching)
 {
   // removeDisappearingDirectories() will add directories that are in the
   // tree and still on the filesystem to this set; addNewDirectories() will
   // use this to figure out if a directory is new or not
   std::unordered_set<std::wstring_view> seen;
 
-  removeDisappearingDirectories(parentItem, parentEntry, parentPath, seen, forFetching);
-  return addNewDirectories(parentItem, parentEntry, parentPath, seen);
+  removeDisappearingDirectories(parentItem, parentDir, parentPath, seen, forFetching);
+  return addNewDirectories(parentItem, parentDir, parentPath, seen);
 }
 
 void Model::removeDisappearingDirectories(
-  Item& parentItem, const MOShared::DirectoryEntry& parentEntry,
+  Item& parentItem, const Directory& parentDir,
   const std::wstring& parentPath, std::unordered_set<std::wstring_view>& seen,
   bool forFetching)
 {
@@ -600,25 +601,25 @@ void Model::removeDisappearingDirectories(
       break;
     }
 
-    auto d = parentEntry.findSubDirectory(item->filenameWsLowerCase(), true);
+    auto d = parentDir.findDirectoryImmediate(item->filenameWsLowerCase());
 
     if (d) {
       trace(log::debug("dir {} still there", item->filename()));
 
       // directory is still there
-      seen.emplace(d->getName());
+      seen.emplace(d.name());
 
       bool currentRemoved = false;
 
       if (item->areChildrenVisible()) {
         // the item is currently expanded, update it
-        update(*item, *d, parentPath, forFetching);
+        update(*item, d, parentPath, forFetching);
       }
 
-      if (shouldShowFolder(*d, item.get())) {
+      if (shouldShowFolder(d, item.get())) {
         // folder should be left in the list
         if (!item->areChildrenVisible() && item->isLoaded()) {
-          if (!d->isEmpty()) {
+          if (d.hasChildren()) {
             // the item is loaded (previously expanded but now collapsed) and
             // has children, mark it as unloaded so it updates when next
             // expanded
@@ -666,7 +667,7 @@ void Model::removeDisappearingDirectories(
 }
 
 bool Model::addNewDirectories(
-  Item& parentItem, const MOShared::DirectoryEntry& parentEntry,
+  Item& parentItem, const Directory& parentDir,
   const std::wstring& parentPath,
   const std::unordered_set<std::wstring_view>& seen)
 {
@@ -677,8 +678,8 @@ bool Model::addNewDirectories(
   bool added = false;
 
   // for each directory on the filesystem
-  for (auto&& d : parentEntry.getSubDirectories()) {
-    if (seen.contains(d->getName())) {
+  for (auto&& d : parentDir.getImmediateDirectories()) {
+    if (seen.contains(d.name())) {
       // already seen in the parent item
 
       // if there were directories before this row that need to be added,
@@ -690,18 +691,19 @@ bool Model::addNewDirectories(
       range.add(std::move(toAdd));
       toAdd.clear();
     } else {
-      if (!shouldShowFolder(*d, nullptr)) {
+      if (!shouldShowFolder(d, nullptr)) {
         // this is a new directory, but it doesn't contain anything interesting
-        trace(log::debug("new dir {}, empty and pruned", QString::fromStdWString(d->getName())));
+        trace(log::debug(
+          "new dir {}, empty and pruned", QString::fromStdWString(d.name())));
 
         // act as if this directory doesn't exist at all
         continue;
       }
 
       // this is a new directory
-      trace(log::debug("new dir {}", QString::fromStdWString(d->getName())));
+      trace(log::debug("new dir {}", QString::fromStdWString(d.name())));
 
-      toAdd.push_back(createDirectoryItem(parentItem, parentPath, *d));
+      toAdd.push_back(createDirectoryItem(parentItem, parentPath, d));
       added = true;
 
       range.includeCurrent();
@@ -717,8 +719,7 @@ bool Model::addNewDirectories(
 }
 
 bool Model::updateFiles(
-  Item& parentItem, const std::wstring& parentPath,
-  const MOShared::DirectoryEntry& parentEntry)
+  Item& parentItem, const std::wstring& parentPath, const Directory& parentDir)
 {
   // removeDisappearingFiles() will add files that are in the tree and still on
   // the filesystem to this set; addNewFiless() will use this to figure out if
@@ -727,12 +728,12 @@ bool Model::updateFiles(
 
   int firstFileRow = 0;
 
-  removeDisappearingFiles(parentItem, parentEntry, firstFileRow, seen);
-  return addNewFiles(parentItem, parentEntry, parentPath, firstFileRow, seen);
+  removeDisappearingFiles(parentItem, parentDir, firstFileRow, seen);
+  return addNewFiles(parentItem, parentDir, parentPath, firstFileRow, seen);
 }
 
 void Model::removeDisappearingFiles(
-  Item& parentItem, const MOShared::DirectoryEntry& parentEntry,
+  Item& parentItem, const Directory& parentDir,
   int& firstFileRow, std::unordered_set<FileIndex>& seen)
 {
   auto& children = parentItem.children();
@@ -753,18 +754,24 @@ void Model::removeDisappearingFiles(
         firstFileRow = range.current();
       }
 
-      auto f = parentEntry.findFile(item->key());
+      auto f = parentDir.findFileImmediate(item->key());
 
-      if (f && shouldShowFile(*f)) {
+      if (f && shouldShowFile(f)) {
         trace(log::debug("file {} still there", item->filename()));
 
         // file is still there
-        seen.emplace(f->getIndex());
+        seen.emplace(f.index());
 
-        if (f->getOrigin() != item->originID()) {
-          // origin has changed
-          updateFileItem(*item, *f);
-        }
+        // there's no good way of checking if the origin of a file has changed
+        // to avoid updating items because origin IDs are reused after a
+        // refresh, so a file can have the same origin ID after a refresh even
+        // if it's actually a different origin
+        //
+        // the origin's name can't even be checked because it could be changed
+        // to something that existed before but was a different origin
+        //
+        // so this needs to be an unconditional update for all items
+        updateFileItem(*item, f);
 
         // if there were files before this row that need to be removed,
         // do it now
@@ -792,7 +799,7 @@ void Model::removeDisappearingFiles(
 }
 
 bool Model::addNewFiles(
-  Item& parentItem, const MOShared::DirectoryEntry& parentEntry,
+  Item& parentItem, const Directory& parentDir,
   const std::wstring& parentPath, const int firstFileRow,
   const std::unordered_set<FileIndex>& seen)
 {
@@ -803,7 +810,7 @@ bool Model::addNewFiles(
   bool added = false;
 
   // for each directory on the filesystem
-  parentEntry.forEachFileIndex([&](auto&& fileIndex) {
+  for (auto&& fileIndex : parentDir.getImmediateFileIndices()) {
     if (seen.contains(fileIndex)) {
       // already seen in the parent item
 
@@ -812,35 +819,35 @@ bool Model::addNewFiles(
       range.add(std::move(toAdd));
       toAdd.clear();
     } else {
-      const auto file = parentEntry.getFileByIndex(fileIndex);
+      const auto file = parentDir.fileByIndex(fileIndex);
 
       if (!file) {
         log::error(
           "Model::addNewFiles(): file index {} in path {} not found",
           fileIndex, parentPath);
 
-        return true;
+        continue;
       }
 
-      if (shouldShowFile(*file)) {
+      if (shouldShowFile(file)) {
         // this is a new file
-        trace(log::debug("new file {}", QString::fromStdWString(file->getName())));
+        trace(log::debug("new file {}", QString::fromStdWString(file.name())));
 
-        toAdd.push_back(createFileItem(parentItem, parentPath, *file));
+        toAdd.push_back(createFileItem(parentItem, parentPath, file));
         added = true;
 
         range.includeCurrent();
       } else {
         // this is a new file, but it shouldn't be shown
-        trace(log::debug("new file {}, not shown", QString::fromStdWString(file->getName())));
-        return true;
+        trace(log::debug(
+          "new file {}, not shown", QString::fromStdWString(file.name())));
+
+        continue;
       }
     }
 
     range.next();
-
-    return true;
-  });
+  }
 
   // add the last file range, if any
   range.add(std::move(toAdd));
@@ -891,13 +898,12 @@ void Model::sortItems()
 }
 
 Item::Ptr Model::createDirectoryItem(
-  Item& parentItem, const std::wstring& parentPath,
-  const DirectoryEntry& d)
+  Item& parentItem, const std::wstring& parentPath, const Directory& dir)
 {
   auto item = Item::createDirectory(
-    this, &parentItem, parentPath, d.getName());
+    this, &parentItem, parentPath, std::wstring(dir.name()));
 
-  if (d.isEmpty()) {
+  if (!dir.hasChildren()) {
     // if this directory is empty, mark the item as loaded so the expand
     // arrow doesn't show
     item->setLoaded(true);
@@ -907,11 +913,10 @@ Item::Ptr Model::createDirectoryItem(
 }
 
 Item::Ptr Model::createFileItem(
-  Item& parentItem, const std::wstring& parentPath,
-  const FileEntry& file)
+  Item& parentItem, const std::wstring& parentPath, const File& file)
 {
   auto item = Item::createFile(
-    this, &parentItem, parentPath, file.getName());
+    this, &parentItem, parentPath, std::wstring(file.name()));
 
   updateFileItem(*item, file);
 
@@ -920,42 +925,39 @@ Item::Ptr Model::createFileItem(
   return item;
 }
 
-void Model::updateFileItem(
-  Item& item, const MOShared::FileEntry& file)
+void Model::updateFileItem(Item& item, const File& file)
 {
-  bool isArchive = false;
-  int originID = file.getOrigin(isArchive);
+  const int originID = file.originID();
 
   Item::Flags flags = Item::NoFlags;
 
-  if (isArchive) {
+  if (file.fromArchive()) {
     flags |= Item::FromArchive;
   }
 
-  if (!file.getAlternatives().empty()) {
+  if (file.isConflicted()) {
     flags |= Item::Conflicted;
   }
 
-  item.setOrigin(
-    originID, file.getFullPath(), flags, makeModName(file, originID));
+  item.setOrigin(originID, file.path(), flags, makeModName(file, originID));
 
-  if (file.getFileSize() != FileEntry::NoFileSize) {
-    item.setFileSize(file.getFileSize());
+  if (auto s=file.size()) {
+    item.setFileSize(*s);
   }
 
-  if (file.getCompressedFileSize() != FileEntry::NoFileSize) {
-    item.setCompressedFileSize(file.getCompressedFileSize());
+  if (auto s=file.compressedSize()) {
+    item.setCompressedFileSize(*s);
   }
 }
 
-bool Model::shouldShowFile(const FileEntry& file) const
+bool Model::shouldShowFile(const File& file) const
 {
-  if (showConflictsOnly() && (file.getAlternatives().size() == 0)) {
+  if (showConflictsOnly() && !file.isConflicted()) {
     // only conflicts should be shown, but this file is not conflicted
     return false;
   }
 
-  if (!showArchives() && file.isFromArchive()) {
+  if (!showArchives() && file.fromArchive()) {
     // files from archives shouldn't be shown, but this file is from an archive
     return false;
   }
@@ -963,8 +965,7 @@ bool Model::shouldShowFile(const FileEntry& file) const
   return true;
 }
 
-bool Model::shouldShowFolder(
-  const DirectoryEntry& dir, const Item* item) const
+bool Model::shouldShowFolder(const Directory& dir, const Item* item) const
 {
   bool shouldPrune = m_flags.testFlag(PruneDirectories);
 
@@ -999,25 +1000,20 @@ bool Model::shouldShowFolder(
   bool foundFile = false;
 
   // check all files in this directory, return early if a file should be shown
-  dir.forEachFile([&](auto&& f) {
+  for (auto&& f : dir.getImmediateFiles()) {
     if (shouldShowFile(f)) {
       foundFile = true;
-
-      // stop
-      return false;
+      break;
     }
-
-    // continue
-    return true;
-  });
+  }
 
   if (foundFile) {
     return true;
   }
 
   // recurse into subdirectories
-  for (auto subdir : dir.getSubDirectories()) {
-    if (shouldShowFolder(*subdir, nullptr)) {
+  for (auto sd : dir.getImmediateDirectories()) {
+    if (shouldShowFolder(sd, nullptr)) {
       return true;
     }
   }
@@ -1081,8 +1077,7 @@ QVariant Model::displayData(const Item* item, int column) const
   }
 }
 
-std::wstring Model::makeModName(
-  const MOShared::FileEntry& file, int originID) const
+std::wstring Model::makeModName(const File& file, int originID) const
 {
   static const std::wstring Unmanaged = UnmanagedModName().toStdWString();
 
@@ -1094,9 +1089,13 @@ std::wstring Model::makeModName(
 
   std::wstring name = origin.getName();
 
-  const auto& archive = file.getArchive();
-  if (!archive.first.empty()) {
-    name += L" (" + archive.first + L")";
+  if (file.fromArchive()) {
+    const auto& archive = file.archive();
+    if (!archive.empty()) {
+      name.append(L" (");
+      name.append(archive);
+      name.append(L")");
+    }
   }
 
   return name;

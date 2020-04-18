@@ -308,14 +308,14 @@ std::vector<FileEntryPtr> DirectoryEntry::getFiles() const
 }
 
 DirectoryEntry* DirectoryEntry::findSubDirectory(
-  const std::wstring &name, bool alreadyLowerCase) const
+  std::wstring_view name, bool alreadyLowerCase) const
 {
   SubDirectoriesLookup::const_iterator itor;
 
   if (alreadyLowerCase) {
-    itor = m_SubDirectoriesLookup.find(name);
+    itor = m_SubDirectoriesLookup.find(WStringViewKey(name));
   } else {
-    itor = m_SubDirectoriesLookup.find(ToLowerCopy(name));
+    itor = m_SubDirectoriesLookup.find(WStringViewKey(ToLowerCopy(name)));
   }
 
   if (itor == m_SubDirectoriesLookup.end()) {
@@ -325,7 +325,8 @@ DirectoryEntry* DirectoryEntry::findSubDirectory(
   return itor->second;
 }
 
-DirectoryEntry* DirectoryEntry::findSubDirectoryRecursive(const std::wstring &path)
+DirectoryEntry* DirectoryEntry::findSubDirectoryRecursive(
+  std::wstring_view path)
 {
   DirectoryStats dummy;
   return getSubDirectoryRecursive(path, false, dummy, InvalidOriginID);
@@ -337,9 +338,9 @@ const FileEntryPtr DirectoryEntry::findFile(
   FilesLookup::const_iterator iter;
 
   if (alreadyLowerCase) {
-    iter = m_FilesLookup.find(DirectoryEntryFileKey(name));
+    iter = m_FilesLookup.find(WStringViewKey(name));
   } else {
-    iter = m_FilesLookup.find(DirectoryEntryFileKey(ToLowerCopy(name)));
+    iter = m_FilesLookup.find(WStringViewKey(ToLowerCopy(name)));
   }
 
   if (iter != m_FilesLookup.end()) {
@@ -349,7 +350,7 @@ const FileEntryPtr DirectoryEntry::findFile(
   }
 }
 
-const FileEntryPtr DirectoryEntry::findFile(const DirectoryEntryFileKey& key) const
+const FileEntryPtr DirectoryEntry::findFile(const WStringViewKey& key) const
 {
   auto iter = m_FilesLookup.find(key);
 
@@ -535,7 +536,7 @@ FileEntryPtr DirectoryEntry::insert(
   std::wstring fileNameLower = ToLowerCopy(fileName);
   FileEntryPtr fe;
 
-  DirectoryEntryFileKey key(std::move(fileNameLower));
+  WStringKey key(std::move(fileNameLower));
 
   {
     std::unique_lock lock(m_FilesMutex);
@@ -736,7 +737,7 @@ DirectoryEntry* DirectoryEntry::getSubDirectory(
 
   SubDirectoriesLookup::iterator itor;
   elapsed(stats.subdirLookupTimes, [&] {
-    itor = m_SubDirectoriesLookup.find(nameLc);
+    itor = m_SubDirectoriesLookup.find(WStringViewKey(nameLc));
   });
 
   if (itor != m_SubDirectoriesLookup.end()) {
@@ -770,7 +771,7 @@ DirectoryEntry* DirectoryEntry::getSubDirectory(
   std::scoped_lock lock(m_SubDirMutex);
 
   elapsed(stats.subdirLookupTimes, [&] {
-    itor = m_SubDirectoriesLookup.find(dir.lcname);
+    itor = m_SubDirectoriesLookup.find(WStringViewKey(dir.lcname));
   });
 
   if (itor != m_SubDirectoriesLookup.end()) {
@@ -799,7 +800,7 @@ DirectoryEntry* DirectoryEntry::getSubDirectory(
 }
 
 DirectoryEntry* DirectoryEntry::getSubDirectoryRecursive(
-  const std::wstring& path, bool create, DirectoryStats& stats, int originID)
+  std::wstring_view path, bool create, DirectoryStats& stats, int originID)
 {
   if (path.length() == 0) {
     // path ended with a backslash?

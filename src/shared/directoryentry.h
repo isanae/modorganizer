@@ -30,18 +30,6 @@ namespace env
   struct File;
 }
 
-namespace std
-{
-  template <>
-  struct hash<MOShared::DirectoryEntryFileKey>
-  {
-    using argument_type = MOShared::DirectoryEntryFileKey;
-    using result_type = std::size_t;
-
-    inline result_type operator()(const argument_type& key) const;
-  };
-}
-
 
 namespace MOShared
 {
@@ -49,6 +37,8 @@ namespace MOShared
 class DirectoryEntry
 {
 public:
+  using FilesMap = std::map<std::wstring, FileIndex>;
+
   DirectoryEntry(
     std::wstring name, DirectoryEntry* parent, OriginID originID);
 
@@ -137,6 +127,11 @@ public:
 
   std::vector<FileEntryPtr> getFiles() const;
 
+  const FilesMap& getFileMap() const
+  {
+    return m_Files;
+  }
+
   void getSubDirectories(
     std::vector<DirectoryEntry*>::const_iterator& begin,
     std::vector<DirectoryEntry*>::const_iterator& end) const
@@ -188,16 +183,16 @@ public:
   }
 
   DirectoryEntry* findSubDirectory(
-    const std::wstring& name, bool alreadyLowerCase=false) const;
+    std::wstring_view name, bool alreadyLowerCase=false) const;
 
-  DirectoryEntry* findSubDirectoryRecursive(const std::wstring& path);
+  DirectoryEntry* findSubDirectoryRecursive(std::wstring_view path);
 
   /** retrieve a file in this directory by name.
     * @param name name of the file
     * @return fileentry object for the file or nullptr if no file matches
     */
   const FileEntryPtr findFile(const std::wstring& name, bool alreadyLowerCase=false) const;
-  const FileEntryPtr findFile(const DirectoryEntryFileKey& key) const;
+  const FileEntryPtr findFile(const WStringViewKey& key) const;
 
   bool hasFile(const std::wstring& name) const;
   bool containsArchive(std::wstring archiveName);
@@ -236,10 +231,12 @@ public:
   void dump(const std::wstring& file) const;
 
 private:
-  using FilesMap = std::map<std::wstring, FileIndex>;
-  using FilesLookup = std::unordered_map<DirectoryEntryFileKey, FileIndex>;
+  using FilesLookup = std::unordered_map<
+    WStringKey, FileIndex, std::hash<WStringKey>, std::equal_to<>>;
+
   using SubDirectories = std::vector<DirectoryEntry*>;
-  using SubDirectoriesLookup = std::unordered_map<std::wstring, DirectoryEntry*>;
+  using SubDirectoriesLookup = std::unordered_map<
+    WStringKey, DirectoryEntry*, std::hash<WStringKey>, std::equal_to<>>;
 
   boost::shared_ptr<FileRegister> m_FileRegister;
   boost::shared_ptr<OriginConnection> m_OriginConnection;
@@ -286,7 +283,7 @@ private:
     OriginID originID = InvalidOriginID);
 
   DirectoryEntry* getSubDirectoryRecursive(
-    const std::wstring& path, bool create, DirectoryStats& stats,
+    std::wstring_view path, bool create, DirectoryStats& stats,
     OriginID originID = InvalidOriginID);
 
   void removeDirRecursive();
@@ -307,16 +304,5 @@ private:
 };
 
 } // namespace MOShared
-
-
-namespace std
-{
-  hash<MOShared::DirectoryEntryFileKey>::result_type
-  hash<MOShared::DirectoryEntryFileKey>::operator()(
-    const argument_type& key) const
-  {
-    return key.hash;
-  }
-}
 
 #endif // MO_REGISTER_DIRECTORYENTRY_INCLUDED
