@@ -22,10 +22,7 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 #include "report.h"
 #include "utility.h"
 #include "organizercore.h"
-#include <QMessageBox>
-#include <QMenu>
-#include <QShortcut>
-#include <Shlwapi.h>
+#include "filetree.h"
 
 using namespace MOBase;
 
@@ -37,13 +34,14 @@ OverwriteInfoDialog::OverwriteInfoDialog(OrganizerCore& core, QWidget *parent)
   ui->setupUi(this);
 
   this->setWindowModality(Qt::NonModal);
+  m_filetree.reset(new FileTree(core, ui->filesView));
 
   //m_FileSystemModel = new OverwriteFileSystemModel(this);
   //m_FileSystemModel->setReadOnly(false);
   //setModInfo(modInfo);
  /* ui->filesView->setModel(m_FileSystemModel);
   ui->filesView->setRootIndex(m_FileSystemModel->index(modInfo->absolutePath()));*/
-  ui->filesView->setColumnWidth(0, 250);
+  //ui->filesView->setColumnWidth(0, 250);
 
   /*m_DeleteAction = new QAction(tr("&Delete"), ui->filesView);
   m_RenameAction = new QAction(tr("&Rename"), ui->filesView);

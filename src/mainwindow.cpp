@@ -350,7 +350,7 @@ MainWindow::MainWindow(Settings &settings
   const bool pluginListAdjusted =
     settings.geometry().restoreState(ui->espList->header());
 
-  m_DataTab.reset(new DataTab(m_OrganizerCore, m_PluginContainer, this, ui));
+  m_DataTab.reset(new DataTab(m_OrganizerCore, this, ui));
   m_DataTab->restoreState(settings);
 
   connect(m_DataTab.get(), &DataTab::executablesChanged, [&]{ refreshExecutablesList(); });

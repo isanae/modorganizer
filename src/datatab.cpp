@@ -15,16 +15,14 @@ using namespace MOBase;
 QString UnmanagedModName();
 
 
-DataTab::DataTab(
-  OrganizerCore& core, PluginContainer& pc,
-  QWidget* parent, Ui::MainWindow* mwui) :
-    m_core(core), m_pluginContainer(pc), m_parent(parent),
-    ui{
-      mwui->dataTabRefresh, mwui->dataTree,
-      mwui->dataTabShowOnlyConflicts, mwui->dataTabShowFromArchives},
-    m_firstActivation(true)
+DataTab::DataTab(OrganizerCore& core, QWidget* parent, Ui::MainWindow* mwui) :
+  m_core(core), m_parent(parent),
+  ui{
+    mwui->dataTabRefresh, mwui->dataTree,
+    mwui->dataTabShowOnlyConflicts, mwui->dataTabShowFromArchives},
+  m_firstActivation(true)
 {
-  m_filetree.reset(new FileTree(core, m_pluginContainer, ui.tree));
+  m_filetree.reset(new FileTree(core, ui.tree));
   m_filter.setUseSourceSort(true);
   m_filter.setFilterColumn(FileTreeModel::FileName);
   m_filter.setEdit(mwui->dataTabFilter);

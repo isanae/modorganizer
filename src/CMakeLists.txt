@@ -543,7 +543,7 @@ set(widgets
 )
 
 set(src_filters
-	application core browser dialogs downloads env executables filetre loot
+	application core browser dialogs downloads env executables filetree loot
 	mainwindow mod modinfodialog modlist plugins previews profiles register
 	settings settingsdialog utilities widgets
 )

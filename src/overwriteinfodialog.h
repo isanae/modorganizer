@@ -29,6 +29,7 @@ class OverwriteInfoDialog;
 }
 
 class OrganizerCore;
+class FileTree;
 
 class OverwriteFileSystemModel : public QFileSystemModel
 {
@@ -113,14 +114,15 @@ private slots:
 private:
   Ui::OverwriteInfoDialog *ui;
   OrganizerCore& m_core;
+  ModInfo::Ptr m_mod;
+  std::unique_ptr<FileTree> m_filetree;
+
   //QFileSystemModel *m_FileSystemModel;
   //QModelIndexList m_FileSelection;
   //QAction *m_DeleteAction;
   //QAction *m_RenameAction;
   //QAction *m_OpenAction;
   //QAction *m_NewFolderAction;
-
-  ModInfo::Ptr m_mod;
 };
 
 #endif // OVERWRITEINFODIALOG_H

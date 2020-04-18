@@ -18,9 +18,7 @@ class DataTab : public QObject
   Q_OBJECT;
 
 public:
-  DataTab(
-    OrganizerCore& core, PluginContainer& pc,
-    QWidget* parent, Ui::MainWindow* ui);
+  DataTab(OrganizerCore& core, QWidget* parent, Ui::MainWindow* ui);
 
   void saveState(Settings& s) const;
   void restoreState(const Settings& s);
@@ -43,7 +41,6 @@ private:
   };
 
   OrganizerCore& m_core;
-  PluginContainer& m_pluginContainer;
   QWidget* m_parent;
   DataTabUi ui;
   std::unique_ptr<FileTree> m_filetree;
@@ -52,7 +49,6 @@ private:
   bool m_firstActivation;
 
   void onRefresh();
-  void onItemExpanded(QTreeWidgetItem* item);
   void onConflicts();
   void onArchives();
   void updateOptions();

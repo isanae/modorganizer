@@ -13,10 +13,15 @@ using namespace MOShared;
 using namespace MOBase;
 
 
-bool canPreviewFile(const PluginContainer& pc, const FileEntry& file)
+bool canPreviewFile(const OrganizerCore& core, const FileEntry& file)
 {
+  auto* pc = core.pluginContainer();
+  if (!pc) {
+    return false;
+  }
+
   return canPreviewFile(
-    pc, file.isFromArchive(), QString::fromStdWString(file.getName()));
+    *pc, file.isFromArchive(), QString::fromStdWString(file.getName()));
 }
 
 bool canRunFile(const FileEntry& file)
@@ -121,8 +126,8 @@ private:
 };
 
 
-FileTree::FileTree(OrganizerCore& core, PluginContainer& pc, QTreeView* tree)
-  : m_core(core), m_plugins(pc), m_tree(tree), m_model(new FileTreeModel(core))
+FileTree::FileTree(OrganizerCore& core, QTreeView* tree)
+  : m_core(core), m_tree(tree), m_model(new FileTreeModel(core))
 {
   m_tree->sortByColumn(0, Qt::AscendingOrder);
   m_tree->setModel(m_model);
@@ -261,7 +266,8 @@ void FileTree::activate(FileTreeItem* item)
 
   if (tryPreview) {
     const QFileInfo fi(item->realPath());
-    if (m_plugins.previewGenerator().previewSupported(fi.suffix())) {
+    auto* pc = m_core.pluginContainer();
+    if (pc && pc->previewGenerator().previewSupported(fi.suffix())) {
       preview(item);
       return;
     }
@@ -758,7 +764,7 @@ void FileTree::addOpenMenus(QMenu& menu, const MOShared::FileEntry& file)
     .disabledHint(tr(
       "This file is in an archive or has no preview handler "
       "associated with it"))
-    .enabled(canPreviewFile(m_plugins, file));
+    .enabled(canPreviewFile(m_core, file));
 
   if (m_core.settings().interface().doubleClicksOpenPreviews()) {
     previewMenu.addTo(menu);

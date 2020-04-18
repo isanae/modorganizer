@@ -88,6 +88,8 @@ public:
 
   ~OrganizerCore();
 
+  PluginContainer *pluginContainer() const { return m_PluginContainer; }
+
   void setUserInterface(IUserInterface* ui);
   void connectPlugins(PluginContainer *container);
   void disconnectPlugins();
