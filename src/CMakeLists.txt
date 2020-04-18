@@ -417,6 +417,12 @@ set(executables
 	editexecutablesdialog
 )
 
+set(filetree
+	filetree
+	filetreeitem
+	filetreemodel
+)
+
 set(loot
 	loot
 	lootdialog
@@ -425,15 +431,12 @@ set(loot
 set(mainwindow
 	datatab
 	iconfetcher
-	filetree
-	filetreeitem
-	filetreemodel
 	filterlist
 	mainwindow
 	statusbar
 )
 
-set(modinfo
+set(mod
 	modinfo
 	modinfobackup
 	modinfoforeign
@@ -443,7 +446,7 @@ set(modinfo
 	modinfowithconflictinfo
 )
 
-set(modinfo\\dialog
+set(modinfodialog
 	modinfodialog
 	modinfodialogcategories
 	modinfodialogconflicts
@@ -540,9 +543,9 @@ set(widgets
 )
 
 set(src_filters
-	application core browser dialogs downloads env executables loot mainwindow
-	modinfo modinfo\\dialog modlist plugins previews profiles register settings
-	settingsdialog utilities widgets
+	application core browser dialogs downloads env executables filetre loot
+	mainwindow mod modinfodialog modlist plugins previews profiles register
+	settings settingsdialog utilities widgets
 )
 
 foreach(filter in list ${src_filters})

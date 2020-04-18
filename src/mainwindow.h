@@ -40,6 +40,7 @@ class OrganizerCore;
 class FilterList;
 class DataTab;
 class BrowserDialog;
+class OverwriteInfoDialog;
 
 class PluginListSortProxy;
 namespace BSA { class Archive; }
@@ -341,6 +342,7 @@ private:
   std::vector<QTranslator*> m_Translators;
 
   std::unique_ptr<BrowserDialog> m_IntegratedBrowser;
+  OverwriteInfoDialog* m_OverwriteDialog;
 
   QFileSystemWatcher m_SavesWatcher;
 
@@ -549,7 +551,6 @@ private slots:
 
   void toolBar_customContextMenuRequested(const QPoint &point);
   void removeFromToolbar();
-  void overwriteClosed(int);
 
   void changeVersioningScheme();
   void checkModUpdates_clicked();

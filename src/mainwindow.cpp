@@ -259,6 +259,7 @@ MainWindow::MainWindow(Settings &settings
   , m_ContextRow(-1)
   , m_browseModPage(nullptr)
   , m_CurrentSaveView(nullptr)
+  , m_OverwriteDialog(nullptr)
   , m_OrganizerCore(organizerCore)
   , m_PluginContainer(pluginContainer)
   , m_DidUpdateMasterList(false)
@@ -2880,17 +2881,6 @@ void MainWindow::windowTutorialFinished(const QString &windowName)
   m_OrganizerCore.settings().interface().setTutorialCompleted(windowName);
 }
 
-void MainWindow::overwriteClosed(int)
-{
-  OverwriteInfoDialog *dialog = this->findChild<OverwriteInfoDialog*>("__overwriteDialog");
-  if (dialog != nullptr) {
-    m_OrganizerCore.modList()->modInfoChanged(dialog->modInfo());
-    dialog->deleteLater();
-  }
-  m_OrganizerCore.refreshDirectoryStructure();
-}
-
-
 void MainWindow::displayModInformation(
   ModInfo::Ptr modInfo, unsigned int modIndex, ModInfoTabIDs tabID)
 {
@@ -2898,24 +2888,16 @@ void MainWindow::displayModInformation(
     log::debug("A different mod information dialog is open. If this is incorrect, please restart MO");
     return;
   }
-  std::vector<ModInfo::EFlag> flags = modInfo->getFlags();
-  if (std::find(flags.begin(), flags.end(), ModInfo::FLAG_OVERWRITE) != flags.end()) {
-    QDialog *dialog = this->findChild<QDialog*>("__overwriteDialog");
-    try {
-      if (dialog == nullptr) {
-        dialog = new OverwriteInfoDialog(modInfo, this);
-        dialog->setObjectName("__overwriteDialog");
-      } else {
-        qobject_cast<OverwriteInfoDialog*>(dialog)->setModInfo(modInfo);
-      }
 
-      dialog->show();
-      dialog->raise();
-      dialog->activateWindow();
-      connect(dialog, SIGNAL(finished(int)), this, SLOT(overwriteClosed(int)));
-    } catch (const std::exception &e) {
-      reportError(tr("Failed to display overwrite dialog: %1").arg(e.what()));
+  if (modInfo->hasFlag(ModInfo::FLAG_OVERWRITE)) {
+    if (!m_OverwriteDialog) {
+      m_OverwriteDialog = new OverwriteInfoDialog(m_OrganizerCore, this);
     }
+
+    m_OverwriteDialog->setModInfo(modInfo);
+    m_OverwriteDialog->show();
+    m_OverwriteDialog->raise();
+    m_OverwriteDialog->activateWindow();
   } else {
     modInfo->saveMeta();
 

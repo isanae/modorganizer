@@ -28,6 +28,8 @@ namespace Ui {
 class OverwriteInfoDialog;
 }
 
+class OrganizerCore;
+
 class OverwriteFileSystemModel : public QFileSystemModel
 {
   Q_OBJECT;
@@ -76,11 +78,10 @@ class OverwriteInfoDialog : public QDialog
   Q_OBJECT
 
 public:
-
-  explicit OverwriteInfoDialog(ModInfo::Ptr modInfo, QWidget *parent = 0);
+  OverwriteInfoDialog(OrganizerCore& core, QWidget *parent=nullptr);
   ~OverwriteInfoDialog();
 
-  ModInfo::Ptr modInfo() const { return m_ModInfo; }
+  ModInfo::Ptr modInfo() const;
 
   // saves geometry
   //
@@ -94,13 +95,11 @@ protected:
   void showEvent(QShowEvent* e) override;
 
 private:
-
   void openFile(const QModelIndex &index);
   bool recursiveDelete(const QModelIndex &index);
   void deleteFile(const QModelIndex &index);
 
 private slots:
-
   void delete_activated();
 
   void deleteTriggered();
@@ -112,17 +111,16 @@ private slots:
   void on_filesView_customContextMenuRequested(const QPoint &pos);
 
 private:
-
   Ui::OverwriteInfoDialog *ui;
-  QFileSystemModel *m_FileSystemModel;
-  QModelIndexList m_FileSelection;
-  QAction *m_DeleteAction;
-  QAction *m_RenameAction;
-  QAction *m_OpenAction;
-  QAction *m_NewFolderAction;
+  OrganizerCore& m_core;
+  //QFileSystemModel *m_FileSystemModel;
+  //QModelIndexList m_FileSelection;
+  //QAction *m_DeleteAction;
+  //QAction *m_RenameAction;
+  //QAction *m_OpenAction;
+  //QAction *m_NewFolderAction;
 
-  ModInfo::Ptr m_ModInfo;
-
+  ModInfo::Ptr m_mod;
 };
 
 #endif // OVERWRITEINFODIALOG_H

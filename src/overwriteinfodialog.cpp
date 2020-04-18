@@ -29,22 +29,23 @@ along with Mod Organizer.  If not, see <http://www.gnu.org/licenses/>.
 
 using namespace MOBase;
 
-OverwriteInfoDialog::OverwriteInfoDialog(ModInfo::Ptr modInfo, QWidget *parent)
-  : QDialog(parent), ui(new Ui::OverwriteInfoDialog), m_FileSystemModel(nullptr),
-    m_DeleteAction(nullptr), m_RenameAction(nullptr), m_OpenAction(nullptr)
+OverwriteInfoDialog::OverwriteInfoDialog(OrganizerCore& core, QWidget *parent)
+  : QDialog(parent), ui(new Ui::OverwriteInfoDialog), m_core(core)
+  //m_FileSystemModel(nullptr),
+  //  m_DeleteAction(nullptr), m_RenameAction(nullptr), m_OpenAction(nullptr)
 {
   ui->setupUi(this);
 
   this->setWindowModality(Qt::NonModal);
 
-  m_FileSystemModel = new OverwriteFileSystemModel(this);
-  m_FileSystemModel->setReadOnly(false);
-  setModInfo(modInfo);
-  ui->filesView->setModel(m_FileSystemModel);
-  ui->filesView->setRootIndex(m_FileSystemModel->index(modInfo->absolutePath()));
+  //m_FileSystemModel = new OverwriteFileSystemModel(this);
+  //m_FileSystemModel->setReadOnly(false);
+  //setModInfo(modInfo);
+ /* ui->filesView->setModel(m_FileSystemModel);
+  ui->filesView->setRootIndex(m_FileSystemModel->index(modInfo->absolutePath()));*/
   ui->filesView->setColumnWidth(0, 250);
 
-  m_DeleteAction = new QAction(tr("&Delete"), ui->filesView);
+  /*m_DeleteAction = new QAction(tr("&Delete"), ui->filesView);
   m_RenameAction = new QAction(tr("&Rename"), ui->filesView);
   m_OpenAction = new QAction(tr("&Open"), ui->filesView);
   m_NewFolderAction = new QAction(tr("&New Folder"), ui->filesView);
@@ -55,11 +56,17 @@ OverwriteInfoDialog::OverwriteInfoDialog(ModInfo::Ptr modInfo, QWidget *parent)
   QObject::connect(m_RenameAction, SIGNAL(triggered()), this, SLOT(renameTriggered()));
   QObject::connect(m_OpenAction, SIGNAL(triggered()), this, SLOT(openTriggered()));
   QObject::connect(m_NewFolderAction, SIGNAL(triggered()), this, SLOT(createDirectoryTriggered()));
+  */
 }
 
 OverwriteInfoDialog::~OverwriteInfoDialog()
 {
   delete ui;
+}
+
+ModInfo::Ptr OverwriteInfoDialog::modInfo() const
+{
+  return m_mod;
 }
 
 void OverwriteInfoDialog::showEvent(QShowEvent* e)
@@ -82,21 +89,25 @@ void OverwriteInfoDialog::done(int r)
   s.geometry().saveGeometry(this);
   s.geometry().saveState(ui->filesView->header());
 
+  m_core.modList()->modInfoChanged(m_mod);
+  m_core.refreshDirectoryStructure();
+
   QDialog::done(r);
 }
 
-void OverwriteInfoDialog::setModInfo(ModInfo::Ptr modInfo)
+void OverwriteInfoDialog::setModInfo(ModInfo::Ptr mod)
 {
-  m_ModInfo = modInfo;
+  m_mod = mod;
+  /*
   if (QDir(modInfo->absolutePath()).exists()) {
     m_FileSystemModel->setRootPath(modInfo->absolutePath());
   } else {
     throw MyException(tr("mod not found: %1").arg(qUtf8Printable(modInfo->absolutePath())));
-  }
+  }*/
 }
 
 bool OverwriteInfoDialog::recursiveDelete(const QModelIndex &index)
-{
+{/*
   for (int childRow = 0; childRow < m_FileSystemModel->rowCount(index); ++childRow) {
     QModelIndex childIndex = m_FileSystemModel->index(childRow, 0, index);
     if (m_FileSystemModel->isDir(childIndex)) {
@@ -114,24 +125,24 @@ bool OverwriteInfoDialog::recursiveDelete(const QModelIndex &index)
   if (!m_FileSystemModel->remove(index)) {
     log::error("failed to delete {}", m_FileSystemModel->fileName(index));
     return false;
-  }
+  }*/
   return true;
 }
 
 
 void OverwriteInfoDialog::deleteFile(const QModelIndex &index)
 {
-
+  /*
   bool res = m_FileSystemModel->isDir(index) ? recursiveDelete(index)
                                              : m_FileSystemModel->remove(index);
   if (!res) {
     QString fileName = m_FileSystemModel->fileName(index);
     reportError(tr("Failed to delete \"%1\"").arg(fileName));
-  }
+  }*/
 }
 
 void OverwriteInfoDialog::delete_activated()
-{
+{/*
 	if (ui->filesView->hasFocus()) {
 		QItemSelectionModel *selection = ui->filesView->selectionModel();
 
@@ -158,11 +169,11 @@ void OverwriteInfoDialog::delete_activated()
 				deleteFile(index);
 			}
 		}
-	}
+	}*/
 }
 
 void OverwriteInfoDialog::deleteTriggered()
-{
+{/*
   if (m_FileSelection.count() == 0) {
     return;
   } else if (m_FileSelection.count() == 1) {
@@ -180,37 +191,37 @@ void OverwriteInfoDialog::deleteTriggered()
 
   foreach(QModelIndex index, m_FileSelection) {
     deleteFile(index);
-  }
+  }*/
 }
 
 
 void OverwriteInfoDialog::renameTriggered()
-{
+{/*
   QModelIndex selection = m_FileSelection.at(0);
   QModelIndex index = selection.sibling(selection.row(), 0);
   if (!index.isValid() || m_FileSystemModel->isReadOnly()) {
       return;
   }
 
-  ui->filesView->edit(index);
+  ui->filesView->edit(index);*/
 }
 
 
 void OverwriteInfoDialog::openFile(const QModelIndex &index)
-{
-  shell::Open(m_FileSystemModel->filePath(index));
+{/*
+  shell::Open(m_FileSystemModel->filePath(index));*/
 }
 
 
 void OverwriteInfoDialog::openTriggered()
-{
+{/*
   foreach(QModelIndex idx, m_FileSelection) {
     openFile(idx);
-  }
+  }*/
 }
 
 void OverwriteInfoDialog::createDirectoryTriggered()
-{
+{/*
   QModelIndex selection = m_FileSelection.at(0);
 
   QModelIndex index = m_FileSystemModel->isDir(selection) ? selection
@@ -234,16 +245,16 @@ void OverwriteInfoDialog::createDirectoryTriggered()
   }
 
   ui->filesView->setCurrentIndex(newIndex);
-  ui->filesView->edit(newIndex);
+  ui->filesView->edit(newIndex);*/
 }
 
 void OverwriteInfoDialog::on_explorerButton_clicked()
-{
-  shell::Explore(m_ModInfo->absolutePath());
+{/*
+  shell::Explore(m_ModInfo->absolutePath());*/
 }
 
 void OverwriteInfoDialog::on_filesView_customContextMenuRequested(const QPoint &pos)
-{
+{/*
   QItemSelectionModel *selectionModel = ui->filesView->selectionModel();
   m_FileSelection = selectionModel->selectedRows(0);
 
@@ -271,5 +282,5 @@ void OverwriteInfoDialog::on_filesView_customContextMenuRequested(const QPoint &
     m_FileSelection.append(m_FileSystemModel->index(m_FileSystemModel->rootPath(), 0));
   }
 
-  menu.exec(ui->filesView->viewport()->mapToGlobal(pos));
+  menu.exec(ui->filesView->viewport()->mapToGlobal(pos));*/
 }
