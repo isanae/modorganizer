@@ -2591,27 +2591,27 @@ This is likely due to a corrupted or incompatible download or unrecognized archi
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="moapplication.cpp" line="401"/>
+        <location filename="moapplication.cpp" line="405"/>
         <source>Download started</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="moapplication.cpp" line="418"/>
+        <location filename="moapplication.cpp" line="422"/>
         <source>This shortcut or command line is for instance &apos;%1&apos;, but the current instance is &apos;%2&apos;.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="moapplication.cpp" line="429"/>
+        <location filename="moapplication.cpp" line="433"/>
         <source>This shortcut or command line is for profile &apos;%1&apos;, but the current profile is &apos;%2&apos;.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="moapplication.cpp" line="563"/>
+        <location filename="moapplication.cpp" line="567"/>
         <source>an error occurred: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="moapplication.cpp" line="569"/>
+        <location filename="moapplication.cpp" line="573"/>
         <source>an error occurred</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6917,6 +6917,7 @@ Destination:<byte value="xd"/>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="moshortcut.cpp" line="41"/>
         <location filename="instancemanager.cpp" line="54"/>
         <location filename="createinstancedialogpages.cpp" line="34"/>
         <source>Portable</source>
@@ -7041,27 +7042,22 @@ Destination:<byte value="xd"/>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="commandline.cpp" line="294"/>
-        <source>failed to start shortcut: %1</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="commandline.cpp" line="321"/>
+        <location filename="commandline.cpp" line="320"/>
         <source>failed to start application: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="commandline.cpp" line="818"/>
+        <location filename="commandline.cpp" line="817"/>
         <source>Executable &apos;%1&apos; not found in instance &apos;%2&apos;.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="commandline.cpp" line="844"/>
+        <location filename="commandline.cpp" line="843"/>
         <source>Failed to run &apos;%1&apos;. The logs might have more information.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="commandline.cpp" line="853"/>
+        <location filename="commandline.cpp" line="852"/>
         <source>Failed to run &apos;%1&apos;. The logs might have more information. %2</source>
         <translation type="unfinished"></translation>
     </message>
@@ -7240,10 +7236,21 @@ Destination:<byte value="xd"/>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="processrunner.cpp" line="578"/>
-        <location filename="processrunner.cpp" line="634"/>
-        <location filename="processrunner.cpp" line="780"/>
+        <location filename="processrunner.cpp" line="579"/>
+        <location filename="processrunner.cpp" line="649"/>
+        <location filename="processrunner.cpp" line="795"/>
         <source>No profile set</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="processrunner.cpp" line="612"/>
+        <source>This shortcut is for instance &apos;%1&apos; but Mod Organizer is currently running for &apos;%2&apos;. Exit Mod Organizer before running the shortcut or change the active instance.</source>
+        <oldsource>This shortcut is for the instance &apos;%1&apos; but Mod Organizer is currently running for &apos;%2&apos;. Exit Mod Organizer before running the shortcut or change the active instance.</oldsource>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="processrunner.cpp" line="629"/>
+        <source>Executable &apos;%1&apos; does not exist in instance &apos;%2&apos;.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -7798,12 +7805,12 @@ You can restart Mod Organizer as administrator and try launching the program aga
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="moapplication.cpp" line="462"/>
+        <location filename="moapplication.cpp" line="466"/>
         <source>Instance at &apos;%1&apos; not found. Select another instance.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="moapplication.cpp" line="466"/>
+        <location filename="moapplication.cpp" line="470"/>
         <source>Instance at &apos;%1&apos; not found. You must create a new instance</source>
         <translation type="unfinished"></translation>
     </message>
